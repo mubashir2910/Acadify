@@ -1,0 +1,132 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum SchoolStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum Role {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+  TRANSFERRED
+}
+
+//
+// MODELS
+//
+
+model User {
+  id                   String   @id @default(uuid()) @db.Uuid
+  name                 String
+  username             String   @unique
+  email                String?  @unique
+  phone                String?
+  password_hash        String
+  must_reset_password  Boolean  @default(true)
+  is_active            Boolean  @default(true)
+  last_login_at        DateTime?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  schoolUsers          SchoolUser[]
+  students             Student[]
+  teachers             Teacher[]
+}
+
+model School {
+  id                    String   @id @default(uuid()) @db.Uuid
+  code                  String   @unique
+  name                  String
+  subscription_status   SubscriptionStatus @default(TRIAL)
+  status                SchoolStatus @default(ACTIVE)
+  trial_ends_at         DateTime?
+  subscription_ends_at  DateTime?
+  max_students          Int?
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  schoolUsers           SchoolUser[]
+  students              Student[]
+  teachers              Teacher[]
+}
+
+model SchoolUser {
+  id         String   @id @default(uuid()) @db.Uuid
+  school_id  String   @db.Uuid
+  user_id    String   @db.Uuid
+  role       Role
+  status     SchoolStatus @default(ACTIVE)
+  joined_at  DateTime @default(now())
+  left_at    DateTime?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  school     School   @relation(fields: [school_id], references: [id])
+  user       User     @relation(fields: [user_id], references: [id])
+
+  @@unique([school_id, user_id])
+}
+
+model Student {
+  id              String   @id @default(uuid()) @db.Uuid
+  school_id       String   @db.Uuid
+  user_id         String   @db.Uuid
+  admission_no    String
+  class           String
+  section         String
+  roll_no         String
+  admission_date  DateTime?
+  stream          String?
+  guardian_name   String
+  guardian_phone  String
+  status          RecordStatus @default(ACTIVE)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  school          School   @relation(fields: [school_id], references: [id])
+  user            User     @relation(fields: [user_id], references: [id])
+
+  @@unique([school_id, admission_no])
+}
+
+model Teacher {
+  id           String   @id @default(uuid()) @db.Uuid
+  school_id    String   @db.Uuid
+  user_id      String   @db.Uuid
+  employee_id  String
+  joining_date DateTime?
+  status       SchoolStatus @default(ACTIVE)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  school       School   @relation(fields: [school_id], references: [id])
+  user         User     @relation(fields: [user_id], references: [id])
+
+  @@unique([school_id, employee_id])
+}
