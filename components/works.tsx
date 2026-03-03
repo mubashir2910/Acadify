@@ -10,7 +10,7 @@ const steps = [
         title: 'Book a Demo',
         description:
             'Schedule a quick call with our team to see how Acadify fits your school.',
-        accent: 'text-sky-500',
+        accent: 'text-primary',
     },
     {
         number: '02',

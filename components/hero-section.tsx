@@ -107,7 +107,7 @@ export default function HeroSection() {
                                     preset="fade-in-blur"
                                     speedSegment={0.3}
                                     as="h1"
-                                    className="mx-auto mt-8 max-w-4xl text-balance text-4xl font-semibold max-md:font-semibold md:text-6xl lg:mt-16 xl:text-[5rem]">
+                                    className="text-primary mx-auto mt-8 max-w-4xl text-balance text-4xl font-semibold max-md:font-semibold md:text-6xl lg:mt-16 xl:text-[4.75rem]">
                                     Modern Digital Platform
                                     for Schools
                                 </TextEffect>

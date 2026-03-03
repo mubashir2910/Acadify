@@ -65,13 +65,13 @@ export default function Amplification() {
     }, [currentIndex])
 
     return (
-        <section id="features" className="bg-gray-100 py-16 border-y border-gray-200 mt-12">
+        <section id="features" className="bg-gray-100 py-16 border-y border-gray-200 mt-16">
             <div className="mx-auto max-w-7xl px-6">
                 <div className="text-center">
                     {/* Main Heading */}
                     <h1 className="text-4xl font-bold">
                         Running a school shouldn&apos;t feel like running{' '}
-                        <span className="italic text-sky-500">
+                        <span className="italic text-red-600">
                             five different systems.
                         </span>
                     </h1>
@@ -92,7 +92,7 @@ export default function Amplification() {
                                         duration: 0.4,
                                         ease: 'easeInOut',
                                     }}
-                                    className="inline-block rounded-lg bg-sky-500 px-3 py-1 text-white"
+                                    className="inline-block rounded-lg bg-primary px-3 py-1 text-white"
                                 >
                                     {words[currentIndex]}
                                 </motion.span>
@@ -127,7 +127,7 @@ export default function Amplification() {
                                 data-bulge
                             >
                                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-600 transition-colors duration-300 group-hover:bg-sky-50 group-hover:text-sky-500">
-                                    <feature.icon className="h-6 w-6 text-sky-600" />
+                                    <feature.icon className="h-6 w-6 text-primary" />
                                 </div>
                                 <h3 className="mt-5 text-lg font-bold text-gray-900">
                                     {feature.title}
@@ -140,9 +140,9 @@ export default function Amplification() {
                     </div>
 
                     {/* Closing Line */}
-                    <p className="mt-14 text-4xl font-bold text-gray-900">
+                    <p className="mt-14 text-4xl font-bold text-gray-500">
                         One ecosystem.{' '}
-                        <span className="italic text-sky-500">Zero chaos.</span>
+                        <span className="italic text-primary">Zero chaos.</span>
                     </p>
                 </div>
             </div>

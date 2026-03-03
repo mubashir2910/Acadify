@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'motion/react'
-import { Phone } from 'lucide-react'
+import { Banknote, Phone } from 'lucide-react'
 
 export default function Pricing() {
     return (
@@ -28,15 +28,15 @@ export default function Pricing() {
                 >
                     <div className="text-center">
                         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-sky-100">
-                            <Phone className="h-7 w-7 text-sky-600" />
+                            <Banknote className="h-7 w-7 text-primary" />
                         </div>
 
                         <h3 className="mt-6 text-2xl font-bold text-gray-900">
-                            A Digital Evolution for <span className="text-sky-500">Every School</span>
+                            A Digital Evolution for <span className="text-primary">Every School</span>
                         </h3>
 
                         <p className="mt-5 text-base leading-relaxed text-gray-600">
-                            At <span className="font-semibold text-gray-900">Acadify</span>, we believe that
+                            At <span className="font-semibold text-primary">Acadify</span>, we believe that
                             every school — big or small — deserves a powerful digital platform.
                             That&apos;s why our pricing is tailored based on the{' '}
                             <span className="font-semibold text-gray-900">strength of students</span> in
@@ -52,9 +52,9 @@ export default function Pricing() {
                             href="https://cal.com"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-8 inline-flex items-center gap-2 rounded-lg bg-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:bg-sky-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-95"
+                            className="mt-8 inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:bg-sky-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-95"
                         >
-                            <Phone className="h-4 w-4" />
+                            <Phone  className="h-4 w-4" />
                             Book a Call With Us
                         </a>
                     </div>
