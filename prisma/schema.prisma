@@ -26,7 +26,7 @@ enum SchoolStatus {
 
 enum Role {
   SUPER_ADMIN
-  SCHOOL_ADMIN
+  ADMIN
   TEACHER
   STUDENT
 }
@@ -47,6 +47,7 @@ model User {
   username             String   @unique
   email                String?  @unique
   phone                String?
+  role                 Role     @default(STUDENT)
   password_hash        String
   must_reset_password  Boolean  @default(true)
   is_active            Boolean  @default(true)
@@ -61,8 +62,8 @@ model User {
 
 model School {
   id                    String   @id @default(uuid()) @db.Uuid
-  code                  String   @unique
-  name                  String
+  schoolCode            String   @unique
+  schoolName            String
   subscription_status   SubscriptionStatus @default(TRIAL)
   status                SchoolStatus @default(ACTIVE)
   trial_ends_at         DateTime?
@@ -87,7 +88,7 @@ model SchoolUser {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  school     School   @relation(fields: [school_id], references: [id])
+  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
   user       User     @relation(fields: [user_id], references: [id])
 
   @@unique([school_id, user_id])
@@ -97,7 +98,7 @@ model Student {
   id              String   @id @default(uuid()) @db.Uuid
   school_id       String   @db.Uuid
   user_id         String   @db.Uuid
-  admission_no    String
+  admission_no    String?
   class           String
   section         String
   roll_no         String
@@ -109,10 +110,11 @@ model Student {
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
-  school          School   @relation(fields: [school_id], references: [id])
+  school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
   user            User     @relation(fields: [user_id], references: [id])
 
   @@unique([school_id, admission_no])
+  @@unique([school_id, class, section, roll_no])
 }
 
 model Teacher {
@@ -125,7 +127,7 @@ model Teacher {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  school       School   @relation(fields: [school_id], references: [id])
+  school       School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
   user         User     @relation(fields: [user_id], references: [id])
 
   @@unique([school_id, employee_id])

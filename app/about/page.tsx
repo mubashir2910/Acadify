@@ -1,19 +1,32 @@
 import { HeroHeader } from '@/components/header'
+import BookDemo from '@/components/book-demo'
+import Footer from '@/components/footer'
 
 export default function AboutPage() {
     return (
         <>
-            {/* <HeroHeader /> */}
-            <main className="relative min-h-screen bg-white">
-                <div className="mx-auto max-w-3xl px-6 pt-32 pb-24 md:pb-32">
+            <BookDemo />
+            <HeroHeader />
+            <main className="relative min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 pt-24 pb-24">
 
-                    {/* Heading */}
-                    <h1 className="mt-10 text-center text-3xl font-bold text-primary md:text-4xl">
-                        <span className="border-b-4 border-primary pb-2">About Acadify</span>
-                    </h1>
+                {/* Hero banner */}
+                <div className="mx-auto max-w-3xl px-6 mb-8">
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/10 px-10 py-8">
+                        <p className="text-sm font-semibold uppercase tracking-widest text-primary/60 mb-3">
+                            Our Story
+                        </p>
+                        <h1 className="text-4xl font-bold text-primary md:text-5xl">
+                            About Acadify
+                        </h1>
+                        <p className="mt-4 max-w-xl text-muted-foreground text-lg">
+                            A modern platform built by students who lived the problem.
+                        </p>
+                    </div>
+                </div>
 
-                    {/* Content */}
-                    <div className="mt-10 space-y-6 text-base leading-relaxed text-gray-600 md:text-lg">
+                {/* Content card */}
+                <div className="mx-auto max-w-3xl px-6">
+                    <div className="rounded-2xl bg-white border border-slate-100 shadow-sm px-8 py-10 md:px-12 md:py-12 space-y-6 text-base leading-relaxed text-gray-600 md:text-lg">
                         <p>
                             Acadify was born out of a real, lived experience. As students who spent years
                             navigating the traditional school system, we saw firsthand how outdated and
@@ -55,7 +68,9 @@ export default function AboutPage() {
                         </p>
                     </div>
                 </div>
+
             </main>
+            <Footer />
         </>
     )
 }

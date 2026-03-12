@@ -1,25 +1,38 @@
 'use client'
 
+import Image from 'next/image'
+import { cn } from '@/lib/utils'
+
 const footerLinks = {
     Product: [
-        { label: 'How It Works', href: '#how-it-works' },
-        { label: 'Features', href: '#features' },
-        { label: 'Pricing', href: '#pricing' },
+        { label: 'How It Works', href: '/#how-it-works' },
+        { label: 'Features', href: '/#features' },
+        { label: 'Pricing', href: '/#pricing' },
     ],
     Company: [
-        { label: 'Contact', href: '#contact' },
-        { label: 'About Us', href: '#about' },
+        { label: 'Contact', href: '/contact-us' },
+        { label: 'About Us', href: '/about' },
     ],
     Legal: [
-        { label: 'Privacy Policy', href: '#privacy' },
-        { label: 'Terms of Use', href: '#terms' },
+        { label: 'Privacy Policy', href: '/privacy-policy' },
+        { label: 'Terms of Service', href: '/terms-of-service' },
     ],
 }
 
 function handleSmoothScroll(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+    // For hash-only links on the current page
     if (href.startsWith('#')) {
         e.preventDefault()
         const el = document.querySelector(href)
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth' })
+        }
+    }
+    // For /#section links, if already on the home page, smooth scroll instead of navigating
+    if (href.startsWith('/#') && window.location.pathname === '/') {
+        e.preventDefault()
+        const hash = href.substring(1) // e.g. '#features'
+        const el = document.querySelector(hash)
         if (el) {
             el.scrollIntoView({ behavior: 'smooth' })
         }
@@ -32,10 +45,18 @@ export default function Footer() {
             <div className="mx-auto max-w-7xl px-6 py-12 lg:py-16">
                 <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
                     {/* Brand */}
-                    <div className="space-y-4">
-                        <h2 className="text-2xl font-bold tracking-tight">
-                            ACADIFY
-                        </h2>
+                    <div className="space-y-2">
+                        <div className="flex items-center">
+                            <Image
+                                src="/acadify.png"
+                                alt="Acadify"
+                                width={120}
+                                height={32}
+                                className="h-12 w-auto"
+                                priority
+                            />
+                            <span className="text-3xl font-bold tracking-tight text-primary">ACADIFY</span>
+                        </div>
                         <p className="max-w-xs text-sm leading-relaxed text-gray-400">
                             A modern digital platform for schools. Simplifying academic operations and communication for everyone.
                         </p>

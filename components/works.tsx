@@ -38,7 +38,7 @@ const steps = [
 export default function HowItWorks() {
     return (
         <section id="how-it-works" className="py-20">
-            <div className="mx-auto max-w-7xl px-6">
+            <div className="mx-auto mt-6 max-w-7xl px-6">
                 <div className="mb-12 text-center">
                     <h2 className="text-3xl font-bold text-gray-900 md:text-4xl">
                         How It Works
@@ -46,15 +46,15 @@ export default function HowItWorks() {
                 </div>
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                     {/* Hero Card */}
-                    <div className="row-span-1 lg:row-span-2 flex flex-col justify-between rounded-3xl bg-gradient-to-br from-sky-400 to-sky-600 p-10 text-white shadow-lg md:p-12">
+                    <div className="row-span-1 lg:row-span-2 flex flex-col justify-between rounded-3xl bg-gradient-to-br from-primary/80 to-primary p-10 text-white shadow-lg md:p-12">
                         <div>
                             <h2 className="text-3xl font-bold leading-tight md:text-4xl lg:text-5xl">
                                 Our Working Process —{' '}
-                                <span className="text-sky-100">
+                                <span className="text-white/70">
                                     How We Work For Your School
                                 </span>
                             </h2>
-                            <p className="mt-6 max-w-md text-base leading-relaxed text-sky-100/90 md:text-lg">
+                            <p className="mt-6 max-w-md text-base leading-relaxed text-white/70 md:text-lg">
                                 Getting started with Acadify is simple. We
                                 handle the heavy lifting so your school can
                                 focus on what matters most — educating students.
@@ -64,9 +64,15 @@ export default function HowItWorks() {
                             <Button
                                 asChild
                                 size="lg"
-                                className="rounded-xl bg-white px-6 text-base font-semibold text-sky-600 shadow-md hover:bg-sky-50"
+                                className="rounded-xl bg-white px-6 text-base font-semibold text-primary shadow-md hover:bg-primary/10 cursor-pointer"
                             >
-                                <Link href="#link">Get Started</Link>
+                                <button
+                                    data-cal-namespace="acadify-demo"
+                                    data-cal-link="mubashir2910/acadify-demo"
+                                    data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}'
+                                >
+                                    Book a Call With Us
+                                </button>
                             </Button>
                         </div>
                     </div>

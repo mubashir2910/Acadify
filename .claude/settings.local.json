@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx shadcn@latest add form input label --yes)",
+      "Bash(npx shadcn@latest add form input label)",
+      "WebFetch(domain:www.prisma.io)",
+      "Bash(npx prisma generate)",
+      "Bash(ls -la \"e:\\\\Projects\\\\acadify\\\\app\\\\super-admins\\\\components\"\" 2>/dev/null || ls -la \"/e/Projects/acadify/app/super-admins/components/ \")",
+      "Bash(npm install bcryptjs pdf-lib)",
+      "Bash(npm install -D @types/bcryptjs)",
+      "Bash(npx prisma migrate dev --name make_admission_no_optional)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx prisma migrate dev --name scoped_roll_no_unique)",
+      "Bash(npx prisma migrate dev --name scoped_roll_no_unique --create-only)",
+      "Bash(npx prisma migrate deploy)",
+      "Bash(npx prisma migrate dev --name add_school_cascade_delete)",
+      "Bash(npm install ag-grid-react ag-grid-community)",
+      "Bash(node -e \"const p = require\\(''./package.json''\\); console.log\\(p.dependencies[''ag-grid-react''], p.dependencies[''ag-grid-community'']\\)\")",
+      "Bash(npm install next-auth@beta)",
+      "Bash(npx shadcn@latest add login-02 --yes)",
+      "Bash(npx shadcn@latest add login-02)",
+      "Bash(npx auth secret)",
+      "Bash(npx prisma migrate dev --name add_role_to_user)",
+      "Bash(npx prisma migrate dev --name add_role_to_user --create-only)",
+      "Bash(npx prisma db push --force-reset)",
+      "Bash(npx prisma db push --accept-data-loss)",
+      "Bash(npx prisma db execute --file prisma/migrations/manual_add_role/migration.sql --schema prisma/schema.prisma)",
+      "Bash(npx prisma db execute --file prisma/migrations/manual_add_role/migration.sql)"
+    ]
+  }
+}
