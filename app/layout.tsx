@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins, Libre_Baskerville, Geist_Mono } from "next/font/google";
+import { SessionProvider } from "next-auth/react";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -35,7 +36,9 @@ export default function RootLayout({
         className={`${poppins.variable} ${libreBaskerville.variable} ${geistMono.variable} antialiased`}
         style={{ fontFamily: "var(--font-poppins), Poppins, sans-serif" }}
       >
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

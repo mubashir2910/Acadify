@@ -66,7 +66,7 @@ export default function Amplification() {
 
     return (
         <section id="features" className="bg-gray-100 py-16 border-y border-gray-200 mt-16">
-            <div className="mx-auto max-w-7xl px-6">
+            <div className="mx-auto mt-12 max-w-7xl px-6">
                 <div className="text-center">
                     {/* Main Heading */}
                     <h1 className="text-4xl font-bold">
