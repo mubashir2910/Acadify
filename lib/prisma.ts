@@ -1,18 +1,18 @@
 import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
-import fs from "fs"
-import path from "path"
 
 const globalForPrisma = global as unknown as {
   prisma: PrismaClient | undefined
 }
 
 function createPrismaClient() {
+  const sslConfig = process.env.DATABASE_CA_CERT
+    ? { ssl: { ca: process.env.DATABASE_CA_CERT } }
+    : {}
+
   const adapter = new PrismaPg({
     connectionString: process.env.DATABASE_URL!,
-    ssl: {
-      ca: fs.readFileSync(path.join(process.cwd(), "certs", "ca.pem"), "utf-8"),
-    },
+    ...sslConfig,
   })
   return new PrismaClient({ adapter })
 }

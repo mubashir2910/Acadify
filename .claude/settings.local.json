@@ -25,7 +25,8 @@
       "Bash(npx prisma db push --force-reset)",
       "Bash(npx prisma db push --accept-data-loss)",
       "Bash(npx prisma db execute --file prisma/migrations/manual_add_role/migration.sql --schema prisma/schema.prisma)",
-      "Bash(npx prisma db execute --file prisma/migrations/manual_add_role/migration.sql)"
+      "Bash(npx prisma db execute --file prisma/migrations/manual_add_role/migration.sql)",
+      "Bash(ls -la /e/Projects/acadify/.env*)"
     ]
   }
 }

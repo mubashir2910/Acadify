@@ -1,17 +1,15 @@
 import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
-import { Pool } from "pg"
-import fs from "fs"
-import path from "path"
 import bcrypt from "bcryptjs"
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    ca: fs.readFileSync(path.join(process.cwd(), "certs", "ca.pem"), "utf-8"),
-  },
+const sslConfig = process.env.DATABASE_CA_CERT
+  ? { ssl: { ca: process.env.DATABASE_CA_CERT } }
+  : {}
+
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL!,
+  ...sslConfig,
 })
-const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
 const SUPER_ADMINS = [
