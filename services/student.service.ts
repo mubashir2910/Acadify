@@ -37,6 +37,28 @@ export async function getStudentsBySchoolCode(schoolCode: string) {
   })
 }
 
+// ─── GET students for a school (by school ID, includes profile picture) ──────
+
+export async function getStudentsBySchoolId(schoolId: string) {
+  return prisma.student.findMany({
+    where: { school_id: schoolId, status: "ACTIVE" },
+    select: {
+      roll_no: true,
+      class: true,
+      section: true,
+      user: {
+        select: {
+          username: true,
+          name: true,
+          phone: true,
+          profile_picture: true,
+        },
+      },
+    },
+    orderBy: [{ class: "asc" }, { section: "asc" }, { roll_no: "asc" }],
+  })
+}
+
 // ─── IMPORT students ─────────────────────────────────────────────────────────
 
 export interface ImportStudentsResult {
@@ -100,6 +122,54 @@ export async function importStudents(
     }
   }
 
+  // 3b. Check emails against DB (User.email is globally unique)
+  const incomingEmails = rows.map((r) => r.email).filter((e): e is string => !!e)
+  if (incomingEmails.length > 0) {
+    const existingEmailUsers = await prisma.user.findMany({
+      where: { email: { in: incomingEmails } },
+      select: { email: true },
+    })
+    if (existingEmailUsers.length > 0) {
+      const takenEmails = new Set(existingEmailUsers.map((u) => u.email!.toLowerCase()))
+      const errors = rows
+        .map((row, i) =>
+          row.email && takenEmails.has(row.email.toLowerCase())
+            ? `Row ${i + 2}: Email "${row.email}" is already registered`
+            : null
+        )
+        .filter(Boolean) as string[]
+      return {
+        success: false,
+        summary: { total: rows.length, imported: 0, failed: errors.length },
+        errors,
+      }
+    }
+  }
+
+  // 3c. Check admission_no against existing students in this school
+  const incomingAdmissionNos = rows.map((r) => r.admission_no).filter((a): a is string => !!a)
+  if (incomingAdmissionNos.length > 0) {
+    const existingAdmissionNos = await prisma.student.findMany({
+      where: { school_id: school.id, admission_no: { in: incomingAdmissionNos } },
+      select: { admission_no: true },
+    })
+    if (existingAdmissionNos.length > 0) {
+      const takenNos = new Set(existingAdmissionNos.map((s) => s.admission_no!))
+      const errors = rows
+        .map((row, i) =>
+          row.admission_no && takenNos.has(row.admission_no)
+            ? `Row ${i + 2}: Admission number "${row.admission_no}" already exists in this school`
+            : null
+        )
+        .filter(Boolean) as string[]
+      return {
+        success: false,
+        summary: { total: rows.length, imported: 0, failed: errors.length },
+        errors,
+      }
+    }
+  }
+
   // 4. Find the highest existing sequence number for this school to avoid ID collisions.
   //    Using count() is wrong when students have been deleted — it underestimates the high-water mark.
   const idPattern = new RegExp(`^${escapeRegex(schoolCode)}(\\d{4})$`)
@@ -136,6 +206,7 @@ export async function importStudents(
         section: row.section,
         guardian_name: row.guardian_name,
         guardian_phone: row.guardian_phone,
+        date_of_birth: row.date_of_birth,
         studentUniqueId,
         temporaryPassword,
         passwordHash,
@@ -167,6 +238,7 @@ export async function importStudents(
         role: "STUDENT" as const,
         must_reset_password: true,
         is_active: true,
+        date_of_birth: s.date_of_birth,
       })),
       select: { id: true, username: true },
     })

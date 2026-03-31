@@ -118,6 +118,50 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Birthday profile picture animation */
+@keyframes birthday-ring-spin {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.birthday-ring {
+  background: linear-gradient(
+    270deg,
+    #f59e0b,
+    #ef4444,
+    #ec4899,
+    #8b5cf6,
+    #3b82f6,
+    #f59e0b
+  );
+  background-size: 600% 600%;
+  animation: birthday-ring-spin 3s ease infinite;
+}
+
+/* AG-Grid global table styling — doubled selector for specificity over theme defaults */
+.ag-theme-quartz.ag-theme-quartz {
+  --ag-header-height: 70px;
+  --ag-header-background-color: #f8f9fa;
+  --ag-header-foreground-color: #475569;
+  --ag-row-height: 56px;
+  --ag-row-border-color: #f1f5f9;
+  --ag-border-color: #e2e8f0;
+  --ag-font-size: 14px;
+  --ag-odd-row-background-color: #fafbfc;
+}
+
+.ag-theme-quartz .ag-header-cell-text {
+  font-weight: 600;
+  font-size: 13px;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

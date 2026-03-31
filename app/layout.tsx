@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Poppins, Libre_Baskerville, Geist_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
+import { Toaster } from "sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -37,7 +39,10 @@ export default function RootLayout({
         style={{ fontFamily: "var(--font-poppins), Poppins, sans-serif" }}
       >
         <SessionProvider>
-          {children}
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
+          <Toaster richColors position="top-right" />
         </SessionProvider>
       </body>
     </html>

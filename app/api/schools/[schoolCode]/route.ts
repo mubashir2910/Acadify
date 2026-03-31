@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { auth } from "@/auth"
 import { getSchoolByCode, deleteSchool } from "@/services/school.service"
 
 interface RouteParams {
@@ -6,6 +7,11 @@ interface RouteParams {
 }
 
 export async function GET(_req: Request, { params }: RouteParams) {
+  const session = await auth()
+  if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  }
+
   const { schoolCode } = await params
   const school = await getSchoolByCode(schoolCode)
   if (!school) return NextResponse.json({ message: "School not found" }, { status: 404 })
@@ -13,6 +19,11 @@ export async function GET(_req: Request, { params }: RouteParams) {
 }
 
 export async function DELETE(_req: Request, { params }: RouteParams) {
+  const session = await auth()
+  if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  }
+
   const { schoolCode } = await params
 
   try {

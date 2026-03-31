@@ -50,6 +50,28 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(getDashboardPath(session.user?.role ?? ""), req.url))
   }
 
+  // Force profile completion for students and teachers (after password reset)
+  const role = session.user?.role ?? ""
+  const ROLES_REQUIRING_PROFILE = ["STUDENT", "TEACHER", "ADMIN"]
+
+  if (
+    ROLES_REQUIRING_PROFILE.includes(role) &&
+    !session.user?.isProfileComplete &&
+    !session.user?.mustResetPassword &&
+    pathname !== "/complete-profile" &&
+    !pathname.startsWith("/api/")
+  ) {
+    return NextResponse.redirect(new URL("/complete-profile", req.url))
+  }
+
+  // Block already-completed users from /complete-profile
+  if (
+    (session.user?.isProfileComplete || !ROLES_REQUIRING_PROFILE.includes(role)) &&
+    pathname === "/complete-profile"
+  ) {
+    return NextResponse.redirect(new URL(getDashboardPath(role), req.url))
+  }
+
   // Role-based route protection
   for (const [route, requiredRole] of Object.entries(ROLE_ROUTES)) {
     if (pathname.startsWith(route)) {

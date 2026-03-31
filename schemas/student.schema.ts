@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { parseDDMMYYYY } from "@/lib/date-parser"
 
 // Schema for one row parsed from the CSV
 export const csvStudentRowSchema = z.object({
@@ -15,6 +16,20 @@ export const csvStudentRowSchema = z.object({
   phone: z.string().optional().or(z.literal("")),
   guardian_name: z.string().min(1, "Guardian name is required"),
   guardian_phone: z.string().min(1, "Guardian phone is required"),
+  date_of_birth: z
+    .string()
+    .min(1, "Date of birth is required")
+    .transform((val, ctx) => {
+      try {
+        return parseDDMMYYYY(val)
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "date_of_birth must be in DD-MM-YYYY or YYYY-MM-DD format",
+        })
+        return z.NEVER
+      }
+    }),
 })
 
 export type CsvStudentRow = z.infer<typeof csvStudentRowSchema>
@@ -30,6 +45,7 @@ export interface EnrichedStudent {
   section: string
   guardian_name: string
   guardian_phone: string
+  date_of_birth: Date
   studentUniqueId: string    // stored as users.username; shown as Student ID
   temporaryPassword: string  // plain text — in-memory only, for PDF
   passwordHash: string       // stored in users.password_hash

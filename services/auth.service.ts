@@ -7,6 +7,7 @@ export interface AuthUser {
   name: string
   role: string
   mustResetPassword: boolean
+  isProfileComplete: boolean
 }
 
 /**
@@ -26,6 +27,7 @@ export async function verifyCredentials(
       role: true,
       password_hash: true,
       must_reset_password: true,
+      is_profile_complete: true,
       is_active: true,
     },
   })
@@ -34,6 +36,12 @@ export async function verifyCredentials(
 
   const passwordMatches = await bcrypt.compare(password, user.password_hash)
   if (!passwordMatches) return null
+
+  // For school-bound roles, check subscription status before allowing login
+  if (user.role !== "SUPER_ADMIN") {
+    const blocked = await isSchoolBlocked(user.id, user.role)
+    if (blocked) return null
+  }
 
   // Update last login timestamp (fire-and-forget, don't block the response)
   prisma.user
@@ -46,7 +54,99 @@ export async function verifyCredentials(
     name: user.name,
     role: user.role,
     mustResetPassword: user.must_reset_password,
+    isProfileComplete: user.is_profile_complete,
   }
+}
+
+/**
+ * Checks if a user's school subscription is expired or suspended.
+ * Auto-suspends schools whose trial or subscription has expired.
+ */
+async function isSchoolBlocked(userId: string, role: string): Promise<boolean> {
+  // Resolve the user's school based on their role
+  let school: {
+    id: string
+    subscription_status: string
+    trial_ends_at: Date | null
+    subscription_ends_at: Date | null
+  } | null = null
+
+  if (role === "ADMIN") {
+    const su = await prisma.schoolUser.findFirst({
+      where: { user_id: userId, role: "ADMIN" },
+      select: {
+        school: {
+          select: {
+            id: true,
+            subscription_status: true,
+            trial_ends_at: true,
+            subscription_ends_at: true,
+          },
+        },
+      },
+    })
+    school = su?.school ?? null
+  } else if (role === "TEACHER") {
+    const t = await prisma.teacher.findFirst({
+      where: { user_id: userId },
+      select: {
+        school: {
+          select: {
+            id: true,
+            subscription_status: true,
+            trial_ends_at: true,
+            subscription_ends_at: true,
+          },
+        },
+      },
+    })
+    school = t?.school ?? null
+  } else if (role === "STUDENT") {
+    const s = await prisma.student.findFirst({
+      where: { user_id: userId },
+      select: {
+        school: {
+          select: {
+            id: true,
+            subscription_status: true,
+            trial_ends_at: true,
+            subscription_ends_at: true,
+          },
+        },
+      },
+    })
+    school = s?.school ?? null
+  }
+
+  if (!school) return false // No school found — don't block (edge case)
+
+  const now = new Date()
+  const { subscription_status, trial_ends_at, subscription_ends_at } = school
+
+  // Already suspended or cancelled — block
+  if (subscription_status === "SUSPENDED" || subscription_status === "CANCELLED") {
+    return true
+  }
+
+  // Trial expired — auto-suspend
+  if (subscription_status === "TRIAL" && trial_ends_at && trial_ends_at < now) {
+    await prisma.school.update({
+      where: { id: school.id },
+      data: { subscription_status: "SUSPENDED" },
+    })
+    return true
+  }
+
+  // Active subscription expired — auto-suspend
+  if (subscription_status === "ACTIVE" && subscription_ends_at && subscription_ends_at < now) {
+    await prisma.school.update({
+      where: { id: school.id },
+      data: { subscription_status: "SUSPENDED" },
+    })
+    return true
+  }
+
+  return false
 }
 
 /**

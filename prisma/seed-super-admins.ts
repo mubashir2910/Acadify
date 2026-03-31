@@ -1,3 +1,4 @@
+import "dotenv/config"
 import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import bcrypt from "bcryptjs"
@@ -22,7 +23,10 @@ async function main() {
     const passwordHash = await bcrypt.hash(admin.password, 10)
     await prisma.user.upsert({
       where: { username: admin.username },
-      update: {},
+      update: {
+        password_hash: passwordHash,
+        must_reset_password: true,
+      },
       create: {
         name: admin.name,
         username: admin.username,

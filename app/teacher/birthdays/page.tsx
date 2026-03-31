@@ -1,0 +1,10 @@
+import { BirthdaysSection } from "@/components/birthdays-section"
+
+export default function TeacherBirthdaysPage() {
+  return (
+    <div className="p-4 md:p-6 space-y-4">
+      <h1 className="text-xl font-semibold">Birthdays</h1>
+      <BirthdaysSection />
+    </div>
+  )
+}

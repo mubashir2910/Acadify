@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server"
+import { auth } from "@/auth"
 import { createSchool, getSchools } from "@/services/school.service"
 import { createSchoolSchema } from "@/schemas/school.schema"
 import { ZodError } from "zod"
 
 export async function POST(req: Request) {
+  const session = await auth()
+  if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  }
+
   try {
     const body = await req.json()
     const validated = createSchoolSchema.parse(body)
@@ -18,6 +24,11 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
+  const session = await auth()
+  if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  }
+
   try {
     const schools = await getSchools()
     return NextResponse.json(schools)

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { auth } from "@/auth"
+import { prisma } from "@/lib/prisma"
 import { ZodError } from "zod"
 import { csvTeacherRowSchema } from "@/schemas/teacher.schema"
 import { importTeachers } from "@/services/teacher.service"
@@ -9,10 +11,38 @@ interface RouteParams {
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5MB
 
-const REQUIRED_HEADERS = ["name", "email"]
+const REQUIRED_HEADERS = ["name", "email", "phone"]
 
 export async function POST(req: Request, { params }: RouteParams) {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  }
+
   const { schoolCode } = await params
+  const { id: userId, role } = session.user
+
+  // Only SUPER_ADMIN and ADMIN of that school can import teachers
+  if (role !== "SUPER_ADMIN") {
+    if (role !== "ADMIN") {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
+    const school = await prisma.school.findUnique({
+      where: { schoolCode },
+      select: { id: true },
+    })
+    if (!school) {
+      return NextResponse.json({ message: "School not found" }, { status: 404 })
+    }
+
+    const membership = await prisma.schoolUser.findFirst({
+      where: { user_id: userId, school_id: school.id },
+    })
+    if (!membership) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+  }
 
   try {
     // 1. Parse multipart/form-data

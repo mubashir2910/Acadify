@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { auth } from "@/auth"
 import { ZodError } from "zod"
 import { createAdminSchema } from "@/schemas/admin.schema"
 import { createAdmin, getAdminsBySchoolCode } from "@/services/admin.service"
@@ -7,6 +8,11 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ schoolCode: string }> }
 ) {
+  const session = await auth()
+  if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  }
+
   const { schoolCode } = await params
   const admins = await getAdminsBySchoolCode(schoolCode)
   return NextResponse.json(admins)
@@ -16,6 +22,11 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ schoolCode: string }> }
 ) {
+  const session = await auth()
+  if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  }
+
   const { schoolCode } = await params
 
   let body: unknown
