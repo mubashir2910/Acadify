@@ -17,6 +17,7 @@ interface StudentRow {
   roll_no: string
   class: string
   section: string
+  guardian_phone?: string
   user: {
     id: string
     username: string
@@ -28,7 +29,7 @@ interface StudentRow {
 
 function WhatsAppCell({ data }: { data?: StudentRow }) {
   function handleClick() {
-    const raw = data?.user.phone
+    const raw = data?.user.phone || data?.guardian_phone
     const cleaned = raw ? raw.replace(/\D/g, "") : ""
 
     if (!cleaned || cleaned.length < 7) {
@@ -39,11 +40,13 @@ function WhatsAppCell({ data }: { data?: StudentRow }) {
     window.open(`https://wa.me/${cleaned}`, "_blank", "noopener,noreferrer")
   }
 
+  const displayPhone = data?.user.phone || data?.guardian_phone
+
   return (
     <div className="flex items-center justify-center h-full">
       <button
         onClick={handleClick}
-        title={data?.user.phone ? `WhatsApp: ${data.user.phone}` : "No WhatsApp number"}
+        title={displayPhone ? `WhatsApp: ${displayPhone}` : "No WhatsApp number"}
         className="rounded-full p-1 hover:bg-green-50 transition-colors"
       >
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="#25D366">
@@ -102,7 +105,7 @@ export function AdminStudentsSection() {
         headerName: "Phone",
         flex: 1,
         minWidth: 120,
-        valueGetter: (p) => p.data?.user.phone || "—",
+        valueGetter: (p) => p.data?.user.phone || p.data?.guardian_phone || "—",
       },
       {
         headerName: "Class",

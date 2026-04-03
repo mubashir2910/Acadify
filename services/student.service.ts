@@ -48,6 +48,7 @@ export async function getStudentsBySchoolId(schoolId: string) {
       roll_no: true,
       class: true,
       section: true,
+      guardian_phone: true,
       user: {
         select: {
           id: true,
