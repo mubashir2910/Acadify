@@ -74,7 +74,7 @@ export default function TeacherAttendanceRadialChart({ summary, isSubmitted }: T
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value) => [`${value} students`]}
+                formatter={(value: any) => [`${value} students`]}
                 contentStyle={{ fontSize: 12, borderRadius: 8 }}
               />
             </PieChart>

@@ -47,8 +47,8 @@ export default function UserDistributionChart({ data }: Props) {
                                         ))}
                                     </Pie>
                                     <Tooltip
-                                        formatter={(value: number, name: string) => [
-                                            value.toLocaleString(),
+                                        formatter={(value: any, name: string) => [
+                                            typeof value === "number" ? value.toLocaleString() : value,
                                             name,
                                         ]}
                                         contentStyle={{
