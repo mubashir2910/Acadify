@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { getSchoolByCode, deleteSchool } from "@/services/school.service"
+import { superAdminWriteLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 interface RouteParams {
   params: Promise<{ schoolCode: string }>
@@ -23,6 +24,9 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
   if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
+
+  const limited = await checkRateLimit(superAdminWriteLimiter, `sa-write:${session.user.id}`)
+  if (limited) return limited
 
   const { schoolCode } = await params
 

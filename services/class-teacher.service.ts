@@ -102,37 +102,41 @@ export async function assignClassTeacher(
   className: string,
   section: string
 ) {
-  // Verify teacher belongs to this school and is active
-  const teacher = await prisma.teacher.findFirst({
-    where: { id: teacherId, school_id: schoolId, status: "ACTIVE" },
-  })
-  if (!teacher) throw new Error("TEACHER_NOT_FOUND")
+  // All checks + insert run inside a transaction so concurrent requests can't
+  // both pass the duplicate check and race to create the same assignment.
+  return prisma.$transaction(async (tx) => {
+    // Verify teacher belongs to this school and is active
+    const teacher = await tx.teacher.findFirst({
+      where: { id: teacherId, school_id: schoolId, status: "ACTIVE" },
+    })
+    if (!teacher) throw new Error("TEACHER_NOT_FOUND")
 
-  // Check if teacher is already assigned as class teacher
-  const existingTeacherAssignment = await prisma.classTeacher.findUnique({
-    where: { teacher_id: teacherId },
-  })
-  if (existingTeacherAssignment) throw new Error("TEACHER_ALREADY_ASSIGNED")
+    // Check if teacher is already assigned as class teacher
+    const existingTeacherAssignment = await tx.classTeacher.findUnique({
+      where: { teacher_id: teacherId },
+    })
+    if (existingTeacherAssignment) throw new Error("TEACHER_ALREADY_ASSIGNED")
 
-  // Check if class-section already has a class teacher
-  const existingClassAssignment = await prisma.classTeacher.findUnique({
-    where: {
-      school_id_class_section: {
+    // Check if class-section already has a class teacher
+    const existingClassAssignment = await tx.classTeacher.findUnique({
+      where: {
+        school_id_class_section: {
+          school_id: schoolId,
+          class: className,
+          section: section,
+        },
+      },
+    })
+    if (existingClassAssignment) throw new Error("CLASS_ALREADY_ASSIGNED")
+
+    return tx.classTeacher.create({
+      data: {
         school_id: schoolId,
+        teacher_id: teacherId,
         class: className,
         section: section,
       },
-    },
-  })
-  if (existingClassAssignment) throw new Error("CLASS_ALREADY_ASSIGNED")
-
-  return prisma.classTeacher.create({
-    data: {
-      school_id: schoolId,
-      teacher_id: teacherId,
-      class: className,
-      section: section,
-    },
+    })
   })
 }
 
@@ -144,35 +148,39 @@ export async function changeClassTeacher(
   section: string,
   newTeacherId: string
 ) {
-  const existing = await prisma.classTeacher.findUnique({
-    where: {
-      school_id_class_section: {
-        school_id: schoolId,
-        class: className,
-        section: section,
+  // All checks + update run inside a transaction so concurrent requests can't
+  // both pass the duplicate check and race to assign the same teacher twice.
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.classTeacher.findUnique({
+      where: {
+        school_id_class_section: {
+          school_id: schoolId,
+          class: className,
+          section: section,
+        },
       },
-    },
-  })
-  if (!existing) throw new Error("ASSIGNMENT_NOT_FOUND")
+    })
+    if (!existing) throw new Error("ASSIGNMENT_NOT_FOUND")
 
-  // Verify new teacher belongs to this school and is active
-  const newTeacher = await prisma.teacher.findFirst({
-    where: { id: newTeacherId, school_id: schoolId, status: "ACTIVE" },
-  })
-  if (!newTeacher) throw new Error("TEACHER_NOT_FOUND")
+    // Verify new teacher belongs to this school and is active
+    const newTeacher = await tx.teacher.findFirst({
+      where: { id: newTeacherId, school_id: schoolId, status: "ACTIVE" },
+    })
+    if (!newTeacher) throw new Error("TEACHER_NOT_FOUND")
 
-  // Check new teacher is not already assigned elsewhere
-  const newTeacherAssignment = await prisma.classTeacher.findUnique({
-    where: { teacher_id: newTeacherId },
-  })
-  if (newTeacherAssignment) throw new Error("TEACHER_ALREADY_ASSIGNED")
+    // Check new teacher is not already assigned elsewhere
+    const newTeacherAssignment = await tx.classTeacher.findUnique({
+      where: { teacher_id: newTeacherId },
+    })
+    if (newTeacherAssignment) throw new Error("TEACHER_ALREADY_ASSIGNED")
 
-  return prisma.classTeacher.update({
-    where: { id: existing.id },
-    data: {
-      teacher_id: newTeacherId,
-      assigned_at: new Date(),
-    },
+    return tx.classTeacher.update({
+      where: { id: existing.id },
+      data: {
+        teacher_id: newTeacherId,
+        assigned_at: new Date(),
+      },
+    })
   })
 }
 
@@ -265,9 +273,34 @@ export async function getStudentClassTeacher(userId: string) {
     student.section
   )
 
+  // Fetch classmates in the same class+section (excluding sensitive data like phone)
+  const classmates = await prisma.student.findMany({
+    where: {
+      school_id: student.school_id,
+      class: student.class,
+      section: student.section,
+      status: "ACTIVE",
+    },
+    select: {
+      roll_no: true,
+      user: {
+        select: {
+          name: true,
+          profile_picture: true,
+        },
+      },
+    },
+    orderBy: { roll_no: "asc" },
+  })
+
   return {
     class: student.class,
     section: student.section,
     teacherName: ct?.teacher.user.name ?? null,
+    classmates: classmates.map((c) => ({
+      name: c.user.name,
+      rollNo: c.roll_no,
+      profilePicture: c.user.profile_picture,
+    })),
   }
 }

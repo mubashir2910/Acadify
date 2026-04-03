@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { generateTeacherUniqueId } from "@/lib/teacher-id"
 import { generateTemporaryPassword } from "@/lib/student-id"
 import { generateTeacherCredentialsPdf } from "@/lib/pdf-generator"
+import { parseDDMMYYYY } from "@/lib/date-parser"
+import { getAdminSchoolId } from "@/services/class-teacher.service"
+import type { CreateTeacherInput, CreateTeacherResult } from "@/schemas/teacher.schema"
 
 export async function getTeachersBySchoolCode(schoolCode: string) {
   return prisma.teacher.findMany({
@@ -199,4 +202,100 @@ export async function importTeachers(
     errors: [],
     pdf: pdfBase64,
   }
+}
+
+// ─── CREATE single teacher (admin quick-add) ─────────────────────────────────
+
+export async function createSingleTeacher(
+  adminUserId: string,
+  input: CreateTeacherInput
+): Promise<CreateTeacherResult> {
+  const schoolId = await getAdminSchoolId(adminUserId)
+  if (!schoolId) throw new Error("SCHOOL_NOT_FOUND")
+
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { id: true, schoolCode: true },
+  })
+  if (!school) throw new Error("SCHOOL_NOT_FOUND")
+
+  const { schoolCode } = school
+
+  // Email uniqueness check
+  const existingEmail = await prisma.user.findFirst({ where: { email: input.email } })
+  if (existingEmail) throw new Error("EMAIL_TAKEN")
+
+  // Sequence discovery — mirrors importTeachers exactly (reads employee_id, not username)
+  const idPattern = new RegExp(`^${escapeRegex(schoolCode)}T(\\d{3})$`)
+  const existingTeachers = await prisma.teacher.findMany({
+    where: { school_id: schoolId },
+    select: { employee_id: true },
+  })
+  let maxSequence = 0
+  for (const record of existingTeachers) {
+    const match = idPattern.exec(record.employee_id)
+    if (match) {
+      const seq = parseInt(match[1], 10)
+      if (seq > maxSequence) maxSequence = seq
+    }
+  }
+
+  const teacherUniqueId = generateTeacherUniqueId(schoolCode, maxSequence + 1)
+  const temporaryPassword = generateTemporaryPassword()
+  const passwordHash = await bcrypt.hash(temporaryPassword, BCRYPT_SALT_ROUNDS)
+
+  // Parse optional dates
+  let joiningDate: Date | undefined
+  if (input.joining_date) {
+    const d = new Date(input.joining_date)
+    if (!isNaN(d.getTime())) joiningDate = d
+  }
+
+  let dob: Date | undefined
+  if (input.date_of_birth) {
+    try {
+      dob = parseDDMMYYYY(input.date_of_birth)
+    } catch {
+      throw new Error("INVALID_DATE_OF_BIRTH")
+    }
+  }
+
+  // Clean up orphaned User record for this username (if any)
+  await prisma.user.deleteMany({
+    where: { username: teacherUniqueId, schoolUsers: { none: {} } },
+  })
+
+  // Transaction: User → Teacher → SchoolUser
+  await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        name: input.name,
+        username: teacherUniqueId,
+        email: input.email,
+        phone: input.phone,
+        password_hash: passwordHash,
+        role: "TEACHER",
+        must_reset_password: true,
+        is_active: true,
+        date_of_birth: dob,
+      },
+      select: { id: true },
+    })
+
+    await Promise.all([
+      tx.teacher.create({
+        data: {
+          school_id: schoolId,
+          user_id: user.id,
+          employee_id: teacherUniqueId,
+          joining_date: joiningDate,
+        },
+      }),
+      tx.schoolUser.create({
+        data: { school_id: schoolId, user_id: user.id, role: "TEACHER" },
+      }),
+    ])
+  })
+
+  return { employeeId: teacherUniqueId, temporaryPassword, name: input.name }
 }

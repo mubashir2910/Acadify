@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import {
@@ -39,6 +39,12 @@ export default function DayEditModal({
   const [selectedType, setSelectedType] = useState<DayType | null>(null)
   const [reason, setReason] = useState(dateInfo.reason ?? "")
   const [saving, setSaving] = useState(false)
+
+  // Reset form state whenever a different date is opened
+  useEffect(() => {
+    setSelectedType(null)
+    setReason(dateInfo.reason ?? "")
+  }, [dateStr])
 
   const date = new Date(dateStr + "T00:00:00")
   const formattedDate = format(date, "EEEE, MMMM d, yyyy")

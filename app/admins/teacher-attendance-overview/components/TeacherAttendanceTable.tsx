@@ -5,9 +5,10 @@ import { AgGridReact } from "ag-grid-react"
 import { AllCommunityModule } from "ag-grid-community"
 import type { ColDef } from "ag-grid-community"
 import { Badge } from "@/components/ui/badge"
-import { Pencil } from "lucide-react"
+import { Pencil, KeyRound } from "lucide-react"
 import type { ICellRendererParams } from "ag-grid-community"
 import EditTeacherAttendanceModal from "./EditTeacherAttendanceModal"
+import ResetPasswordModal from "@/app/admins/components/ResetPasswordModal"
 import type { TeacherAttendanceRecord } from "@/schemas/teacher-attendance.schema"
 
 interface TeacherAttendanceTableProps {
@@ -18,6 +19,7 @@ interface TeacherAttendanceTableProps {
 
 export default function TeacherAttendanceTable({ teachers, date, onRefresh }: TeacherAttendanceTableProps) {
   const [editTeacher, setEditTeacher] = useState<TeacherAttendanceRecord | null>(null)
+  const [resetTarget, setResetTarget] = useState<{ userId: string; name: string } | null>(null)
 
   const columnDefs = useMemo<ColDef[]>(
     () => [
@@ -116,6 +118,29 @@ export default function TeacherAttendanceTable({ teachers, date, onRefresh }: Te
         width: 130,
         valueFormatter: (params: { value: string | null }) => params.value ?? "—",
       },
+      {
+        headerName: "Password",
+        width: 90,
+        sortable: false,
+        filter: false,
+        cellRenderer: (params: ICellRendererParams<TeacherAttendanceRecord>) => {
+          if (!params.data) return null
+          return (
+            <div className="flex items-center justify-center h-full">
+              <button
+                type="button"
+                onClick={() =>
+                  params.data && setResetTarget({ userId: params.data.userId, name: params.data.name })
+                }
+                title="Reset password"
+                className="rounded-full p-1 hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-700"
+              >
+                <KeyRound className="h-4 w-4" />
+              </button>
+            </div>
+          )
+        },
+      },
     ],
     []
   )
@@ -153,6 +178,13 @@ export default function TeacherAttendanceTable({ teachers, date, onRefresh }: Te
           date={date}
         />
       )}
+
+      <ResetPasswordModal
+        open={!!resetTarget}
+        onOpenChange={(open) => { if (!open) setResetTarget(null) }}
+        userName={resetTarget?.name ?? ""}
+        userId={resetTarget?.userId ?? ""}
+      />
     </>
   )
 }

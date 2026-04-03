@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { v2 as cloudinary } from "cloudinary"
+import { uploadImportLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -16,6 +17,9 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
+
+  const limited = await checkRateLimit(uploadImportLimiter, `upload:${session.user.id}`)
+  if (limited) return limited
 
   try {
     const formData = await req.formData()

@@ -58,3 +58,21 @@ export interface ImportTeachersResult {
   errors: string[]
   pdf?: string
 }
+
+// ─── Single teacher creation (admin quick-add) ────────────────────────────────
+
+export const createTeacherSchema = z.object({
+  name:          z.string().min(1, "Name is required"),
+  email:         z.string().min(1, "Email is required").email("Invalid email"),
+  phone:         z.string().min(10, "Phone must be at least 10 digits"),
+  joining_date:  z.string().optional().or(z.literal("")), // YYYY-MM-DD
+  date_of_birth: z.string().optional().or(z.literal("")), // DD-MM-YYYY
+})
+
+export type CreateTeacherInput = z.infer<typeof createTeacherSchema>
+
+export interface CreateTeacherResult {
+  employeeId: string
+  temporaryPassword: string
+  name: string
+}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { signIn } from "next-auth/react"
+import { Eye, EyeOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getDashboardPath } from "@/lib/auth-redirect"
 import { loginSchema, type LoginInput } from "@/schemas/auth.schema"
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label"
 export function LoginForm({ className }: { className?: string }) {
   const router = useRouter()
   const [serverError, setServerError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   const {
     register,
@@ -33,19 +35,29 @@ export function LoginForm({ className }: { className?: string }) {
       redirect: false,
     })
 
-    if (result?.error) {
+    // result is undefined when the server throws (e.g. DB error → NextAuth redirects to
+    // /api/auth/error instead of returning JSON). result.ok is false when credentials are wrong.
+    if (!result?.ok || result.error) {
       setServerError("Invalid username or password.")
       return
     }
 
     // Fetch the updated session to read role + mustResetPassword
     const res = await fetch("/api/auth/session")
+    if (!res.ok) {
+      setServerError("Sign-in succeeded but session could not be loaded. Please try again.")
+      return
+    }
     const session = await res.json()
+    if (!session?.user) {
+      setServerError("Sign-in succeeded but session could not be loaded. Please try again.")
+      return
+    }
 
-    if (session?.user?.mustResetPassword) {
+    if (session.user.mustResetPassword) {
       router.push("/reset-password")
     } else {
-      router.push(getDashboardPath(session?.user?.role ?? ""))
+      router.push(getDashboardPath(session.user.role ?? ""))
     }
   }
 
@@ -78,12 +90,23 @@ export function LoginForm({ className }: { className?: string }) {
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            {...register("password")}
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              className="pr-10"
+              {...register("password")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
           {errors.password && (
             <p className="text-xs text-destructive">{errors.password.message}</p>
           )}

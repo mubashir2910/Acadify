@@ -30,6 +30,7 @@ export type EditTeacherAttendanceInput = z.infer<typeof editTeacherAttendanceSch
 
 export type TeacherAttendanceRecord = {
   teacherId: string
+  userId: string
   name: string
   employeeId: string
   profilePicture: string | null

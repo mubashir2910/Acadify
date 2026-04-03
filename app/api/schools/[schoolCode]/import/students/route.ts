@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { ZodError } from "zod"
 import { csvStudentRowSchema } from "@/schemas/student.schema"
 import { importStudents } from "@/services/student.service"
+import { uploadImportLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 interface RouteParams {
   params: Promise<{ schoolCode: string }>
@@ -51,6 +52,9 @@ export async function POST(req: Request, { params }: RouteParams) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
   }
+
+  const limited = await checkRateLimit(uploadImportLimiter, `import:${session.user.id}`)
+  if (limited) return limited
 
   try {
     // 1. Parse multipart/form-data

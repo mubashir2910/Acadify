@@ -34,6 +34,7 @@ export async function getAdminTeachers(
     select: {
       id: true,
       employee_id: true,
+      user_id: true,
       user: { select: { name: true, profile_picture: true } },
     },
     orderBy: { user: { name: "asc" } },
@@ -70,6 +71,7 @@ export async function getAdminTeachers(
 
     return {
       teacherId: t.id,
+      userId: t.user_id,
       name: t.user.name,
       employeeId: t.employee_id,
       profilePicture: t.user.profile_picture,

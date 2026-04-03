@@ -122,7 +122,7 @@ export default function MarkTeacherAttendanceSection() {
             "flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"
           )}>
             <Eye className="h-4 w-4 shrink-0" />
-            Viewing past attendance (editing only available for the current week)
+            Viewing past attendance (editing for past weeks available through Teacher Overview page)
           </div>
         )}
 

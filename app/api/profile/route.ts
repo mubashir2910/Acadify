@@ -15,6 +15,7 @@ import {
   teacherProfileUpdateSchema,
   adminProfileUpdateSchema,
 } from "@/schemas/profile.schema"
+import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 export async function GET() {
   const session = await auth()
@@ -78,6 +79,9 @@ export async function PUT(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
+
+  const limited = await checkRateLimit(writeLimiter, `write:${session.user.id}`)
+  if (limited) return limited
 
   try {
     const body = await req.json()

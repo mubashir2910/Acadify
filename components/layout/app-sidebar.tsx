@@ -1,5 +1,7 @@
 "use client"
 
+import Image from "next/image"
+import { Logo } from '@/components/logo'
 import { PanelRightClose } from "lucide-react"
 import {
   Sidebar,
@@ -26,7 +28,7 @@ function SidebarMobileClose() {
       className="md:hidden flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
       aria-label="Close sidebar"
     >
-      <PanelRightClose className="h-5 w-5" />
+      <PanelRightClose className="h-6 w-6" />
     </button>
   )
 }
@@ -39,14 +41,20 @@ export function AppSidebar({ basePath, user }: AppSidebarProps) {
     >
       <SidebarHeader className="pb-2 pt-3 px-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5 pl-1">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1e2a4a] text-white text-[15px] font-bold">
-              A
-            </div>
+          {/* <div className="flex items-center gap-2.5 pl-1">
+            <Image
+              src="/acadify.png"
+              alt="Acadify"
+              width={36}
+              height={36}
+              className="h-9 w-9 shrink-0"
+              priority
+            />
             <span className="text-[15px] font-semibold group-data-[collapsible=icon]:hidden">
               Acadify
             </span>
-          </div>
+          </div> */}
+          <Logo />
           <SidebarMobileClose />
         </div>
       </SidebarHeader>

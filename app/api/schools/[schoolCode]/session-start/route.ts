@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { ZodError } from "zod"
 import { updateSessionStartSchema } from "@/schemas/attendance.schema"
 import { updateSessionStartDate } from "@/services/school.service"
+import { superAdminWriteLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 // PUT — Super admin sets session start date for a school
 export async function PUT(
@@ -14,6 +15,9 @@ export async function PUT(
     if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
+
+    const limited = await checkRateLimit(superAdminWriteLimiter, `sa-write:${session.user.id}`)
+    if (limited) return limited
 
     const { schoolCode } = await params
     const body = await request.json()

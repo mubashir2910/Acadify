@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admins/
+Disallow: /super-admins/
+Disallow: /teacher/
+Disallow: /student/
+Disallow: /login
+Disallow: /reset-password
+Disallow: /complete-profile
+
+Sitemap: https://acadify.tech/sitemap.xml

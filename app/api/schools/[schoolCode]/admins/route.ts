@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { ZodError } from "zod"
 import { createAdminSchema } from "@/schemas/admin.schema"
 import { createAdmin, getAdminsBySchoolCode } from "@/services/admin.service"
+import { superAdminWriteLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 export async function GET(
   _req: Request,
@@ -26,6 +27,9 @@ export async function POST(
   if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
+
+  const limited = await checkRateLimit(superAdminWriteLimiter, `sa-write:${session.user.id}`)
+  if (limited) return limited
 
   const { schoolCode } = await params
 

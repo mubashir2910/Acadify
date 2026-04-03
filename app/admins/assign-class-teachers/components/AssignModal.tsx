@@ -38,19 +38,25 @@ export default function AssignModal({ onClose, onSuccess }: AssignModalProps) {
   const [loadingData, setLoadingData] = useState(true)
 
   useEffect(() => {
+    const controller = new AbortController()
+    const { signal } = controller
+
     Promise.all([
-      fetch("/api/class-teachers/available-teachers").then((r) => r.json()),
-      fetch("/api/class-teachers/available-classes").then((r) => r.json()),
+      fetch("/api/class-teachers/available-teachers", { signal }).then((r) => r.json()),
+      fetch("/api/class-teachers/available-classes", { signal }).then((r) => r.json()),
     ])
       .then(([t, c]) => {
         setTeachers(t)
         setClasses(c)
         setLoadingData(false)
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err.name === "AbortError") return
         setServerError("Failed to load data")
         setLoadingData(false)
       })
+
+    return () => controller.abort()
   }, [])
 
   async function handleSubmit() {

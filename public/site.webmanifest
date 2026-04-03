@@ -1,0 +1,16 @@
+{
+  "name": "Acadify — School Management Platform",
+  "short_name": "Acadify",
+  "description": "A simple and affordable platform to manage schools, students, teachers, attendance, and timetables.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e2a4a",
+  "icons": [
+    {
+      "src": "/acadify.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}

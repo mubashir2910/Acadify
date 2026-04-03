@@ -8,6 +8,7 @@ import {
   submitTeacherAttendance,
   editTeacherAttendance,
 } from "@/services/teacher-attendance.service"
+import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 // ─── GET — Admin: fetch teachers with attendance status for a date ────
 
@@ -45,6 +46,9 @@ export async function POST(request: Request) {
     if (!session?.user || session.user.role !== "ADMIN") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
+
+    const limited = await checkRateLimit(writeLimiter, `write:${session.user.id}`)
+    if (limited) return limited
 
     const body = await request.json()
     const data = submitTeacherAttendanceSchema.parse(body)
@@ -99,6 +103,9 @@ export async function PATCH(request: Request) {
     if (!session?.user || session.user.role !== "ADMIN") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
+
+    const limited = await checkRateLimit(writeLimiter, `write:${session.user.id}`)
+    if (limited) return limited
 
     const body = await request.json()
     const data = editTeacherAttendanceSchema.parse(body)

@@ -12,6 +12,7 @@ import {
   adminEditAttendance,
 } from "@/services/attendance.service"
 import { prisma } from "@/lib/prisma"
+import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 // POST — Teacher submits/updates attendance
 export async function POST(request: Request) {
@@ -20,6 +21,9 @@ export async function POST(request: Request) {
     if (!session?.user?.id || session.user.role !== "TEACHER") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
+
+    const limited = await checkRateLimit(writeLimiter, `write:${session.user.id}`)
+    if (limited) return limited
 
     const body = await request.json()
     const data = submitAttendanceSchema.parse(body)
@@ -150,6 +154,9 @@ export async function PATCH(request: Request) {
     if (!session?.user?.id || session.user.role !== "ADMIN") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
+
+    const limited = await checkRateLimit(writeLimiter, `write:${session.user.id}`)
+    if (limited) return limited
 
     const body = await request.json()
     const data = adminEditAttendanceSchema.parse(body)

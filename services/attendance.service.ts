@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { countWorkingDays, getWeekStart, getNowIST, getTodayISTString } from "@/lib/working-days"
 import { isSchoolHoliday, getSchoolHolidaysInRange } from "@/services/calendar.service"
+import { getActiveAccessForTeacherAndDate } from "@/services/attendance-access.service"
 import type {
   AttendanceStatus,
   AttendanceSummaryStats,
@@ -27,9 +28,21 @@ export async function submitAttendance(
       classTeacher: { select: { class: true, section: true } },
     },
   })
-  if (!teacher || !teacher.classTeacher) throw new Error("NOT_CLASS_TEACHER")
+  if (!teacher) throw new Error("NOT_CLASS_TEACHER")
 
-  const { class: className, section } = teacher.classTeacher
+  let className: string
+  let section: string
+
+  if (teacher.classTeacher) {
+    className = teacher.classTeacher.class
+    section   = teacher.classTeacher.section
+  } else {
+    // Fall back to temporary attendance access for this date
+    const access = await getActiveAccessForTeacherAndDate(teacher.id, dateStr)
+    if (!access) throw new Error("NOT_CLASS_TEACHER")
+    className = access.class
+    section   = access.section
+  }
 
   // 2. Validate date — use IST for "today" since app serves Indian schools only
   const attendanceDate = new Date(dateStr + "T00:00:00.000Z")
@@ -100,7 +113,6 @@ export async function submitAttendance(
         status: r.status,
         submitted_by: teacher.user_id,
       })),
-      skipDuplicates: true,
     }),
     ...Array.from(updatesByStatus.entries()).map(([status, studentIds]) =>
       prisma.attendance.updateMany({
@@ -321,14 +333,28 @@ export async function getTeacherClassAttendance(
   const teacher = await prisma.teacher.findFirst({
     where: { user_id: teacherUserId },
     select: {
+      id: true,
       school_id: true,
       classTeacher: { select: { class: true, section: true } },
     },
   })
 
-  if (!teacher || !teacher.classTeacher) return { assigned: false }
+  if (!teacher) return { assigned: false }
 
-  const { class: className, section } = teacher.classTeacher
+  let className: string
+  let section: string
+
+  if (teacher.classTeacher) {
+    className = teacher.classTeacher.class
+    section   = teacher.classTeacher.section
+  } else {
+    // Fall back to temporary attendance access for this date
+    const access = await getActiveAccessForTeacherAndDate(teacher.id, dateStr)
+    if (!access) return { assigned: false }
+    className = access.class
+    section   = access.section
+  }
+
   const result = await getClassAttendance(teacher.school_id, className, section, dateStr)
 
   // Check if attendance has been submitted for this date

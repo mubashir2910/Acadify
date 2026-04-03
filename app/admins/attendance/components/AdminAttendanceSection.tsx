@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useMemo } from "react"
 import { format } from "date-fns"
+import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AttendanceCalendar } from "@/components/attendance-calendar"
 import { Card, CardContent } from "@/components/ui/card"
@@ -50,20 +51,23 @@ export default function AdminAttendanceSection() {
   const calendarMonth = format(displayMonth, "yyyy-MM")
 
   // Fetch calendar overrides for the selected month
-  const fetchCalendarOverrides = useCallback(async () => {
+  const fetchCalendarOverrides = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(`/api/calendar?month=${calendarMonth}`)
+      const res = await fetch(`/api/calendar?month=${calendarMonth}`, signal ? { signal } : undefined)
       if (res.ok) {
         const data = await res.json()
         setCalendarOverrides(data.overrides ?? [])
       }
-    } catch {
-      // Silently fail
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return
+      toast.error("Failed to load calendar data")
     }
   }, [calendarMonth])
 
   useEffect(() => {
-    fetchCalendarOverrides()
+    const controller = new AbortController()
+    fetchCalendarOverrides(controller.signal)
+    return () => controller.abort()
   }, [fetchCalendarOverrides])
 
   // Build dayOverrides map for the calendar

@@ -6,6 +6,7 @@ import {
   getAdminSchoolId,
 } from "@/services/attendance.service"
 import { prisma } from "@/lib/prisma"
+import { expensiveReadLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 // GET — Aggregated attendance stats (multi-role)
 export async function GET() {
@@ -14,6 +15,9 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
+
+    const limited = await checkRateLimit(expensiveReadLimiter, `read:${session.user.id}`)
+    if (limited) return limited
 
     const role = session.user.role
 

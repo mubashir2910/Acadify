@@ -11,6 +11,7 @@ import {
   assignClassTeacher,
   changeClassTeacher,
 } from "@/services/class-teacher.service"
+import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 const ERROR_STATUS: Record<string, number> = {
   TEACHER_NOT_FOUND: 404,
@@ -59,6 +60,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
 
+  const limited = await checkRateLimit(writeLimiter, `write:${session.user.id}`)
+  if (limited) return limited
+
   let body: unknown
   try {
     body = await req.json()
@@ -102,6 +106,9 @@ export async function PUT(req: Request) {
   if (!session?.user?.id || session.user.role !== "ADMIN") {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
+
+  const limited = await checkRateLimit(writeLimiter, `write:${session.user.id}`)
+  if (limited) return limited
 
   let body: unknown
   try {

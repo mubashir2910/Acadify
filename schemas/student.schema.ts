@@ -75,3 +75,29 @@ export interface ImportErrorResponse {
   summary: ImportSummary
   errors: string[]
 }
+
+// ─── Single student creation (admin quick-add) ────────────────────────────────
+
+export const createStudentSchema = z.object({
+  name:           z.string().min(1, "Name is required"),
+  class:          z.string().min(1, "Class is required"),
+  section:        z.string().min(1, "Section is required"),
+  roll_no:        z.string().min(1, "Roll number is required"),
+  guardian_name:  z.string().min(1, "Guardian name is required"),
+  guardian_phone: z.string().min(1, "Guardian phone is required"),
+  email:          z.string().email("Invalid email").optional().or(z.literal("")),
+  phone:          z.string().optional().or(z.literal("")),
+  admission_no:   z.string().optional().or(z.literal("")),
+  date_of_birth:  z.string().optional().or(z.literal("")), // DD-MM-YYYY
+})
+
+export type CreateStudentInput = z.infer<typeof createStudentSchema>
+
+export interface CreateStudentResult {
+  username: string
+  temporaryPassword: string
+  name: string
+  class: string
+  section: string
+  roll_no: string
+}

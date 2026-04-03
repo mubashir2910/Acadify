@@ -13,6 +13,7 @@ import {
 } from "@/services/calendar.service"
 import { getAdminSchoolId, getStudentSchoolId } from "@/services/attendance.service"
 import { getTeacherSchoolId } from "@/services/calendar.service"
+import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 // ─── Helper: resolve school ID from session ─────────────────────────
 
@@ -74,6 +75,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
+    const limited = await checkRateLimit(writeLimiter, `write:${session.user.id}`)
+    if (limited) return limited
+
     const body = await request.json()
     const data = calendarOverrideSchema.parse(body)
 
@@ -130,6 +134,9 @@ export async function DELETE(request: Request) {
     if (!session?.user?.id || session.user.role !== "ADMIN") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
+
+    const limited = await checkRateLimit(writeLimiter, `write:${session.user.id}`)
+    if (limited) return limited
 
     const body = await request.json()
     const data = calendarDeleteSchema.parse(body)

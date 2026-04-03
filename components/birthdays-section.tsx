@@ -121,6 +121,7 @@ export function BirthdaysSection() {
           <AgGridReact
             rowData={birthdays}
             columnDefs={colDefs}
+            rowHeight={52}
             domLayout="autoHeight"
             suppressCellFocus
           />

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { CreateSchoolInput } from "@/schemas/school.schema";
+import { CreateSchoolInput, PlatformStats } from "@/schemas/school.schema";
 
 const TRIAL_DAYS = 60
 
@@ -74,6 +74,71 @@ export async function updateSubscription(
                 : null,
         },
     })
+}
+
+export async function getPlatformStats(): Promise<PlatformStats> {
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setUTCMonth(sixMonthsAgo.getUTCMonth() - 5)
+    sixMonthsAgo.setUTCDate(1)
+    sixMonthsAgo.setUTCHours(0, 0, 0, 0)
+
+    // Build 6-month label array (current month + 5 prior)
+    const months: string[] = []
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date()
+        d.setUTCMonth(d.getUTCMonth() - i)
+        months.push(
+            d.toLocaleString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })
+        )
+    }
+
+    const [[totalSchools, totalStudents, totalTeachers, totalAdmins], schoolsRaw] =
+        await Promise.all([
+            prisma.$transaction([
+                prisma.school.count(),
+                prisma.student.count(),
+                prisma.teacher.count(),
+                prisma.schoolUser.count({ where: { role: "ADMIN" } }),
+            ]),
+            prisma.school.findMany({
+                select: { subscription_status: true, created_at: true },
+            }),
+        ])
+
+    // Subscription breakdown
+    const subscriptionBreakdown = { ACTIVE: 0, TRIAL: 0, SUSPENDED: 0, CANCELLED: 0 }
+    for (const s of schoolsRaw) {
+        const key = s.subscription_status as keyof typeof subscriptionBreakdown
+        if (key in subscriptionBreakdown) subscriptionBreakdown[key]++
+    }
+
+    // Schools growth (last 6 months)
+    const growthMap = new Map<string, number>(months.map((m) => [m, 0]))
+    for (const s of schoolsRaw) {
+        const label = new Date(s.created_at).toLocaleString("en-US", {
+            month: "short",
+            year: "numeric",
+            timeZone: "UTC",
+        })
+        if (growthMap.has(label)) {
+            growthMap.set(label, (growthMap.get(label) ?? 0) + 1)
+        }
+    }
+    const schoolsGrowth = months.map((month) => ({ month, count: growthMap.get(month) ?? 0 }))
+
+    return {
+        totalSchools,
+        totalStudents,
+        totalTeachers,
+        totalAdmins,
+        subscriptionBreakdown,
+        schoolsGrowth,
+        userDistribution: [
+            { name: "Students", value: totalStudents },
+            { name: "Teachers", value: totalTeachers },
+            { name: "Admins", value: totalAdmins },
+        ],
+    }
 }
 
 export async function deleteSchool(schoolCode: string) {

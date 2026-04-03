@@ -10,6 +10,7 @@ declare module "next-auth" {
       role: string
       mustResetPassword: boolean
       isProfileComplete: boolean
+      suspended: boolean
     }
   }
 
@@ -28,5 +29,6 @@ declare module "next-auth/jwt" {
     role: string
     mustResetPassword: boolean
     isProfileComplete: boolean
+    suspended: boolean
   }
 }

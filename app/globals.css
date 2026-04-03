@@ -1,8 +1,6 @@
 @import "tailwindcss";
 @import "./tw-animate.css";
 @import "shadcn/tailwind.css";
-@import "ag-grid-community/styles/ag-grid.css";
-@import "ag-grid-community/styles/ag-theme-quartz.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -147,19 +145,76 @@
 
 /* AG-Grid global table styling — doubled selector for specificity over theme defaults */
 .ag-theme-quartz.ag-theme-quartz {
-  --ag-header-height: 70px;
-  --ag-header-background-color: #f8f9fa;
-  --ag-header-foreground-color: #475569;
-  --ag-row-height: 56px;
+  --ag-header-height: 64px;
+  --ag-header-background-color: #f8fafc;
+  --ag-header-foreground-color: #334155;
+  --ag-row-height: 54px;
   --ag-row-border-color: #f1f5f9;
   --ag-border-color: #e2e8f0;
-  --ag-font-size: 14px;
-  --ag-odd-row-background-color: #fafbfc;
+  --ag-font-size: 13px;
+  --ag-odd-row-background-color: rgba(248, 250, 252, 0.4);
+  --ag-cell-horizontal-padding: 12px;
+  --ag-background-color: #ffffff;
+  --ag-foreground-color: #1e293b;
+  --ag-secondary-foreground-color: #64748b;
+  --ag-input-focus-border-color: #3b82f6;
 }
 
+/* Container: rounded corners + border */
+.ag-theme-quartz .ag-root-wrapper {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border-color: #e2e8f0;
+  box-shadow: none;
+}
+
+/* Header: font weight, tracking, color */
 .ag-theme-quartz .ag-header-cell-text {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  color: #475569;
+}
+
+/* Header: subtle bottom border */
+.ag-theme-quartz .ag-header {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Row hover: light blue (matches timetable cell hover) */
+.ag-theme-quartz .ag-row:hover {
+  background-color: #eff6ff !important;
+}
+
+/* Remove obtrusive focus ring on cells */
+.ag-theme-quartz .ag-cell-focus {
+  border: none !important;
+  outline: none !important;
+}
+
+/* Pagination: cleaner footer */
+.ag-theme-quartz .ag-paging-panel {
+  border-top: 1px solid #f1f5f9;
+  font-size: 12px;
+  color: #64748b;
+  padding: 0 12px;
+  height: 42px;
+}
+
+/* Sort icons: slate palette */
+.ag-theme-quartz .ag-sort-indicator-icon {
+  color: #94a3b8;
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #cbd5e1 25%, #e2e8f0 50%, #cbd5e1 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
 }
 
 @layer base {
