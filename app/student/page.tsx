@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon"
+import StudentDashboard from "./components/StudentDashboard"
 
 export default function StudentPage() {
-  return <ComingSoon role="STUDENT" />
+  return <StudentDashboard />
 }

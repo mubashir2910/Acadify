@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon"
+import AdminDashboard from "./components/AdminDashboard"
 
 export default function AdminsPage() {
-  return <ComingSoon role="ADMIN" />
+  return <AdminDashboard />
 }

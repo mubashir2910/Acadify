@@ -8,6 +8,10 @@ export interface School {
   id: string
   schoolName: string
   schoolCode: string
+  subscription_status?: string
+  trial_ends_at?: string | null
+  subscription_ends_at?: string | null
+  session_started_on?: string | null
 }
 
 interface SchoolCardProps {
@@ -23,7 +27,10 @@ export default function SchoolCard({ school, onImportClick, onImportTeachersClic
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-5 flex flex-col gap-4">
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="font-semibold text-base">{school.schoolName}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-base">{school.schoolName}</h3>
+            <SubscriptionBadge status={school.subscription_status} />
+          </div>
           <p className="text-sm text-muted-foreground">{school.schoolCode}</p>
         </div>
         <Button
@@ -50,7 +57,27 @@ export default function SchoolCard({ school, onImportClick, onImportTeachersClic
         <Button size="sm" variant="outline" onClick={() => onCreateAdminClick(school)}>
           Create Admin
         </Button>
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/super-admins/${school.schoolCode}`}>Manage</Link>
+        </Button>
       </div>
     </div>
+  )
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  TRIAL: "bg-yellow-100 text-yellow-800",
+  ACTIVE: "bg-green-100 text-green-800",
+  SUSPENDED: "bg-red-100 text-red-800",
+  CANCELLED: "bg-gray-100 text-gray-600",
+}
+
+function SubscriptionBadge({ status }: { status?: string }) {
+  if (!status) return null
+  const style = STATUS_STYLES[status] ?? "bg-gray-100 text-gray-600"
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${style}`}>
+      {status}
+    </span>
   )
 }

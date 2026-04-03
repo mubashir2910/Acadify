@@ -2,7 +2,9 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { generateStudentUniqueId, generateTemporaryPassword } from "@/lib/student-id"
 import { generateCredentialsPdf } from "@/lib/pdf-generator"
-import type { CsvStudentRow, EnrichedStudent, ImportSummary, ClassSectionPdf } from "@/schemas/student.schema"
+import { parseDDMMYYYY } from "@/lib/date-parser"
+import { getAdminSchoolId } from "@/services/class-teacher.service"
+import type { CsvStudentRow, EnrichedStudent, ImportSummary, ClassSectionPdf, CreateStudentInput, CreateStudentResult } from "@/schemas/student.schema"
 
 const BCRYPT_SALT_ROUNDS = 10
 
@@ -34,6 +36,29 @@ export async function getStudentsBySchoolCode(schoolCode: string) {
       },
     },
     orderBy: { created_at: "desc" },
+  })
+}
+
+// ─── GET students for a school (by school ID, includes profile picture) ──────
+
+export async function getStudentsBySchoolId(schoolId: string) {
+  return prisma.student.findMany({
+    where: { school_id: schoolId, status: "ACTIVE" },
+    select: {
+      roll_no: true,
+      class: true,
+      section: true,
+      user: {
+        select: {
+          id: true,
+          username: true,
+          name: true,
+          phone: true,
+          profile_picture: true,
+        },
+      },
+    },
+    orderBy: [{ class: "asc" }, { section: "asc" }, { roll_no: "asc" }],
   })
 }
 
@@ -100,63 +125,117 @@ export async function importStudents(
     }
   }
 
-  // 4. Find the highest existing sequence number for this school to avoid ID collisions.
-  //    Using count() is wrong when students have been deleted — it underestimates the high-water mark.
-  const idPattern = new RegExp(`^${escapeRegex(schoolCode)}(\\d{4})$`)
-
-  const existingStudentUsers = await prisma.student.findMany({
-    where: { school_id: school.id },
-    select: { user: { select: { username: true } } },
-  })
-
-  let maxSequence = 0
-  for (const record of existingStudentUsers) {
-    const match = idPattern.exec(record.user.username)
-    if (match) {
-      const seq = parseInt(match[1], 10)
-      if (seq > maxSequence) maxSequence = seq
+  // 3b. Check emails against DB (User.email is globally unique)
+  const incomingEmails = rows.map((r) => r.email).filter((e): e is string => !!e)
+  if (incomingEmails.length > 0) {
+    const existingEmailUsers = await prisma.user.findMany({
+      where: { email: { in: incomingEmails } },
+      select: { email: true },
+    })
+    if (existingEmailUsers.length > 0) {
+      const takenEmails = new Set(existingEmailUsers.map((u) => u.email!.toLowerCase()))
+      const errors = rows
+        .map((row, i) =>
+          row.email && takenEmails.has(row.email.toLowerCase())
+            ? `Row ${i + 2}: Email "${row.email}" is already registered`
+            : null
+        )
+        .filter(Boolean) as string[]
+      return {
+        success: false,
+        summary: { total: rows.length, imported: 0, failed: errors.length },
+        errors,
+      }
     }
   }
 
-  // 5. Generate credentials for all students concurrently (before transaction)
-  const enrichedStudents: EnrichedStudent[] = await Promise.all(
-    rows.map(async (row, index) => {
-      const sequence = maxSequence + index + 1
-      const studentUniqueId = generateStudentUniqueId(schoolCode, sequence)
+  // 3c. Check admission_no against existing students in this school
+  const incomingAdmissionNos = rows.map((r) => r.admission_no).filter((a): a is string => !!a)
+  if (incomingAdmissionNos.length > 0) {
+    const existingAdmissionNos = await prisma.student.findMany({
+      where: { school_id: school.id, admission_no: { in: incomingAdmissionNos } },
+      select: { admission_no: true },
+    })
+    if (existingAdmissionNos.length > 0) {
+      const takenNos = new Set(existingAdmissionNos.map((s) => s.admission_no!))
+      const errors = rows
+        .map((row, i) =>
+          row.admission_no && takenNos.has(row.admission_no)
+            ? `Row ${i + 2}: Admission number "${row.admission_no}" already exists in this school`
+            : null
+        )
+        .filter(Boolean) as string[]
+      return {
+        success: false,
+        summary: { total: rows.length, imported: 0, failed: errors.length },
+        errors,
+      }
+    }
+  }
+
+  // 4. Pre-generate passwords + hashes outside the transaction (bcrypt is CPU-heavy;
+  //    holding a DB transaction open while hashing would block the connection pool).
+  //    Sequences are assigned INSIDE the transaction to prevent ID collisions when
+  //    two imports run concurrently for the same school.
+  const idPattern = new RegExp(`^${escapeRegex(schoolCode)}(\\d{4})$`)
+
+  const preHashed = await Promise.all(
+    rows.map(async (row) => {
       const temporaryPassword = generateTemporaryPassword()
       const passwordHash = await bcrypt.hash(temporaryPassword, BCRYPT_SALT_ROUNDS)
-
-      return {
-        name: row.name,
-        email: row.email || null,
-        phone: row.phone || null,
-        admission_no: row.admission_no || null,
-        roll_no: row.roll_no,
-        class: row.class,
-        section: row.section,
-        guardian_name: row.guardian_name,
-        guardian_phone: row.guardian_phone,
-        studentUniqueId,
-        temporaryPassword,
-        passwordHash,
-      }
+      return { row, temporaryPassword, passwordHash }
     })
   )
 
-  // 5b. Clean up orphaned User records whose usernames match this batch.
-  //     Orphans arise when a school is deleted (cascade removes Student/SchoolUser but not User).
-  //     Without this step, re-importing into a re-created school fails on User.username @unique.
-  const newUsernames = enrichedStudents.map((s) => s.studentUniqueId)
-  await prisma.user.deleteMany({
-    where: {
-      username: { in: newUsernames },
-      schoolUsers: { none: {} }, // Only delete if no active school membership
-    },
-  })
+  // 5. Bulk insert in a Prisma interactive transaction.
+  //    Sequence discovery happens INSIDE the transaction so concurrent imports
+  //    cannot read the same maxSequence and generate colliding usernames.
+  let enrichedStudents: EnrichedStudent[] = []
 
-  // 6. Bulk insert in a Prisma interactive transaction
   await prisma.$transaction(async (tx) => {
-    // 6a. Create all User records and get back id + username
+    // 5a. Discover maxSequence atomically within this transaction
+    const existingStudentUsers = await tx.student.findMany({
+      where: { school_id: school.id },
+      select: { user: { select: { username: true } } },
+    })
+    let maxSequence = 0
+    for (const record of existingStudentUsers) {
+      const match = idPattern.exec(record.user.username)
+      if (match) {
+        const seq = parseInt(match[1], 10)
+        if (seq > maxSequence) maxSequence = seq
+      }
+    }
+
+    // 5b. Assign sequences + build enriched data (sequences now reflect freshest DB state)
+    enrichedStudents = preHashed.map((p, index) => ({
+      name: p.row.name,
+      email: p.row.email || null,
+      phone: p.row.phone || null,
+      admission_no: p.row.admission_no || null,
+      roll_no: p.row.roll_no,
+      class: p.row.class,
+      section: p.row.section,
+      guardian_name: p.row.guardian_name,
+      guardian_phone: p.row.guardian_phone,
+      date_of_birth: p.row.date_of_birth,
+      studentUniqueId: generateStudentUniqueId(schoolCode, maxSequence + index + 1),
+      temporaryPassword: p.temporaryPassword,
+      passwordHash: p.passwordHash,
+    }))
+
+    // 5c. Clean up orphaned User records whose usernames match this batch.
+    //     Orphans arise when a school is deleted (cascade removes Student/SchoolUser but not User).
+    //     Running inside the transaction makes the cleanup + inserts atomic.
+    const newUsernames = enrichedStudents.map((s) => s.studentUniqueId)
+    await tx.user.deleteMany({
+      where: {
+        username: { in: newUsernames },
+        schoolUsers: { none: {} }, // Only delete if no active school membership
+      },
+    })
+
+    // 5d. Create all User records and get back id + username
     const createdUsers = await tx.user.createManyAndReturn({
       data: enrichedStudents.map((s) => ({
         name: s.name,
@@ -167,14 +246,15 @@ export async function importStudents(
         role: "STUDENT" as const,
         must_reset_password: true,
         is_active: true,
+        date_of_birth: s.date_of_birth,
       })),
       select: { id: true, username: true },
     })
 
-    // 6b. Map username → user_id for O(1) lookup
+    // 5e. Map username → user_id for O(1) lookup
     const userIdByUsername = new Map(createdUsers.map((u) => [u.username, u.id]))
 
-    // 6c. Build Student and SchoolUser records
+    // 5f. Build Student and SchoolUser records
     const studentsData = enrichedStudents.map((s) => ({
       school_id: school.id,
       user_id: userIdByUsername.get(s.studentUniqueId)!,
@@ -192,7 +272,7 @@ export async function importStudents(
       role: "STUDENT" as const,
     }))
 
-    // 6d. Insert students and schoolUsers in parallel
+    // 5g. Insert students and schoolUsers in parallel
     await Promise.all([
       tx.student.createMany({ data: studentsData }),
       tx.schoolUser.createMany({ data: schoolUsersData }),
@@ -237,5 +317,120 @@ export async function importStudents(
     errors: [],
     pdf: pdfBase64,
     classSectionPdfs,
+  }
+}
+
+// ─── CREATE single student (admin quick-add) ─────────────────────────────────
+
+export async function createSingleStudent(
+  adminUserId: string,
+  input: CreateStudentInput
+): Promise<CreateStudentResult> {
+  const schoolId = await getAdminSchoolId(adminUserId)
+  if (!schoolId) throw new Error("SCHOOL_NOT_FOUND")
+
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { id: true, schoolCode: true },
+  })
+  if (!school) throw new Error("SCHOOL_NOT_FOUND")
+
+  const { schoolCode } = school
+
+  // Fail-fast uniqueness checks
+  if (input.email) {
+    const existing = await prisma.user.findFirst({ where: { email: input.email } })
+    if (existing) throw new Error("EMAIL_TAKEN")
+  }
+
+  if (input.admission_no) {
+    const existing = await prisma.student.findFirst({
+      where: { school_id: schoolId, admission_no: input.admission_no },
+    })
+    if (existing) throw new Error("ADMISSION_NO_TAKEN")
+  }
+
+  const existingRoll = await prisma.student.findFirst({
+    where: { school_id: schoolId, class: input.class, section: input.section, roll_no: input.roll_no },
+  })
+  if (existingRoll) throw new Error("ROLL_NO_TAKEN")
+
+  // Sequence discovery — mirrors importStudents exactly
+  const idPattern = new RegExp(`^${escapeRegex(schoolCode)}(\\d{4})$`)
+  const existingStudentUsers = await prisma.student.findMany({
+    where: { school_id: schoolId },
+    select: { user: { select: { username: true } } },
+  })
+  let maxSequence = 0
+  for (const record of existingStudentUsers) {
+    const match = idPattern.exec(record.user.username)
+    if (match) {
+      const seq = parseInt(match[1], 10)
+      if (seq > maxSequence) maxSequence = seq
+    }
+  }
+
+  const studentUniqueId = generateStudentUniqueId(schoolCode, maxSequence + 1)
+  const temporaryPassword = generateTemporaryPassword()
+  const passwordHash = await bcrypt.hash(temporaryPassword, BCRYPT_SALT_ROUNDS)
+
+  // Parse optional date_of_birth
+  let dob: Date | undefined
+  if (input.date_of_birth) {
+    try {
+      dob = parseDDMMYYYY(input.date_of_birth)
+    } catch {
+      throw new Error("INVALID_DATE_OF_BIRTH")
+    }
+  }
+
+  // Clean up orphaned User record for this username (if any)
+  await prisma.user.deleteMany({
+    where: { username: studentUniqueId, schoolUsers: { none: {} } },
+  })
+
+  // Transaction: User → Student → SchoolUser
+  await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        name: input.name,
+        username: studentUniqueId,
+        email: input.email || undefined,
+        phone: input.phone || undefined,
+        password_hash: passwordHash,
+        role: "STUDENT",
+        must_reset_password: true,
+        is_active: true,
+        date_of_birth: dob,
+      },
+      select: { id: true },
+    })
+
+    await Promise.all([
+      tx.student.create({
+        data: {
+          school_id: schoolId,
+          user_id: user.id,
+          class: input.class,
+          section: input.section,
+          roll_no: input.roll_no,
+          guardian_name: input.guardian_name,
+          guardian_phone: input.guardian_phone,
+          admission_no: input.admission_no || undefined,
+        },
+      }),
+      tx.schoolUser.create({
+        data: { school_id: schoolId, user_id: user.id, role: "STUDENT" },
+      }),
+    ])
+  })
+
+  return {
+    username: studentUniqueId,
+    temporaryPassword,
+    name: input.name,
+    class: input.class,
+    section: input.section,
+    roll_no: input.roll_no,
   }
 }

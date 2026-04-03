@@ -37,6 +37,35 @@ enum RecordStatus {
   TRANSFERRED
 }
 
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+enum DayType {
+  HOLIDAY
+  WORKING_DAY
+  HALF_DAY
+  EVENT
+}
+
+enum NotificationAudience {
+  ALL
+  STUDENT
+  TEACHER
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
 //
 // MODELS
 //
@@ -50,14 +79,28 @@ model User {
   role                 Role     @default(STUDENT)
   password_hash        String
   must_reset_password  Boolean  @default(true)
+  is_profile_complete  Boolean  @default(false)
   is_active            Boolean  @default(true)
   last_login_at        DateTime?
+  date_of_birth        DateTime?
+  blood_group          String?
+  aadhaar_number       String?          @unique
+  address              String?
+  profile_picture      String?
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
 
-  schoolUsers          SchoolUser[]
-  students             Student[]
-  teachers             Teacher[]
+  schoolUsers                    SchoolUser[]
+  students                       Student[]
+  teachers                       Teacher[]
+  attendancesSubmitted           Attendance[]         @relation("AttendanceSubmittedBy")
+  attendancesEdited              Attendance[]         @relation("AttendanceLastEditedBy")
+  teacherAttendancesSubmitted    TeacherAttendance[]  @relation("TeacherAttendanceSubmittedBy")
+  teacherAttendancesEdited       TeacherAttendance[]  @relation("TeacherAttendanceLastEditedBy")
+  calendarEntries                SchoolCalendar[]     @relation("CalendarCreatedBy")
+  attendanceAccessesGranted      AttendanceAccess[]   @relation("AttendanceAccessGrantedBy")
+  notificationsCreated           Notification[]       @relation("NotificationCreatedBy")
+  notificationReads              NotificationRead[]   @relation("NotificationReadBy")
 }
 
 model School {
@@ -69,12 +112,21 @@ model School {
   trial_ends_at         DateTime?
   subscription_ends_at  DateTime?
   max_students          Int?
+  session_started_on    DateTime?  @db.Date
   created_at            DateTime @default(now())
   updated_at            DateTime @updatedAt
 
   schoolUsers           SchoolUser[]
   students              Student[]
   teachers              Teacher[]
+  classTeachers         ClassTeacher[]
+  attendances           Attendance[]
+  teacherAttendances    TeacherAttendance[]
+  calendarEntries       SchoolCalendar[]
+  attendanceAccesses    AttendanceAccess[]
+  notifications         Notification[]
+  periods               Period[]
+  timetables            Timetable[]
 }
 
 model SchoolUser {
@@ -106,12 +158,16 @@ model Student {
   stream          String?
   guardian_name   String
   guardian_phone  String
+  house_name      String?
+  father_name     String?
+  mother_name     String?
   status          RecordStatus @default(ACTIVE)
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
   school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
   user            User     @relation(fields: [user_id], references: [id])
+  attendances     Attendance[]
 
   @@unique([school_id, admission_no])
   @@unique([school_id, class, section, roll_no])
@@ -127,8 +183,183 @@ model Teacher {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  school       School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  user         User     @relation(fields: [user_id], references: [id])
+  school              School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  user                User                @relation(fields: [user_id], references: [id])
+  classTeacher        ClassTeacher?
+  teacherAttendances  TeacherAttendance[]
+  attendanceAccesses  AttendanceAccess[]
+  timetables          Timetable[]
 
   @@unique([school_id, employee_id])
+}
+
+model ClassTeacher {
+  id          String       @id @default(uuid()) @db.Uuid
+  school_id   String       @db.Uuid
+  teacher_id  String       @unique @db.Uuid
+  class       String
+  section     String
+  assigned_at DateTime     @default(now())
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+
+  school      School       @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher     Teacher      @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@unique([school_id, class, section])
+}
+
+model AttendanceAccess {
+  id          String   @id @default(uuid()) @db.Uuid
+  school_id   String   @db.Uuid
+  teacher_id  String   @db.Uuid
+  class       String
+  section     String
+  start_date  DateTime @db.Date
+  end_date    DateTime @db.Date
+  granted_by  String   @db.Uuid
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  school     School  @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher    Teacher @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  grantedBy  User    @relation("AttendanceAccessGrantedBy", fields: [granted_by], references: [id])
+
+  @@index([school_id, class, section])
+  @@index([teacher_id])
+}
+
+model Attendance {
+  id              String           @id @default(uuid()) @db.Uuid
+  school_id       String           @db.Uuid
+  student_id      String           @db.Uuid
+  date            DateTime         @db.Date
+  status          AttendanceStatus
+  submitted_by    String           @db.Uuid
+  submitted_at    DateTime         @default(now())
+  last_edited_by  String?          @db.Uuid
+  last_edited_at  DateTime?
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+
+  school          School           @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student         Student          @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  submittedBy     User             @relation("AttendanceSubmittedBy", fields: [submitted_by], references: [id])
+  lastEditedBy    User?            @relation("AttendanceLastEditedBy", fields: [last_edited_by], references: [id])
+
+  @@unique([school_id, student_id, date])
+  @@index([school_id, date])
+  @@index([student_id, date])
+}
+
+model TeacherAttendance {
+  id              String           @id @default(uuid()) @db.Uuid
+  school_id       String           @db.Uuid
+  teacher_id      String           @db.Uuid
+  date            DateTime         @db.Date
+  status          AttendanceStatus
+  submitted_by    String           @db.Uuid
+  submitted_at    DateTime         @default(now())
+  last_edited_by  String?          @db.Uuid
+  last_edited_at  DateTime?
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+
+  school          School           @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher         Teacher          @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  submittedBy     User             @relation("TeacherAttendanceSubmittedBy", fields: [submitted_by], references: [id])
+  lastEditedBy    User?            @relation("TeacherAttendanceLastEditedBy", fields: [last_edited_by], references: [id])
+
+  @@unique([school_id, teacher_id, date])
+  @@index([school_id, date])
+  @@index([teacher_id, date])
+}
+
+model SchoolCalendar {
+  id          String   @id @default(uuid()) @db.Uuid
+  school_id   String   @db.Uuid
+  date        DateTime @db.Date
+  type        DayType
+  reason      String?
+  created_by  String   @db.Uuid
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  createdBy   User     @relation("CalendarCreatedBy", fields: [created_by], references: [id])
+
+  @@unique([school_id, date])
+  @@index([school_id, date])
+}
+
+model Notification {
+  id              String               @id @default(uuid()) @db.Uuid
+  school_id       String               @db.Uuid
+  // Nullable so notifications survive when their creator's account is deleted (SetNull)
+  created_by      String?              @db.Uuid
+  title           String
+  message         String
+  target_audience NotificationAudience @default(ALL)
+  target_class    String?
+  target_section  String?
+  created_at      DateTime             @default(now())
+  updated_at      DateTime             @updatedAt
+
+  school          School               @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  creator         User?                @relation("NotificationCreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
+  reads           NotificationRead[]
+
+  @@index([school_id, created_at(sort: Desc)])
+}
+
+model NotificationRead {
+  id              String       @id @default(uuid()) @db.Uuid
+  notification_id String       @db.Uuid
+  user_id         String       @db.Uuid
+  read_at         DateTime     @default(now())
+
+  notification    Notification @relation(fields: [notification_id], references: [id], onDelete: Cascade)
+  user            User         @relation("NotificationReadBy", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([notification_id, user_id])
+  @@index([user_id])
+}
+
+model Period {
+  id          String      @id @default(uuid()) @db.Uuid
+  school_id   String      @db.Uuid
+  label       String
+  start_time  String
+  end_time    String
+  is_break    Boolean     @default(false)
+  order       Int
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  school      School      @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  timetables  Timetable[]
+
+  @@index([school_id, order])
+}
+
+model Timetable {
+  id          String     @id @default(uuid()) @db.Uuid
+  school_id   String     @db.Uuid
+  period_id   String     @db.Uuid
+  day_of_week DayOfWeek
+  teacher_id  String     @db.Uuid
+  subject     String
+  class       String
+  section     String
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt
+
+  school      School     @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  period      Period     @relation(fields: [period_id], references: [id], onDelete: Cascade)
+  teacher     Teacher    @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@unique([school_id, period_id, day_of_week, teacher_id])
+  @@unique([school_id, period_id, day_of_week, class, section])
+  @@index([school_id, day_of_week])
+  @@index([teacher_id])
 }

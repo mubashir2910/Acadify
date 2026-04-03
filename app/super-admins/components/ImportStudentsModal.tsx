@@ -22,9 +22,22 @@ type ImportState =
   | { phase: "error"; errors: string[]; summary: ImportSummary }
 
 const SAMPLE_CSV =
-  "name,email,admission_no,roll_no,class,section,phone,guardian_name,guardian_phone\n" +
-  "John Doe,john@example.com,ADM001,101,10,A,+920000000000,Jane Doe,+921111111111\n" +
-  "Jane Smith,,ADM002,102,10,A,,Robert Smith,+922222222222"
+  "name,email,admission_no,roll_no,class,section,phone,guardian_name,guardian_phone,date_of_birth\n" +
+  "John Doe,john@example.com,ADM001,101,10,A,+920000000000,Jane Doe,+921111111111,15-08-2008\n" +
+  "Jane Smith,,ADM002,102,10,A,,Robert Smith,+922222222222,22-03-2009"
+
+const STUDENT_CSV_FIELDS = [
+  { name: "name", required: true },
+  { name: "roll_no", required: true },
+  { name: "class", required: true },
+  { name: "section", required: true },
+  { name: "guardian_name", required: true },
+  { name: "guardian_phone", required: true },
+  { name: "date_of_birth", required: true, note: "DD-MM-YYYY or YYYY-MM-DD" },
+  { name: "email", required: false },
+  { name: "phone", required: false },
+  { name: "admission_no", required: false, note: "School's existing number" },
+]
 
 export default function ImportStudentsModal({
   school,
@@ -156,6 +169,39 @@ export default function ImportStudentsModal({
             Accepted: .csv only · Max size: 5MB
           </p>
         </div>
+
+        {/* CSV Field Guide */}
+        <details className="group">
+          <summary className="text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none">
+            View CSV column reference
+          </summary>
+          <div className="mt-2 border rounded-md overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b">
+                  <th className="text-left px-3 py-1.5 font-medium">Column</th>
+                  <th className="text-center px-3 py-1.5 font-medium w-20">Required</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {STUDENT_CSV_FIELDS.map((f) => (
+                  <tr key={f.name} className="border-b last:border-b-0">
+                    <td className="px-3 py-1.5 font-mono">{f.name}</td>
+                    <td className="px-3 py-1.5 text-center">
+                      {f.required ? (
+                        <span className="text-green-600 font-semibold">Yes</span>
+                      ) : (
+                        <span className="text-slate-400">No</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 text-muted-foreground">{f.note ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
 
         {/* Result: success */}
         {importState.phase === "success" && (

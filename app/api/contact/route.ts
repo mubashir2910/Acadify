@@ -3,10 +3,24 @@ import { contactFormSchema } from "@/schemas/contact.schema"
 import { ZodError } from "zod"
 import nodemailer from "nodemailer"
 
+// Prevent HTML injection: escape special characters before interpolating into email HTML
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
     const validated = contactFormSchema.parse(body)
+
+    const safeName    = escapeHtml(validated.name)
+    const safeEmail   = escapeHtml(validated.email)
+    const safeMessage = escapeHtml(validated.message)
 
     const transporter = nodemailer.createTransport({
       service: "gmail",
@@ -20,15 +34,15 @@ export async function POST(req: Request) {
       from: `"Acadify Contact" <${process.env.CONTACT_EMAIL}>`,
       to: process.env.CONTACT_EMAIL,
       replyTo: validated.email,
-      subject: `New Contact Message from ${validated.name}`,
+      subject: `New Contact Message from ${safeName}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #1e293b;">New Contact Form Submission</h2>
           <hr style="border: none; border-top: 1px solid #e2e8f0;" />
-          <p><strong>Name:</strong> ${validated.name}</p>
-          <p><strong>Email:</strong> ${validated.email}</p>
+          <p><strong>Name:</strong> ${safeName}</p>
+          <p><strong>Email:</strong> ${safeEmail}</p>
           <p><strong>Message:</strong></p>
-          <div style="padding: 16px; background: #f8fafc; border-radius: 8px; white-space: pre-wrap;">${validated.message}</div>
+          <div style="padding: 16px; background: #f8fafc; border-radius: 8px; white-space: pre-wrap;">${safeMessage}</div>
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin-top: 24px;" />
           <p style="font-size: 12px; color: #94a3b8;">Sent from the Acadify contact form</p>
         </div>
