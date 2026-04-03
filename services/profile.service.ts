@@ -16,7 +16,7 @@ function throwIfUniqueViolation(error: unknown): never {
   ) {
     const target = (error.meta?.target as string[]) ?? []
     if (target.includes("aadhaar_number")) {
-      throw new Error("This Aadhaar number is already registered to another account")
+      throw new Error("This Aadhaar number is already registered. Please check the number. If it is correct, contact your teacher.")
     }
     if (target.includes("email")) {
       throw new Error("This email address is already registered to another account")
