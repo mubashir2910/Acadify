@@ -13,7 +13,9 @@ export default function LoginPage() {
 
                 {/* Centered logo */}
                 <div className="flex justify-center mb-8">
+                    <a href="https://acadify.tech">
                     <Logo />
+                    </a>
                 </div>
 
                 {/* Login card */}
@@ -35,24 +37,20 @@ export default function LoginPage() {
                     {/* Guidance for unregistered users */}
                     <div className="space-y-3 text-sm text-gray-500 text-center">
                         <p>
-                            <span className="font-semibold text-gray-700">Student?</span>{' '}
-                            Your school may not be on Acadify yet. Fill our{' '}
-                            <Link href="/contact-us" className="text-primary font-medium hover:underline">
-                                contact form
-                            </Link>{' '}
-                            and we&apos;ll get in touch.
+                            <span className="font-semibold text-gray-700">Student or Teacher?</span>{' '}
+                            Your credentials are provided by your school admin. Contact your school if you haven&apos;t received them yet.
                         </p>
                         <p>
-                            <span className="font-semibold text-gray-700">Teacher / Staff / School Owner?</span>{' '}
+                            <span className="font-semibold text-gray-700">School not on Acadify?</span>{' '}
                             <button
                                 data-cal-namespace="acadify-demo"
                                 data-cal-link="mubashir2910/acadify-demo"
                                 data-cal-config='{"layout":"month_view","useSlotsViewOnSmallScreen":"true"}'
                                 className="text-primary font-medium hover:underline cursor-pointer"
                             >
-                                Book a call now
+                                Book a free demo
                             </button>{' '}
-                            and automate your school today.
+                            and get your school set up in no time.
                         </p>
                     </div>
                 </div>

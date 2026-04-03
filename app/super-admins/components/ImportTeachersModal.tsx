@@ -22,9 +22,18 @@ type ImportState =
   | { phase: "error"; errors: string[]; summary: ImportSummary }
 
 const SAMPLE_CSV =
-  "name,email,joining_date\n" +
-  "John Smith,john.smith@school.com,2024-01-15\n" +
-  "Jane Doe,jane.doe@school.com,"
+  "name,email,phone,joining_date,date_of_birth,blood_group\n" +
+  "John Smith,john.smith@school.com,9876543210,2024-01-15,12-03-1990,B+\n" +
+  "Jane Doe,jane.doe@school.com,9123456789,,,"
+
+const TEACHER_CSV_FIELDS = [
+  { name: "name", required: true },
+  { name: "email", required: true },
+  { name: "phone", required: true, note: "10+ digits" },
+  { name: "joining_date", required: false, note: "Format: YYYY-MM-DD" },
+  { name: "date_of_birth", required: false, note: "DD-MM-YYYY or YYYY-MM-DD" },
+  { name: "blood_group", required: false, note: "e.g. A+, B-, O+, AB+" },
+]
 
 export default function ImportTeachersModal({
   school,
@@ -151,6 +160,39 @@ export default function ImportTeachersModal({
             Accepted: .csv only · Max size: 5MB
           </p>
         </div>
+
+        {/* CSV Field Guide */}
+        <details className="group">
+          <summary className="text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none">
+            View CSV column reference
+          </summary>
+          <div className="mt-2 border rounded-md overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b">
+                  <th className="text-left px-3 py-1.5 font-medium">Column</th>
+                  <th className="text-center px-3 py-1.5 font-medium w-20">Required</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {TEACHER_CSV_FIELDS.map((f) => (
+                  <tr key={f.name} className="border-b last:border-b-0">
+                    <td className="px-3 py-1.5 font-mono">{f.name}</td>
+                    <td className="px-3 py-1.5 text-center">
+                      {f.required ? (
+                        <span className="text-green-600 font-semibold">Yes</span>
+                      ) : (
+                        <span className="text-slate-400">No</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 text-muted-foreground">{f.note ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
 
         {/* Result: success */}
         {importState.phase === "success" && (

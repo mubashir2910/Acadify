@@ -1,0 +1,144 @@
+# Acadify
+
+> Acadify is a modern, affordable school management platform built for schools of every size. It digitalises academic operations — from student and teacher management to attendance, timetables, calendars, and notifications — all in one unified system.
+
+## What is Acadify?
+
+Acadify is a SaaS (Software as a Service) school management platform designed for Indian schools. It replaces scattered spreadsheets, paper registers, and disconnected tools with a single platform that serves everyone in the school — super admins, school admins, teachers, and students.
+
+The platform is built on a role-based access model. Each role gets a tailored dashboard and access to only what is relevant to them.
+
+## Who is Acadify for?
+
+- **School Owners / Management Trusts** — Oversee multiple schools, manage subscriptions and admins
+- **School Admins** — Manage students, teachers, attendance, timetables, class teachers, and school calendar
+- **Teachers** — Mark student attendance, view their own timetable and attendance, manage their class
+- **Students** — View personal attendance, timetable, class teacher info, school calendar, and notifications
+
+## Core Features (Available in v1)
+
+### Student Management
+- Add students individually or bulk import via CSV
+- Student profiles with personal details, guardian info, blood group, Aadhaar, address, profile picture
+- Unique student ID auto-generated per school (format: `{schoolCode}{NNNN}`)
+- Temporary passwords issued on import; students reset on first login
+
+### Teacher Management
+- Add teachers individually or bulk import via CSV
+- Teacher profiles with employee ID, joining date, subject info
+- Unique employee ID auto-generated per school (format: `{schoolCode}T{NNN}`)
+
+### Attendance
+- Teachers mark daily student attendance (Present / Absent / Late)
+- Admins can view and edit attendance for any date
+- Students and parents can view personal attendance calendar
+- School session start date anchors attendance rate calculations
+- Attendance rate = (Present + Late) / total working days × 100
+- Teachers can only edit attendance within the current week; admins have no restriction
+
+### Teacher Attendance
+- Admins mark and review teacher attendance separately
+- Teacher attendance history and monthly overview available
+
+### Timetable
+- Admins create period structures and assign subjects/teachers per class per day
+- Teachers view their own daily/weekly schedule
+- Students view their class timetable
+
+### School Calendar
+- Admins mark holidays, working weekends, half days, and school events
+- Teachers and students see a read-only calendar
+- Holidays block attendance submission for that date
+
+### Notifications
+- Admins can send announcements to all students, all teachers, or specific class sections
+- Teachers and students receive notifications in their dashboard
+- Unread count badge shown in sidebar navigation
+
+### Class Teachers
+- Admins assign a class teacher to each class-section
+- Teachers can view their assigned class
+- Students can see who their class teacher is
+- Admins can grant temporary attendance access to substitute teachers
+
+### Profile Management
+- All users complete their profile on first login (after password reset)
+- Profile includes: date of birth, blood group, Aadhaar number, address, profile picture
+- Profile picture uploaded to Cloudinary
+
+### Authentication & Security
+- Username + password login (no OAuth)
+- Mandatory password reset on first login
+- JWT-based sessions (10-day expiry, refreshed every 15 minutes)
+- School subscription check on every login and JWT refresh
+- Rate limiting on login and password reset endpoints (Upstash Redis)
+
+### Subscription & Multi-tenancy
+- Super admins manage schools and their subscription status
+- Subscription statuses: TRIAL, ACTIVE, SUSPENDED, CANCELLED
+- Schools auto-suspended when trial or subscription expires
+- Pricing is per-student-strength, customised per school
+
+### Birthdays
+- Admins, teachers, and students can view upcoming birthdays for their school community
+
+## Features Planned for Future Versions (NOT in v1)
+
+- Fee Management
+- Result / Report Card Management
+- Communication Hub (internal messaging)
+- Class Log (daily subject-wise teaching log)
+- Parent portal / parent role
+
+## Pricing Model
+
+Acadify does not publish fixed pricing. Pricing is customised based on the number of students in the school. All plans include a free trial. Schools book a call with the Acadify team to get a tailored quote.
+
+## Technology Stack
+
+- **Frontend**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, shadcn/ui
+- **Backend**: Next.js API Routes (server-side), Prisma ORM, PostgreSQL
+- **Auth**: NextAuth v5 (JWT strategy, Credentials provider)
+- **Storage**: Cloudinary (profile pictures)
+- **Rate Limiting**: Upstash Redis
+- **Deployment**: Vercel
+
+## User Roles
+
+| Role | Description |
+|------|-------------|
+| `SUPER_ADMIN` | Platform owner; manages all schools, subscriptions, and imports |
+| `ADMIN` | School-level admin; manages teachers, students, attendance, timetable, calendar |
+| `TEACHER` | Marks class attendance, views own timetable and attendance |
+| `STUDENT` | Views personal attendance, timetable, calendar, notifications |
+
+## Onboarding Flow
+
+1. School contacts Acadify → books a demo call
+2. Acadify team creates the school on the platform
+3. Admin credentials shared with the school admin
+4. Admin logs in → resets password → completes profile → accesses dashboard
+5. Admin imports teachers and students via CSV
+6. Teachers and students log in with temporary credentials → reset password → complete profile
+7. School operations begin: attendance, timetable, calendar, notifications
+
+## Key URLs
+
+- Homepage: https://acadify.tech
+- Features: https://acadify.tech/#features
+- Pricing: https://acadify.tech/#pricing
+- How It Works: https://acadify.tech/#how-it-works
+- Contact: https://acadify.tech/contact-us
+- Book a Demo: https://cal.com/mubashir2910/acadify-demo
+- Login: https://acadify.tech/login
+- Privacy Policy: https://acadify.tech/privacy-policy
+- Terms of Service: https://acadify.tech/terms-of-service
+- Sitemap: https://acadify.tech/sitemap.xml
+
+## Brand
+
+- **Brand Name**: Acadify
+- **Tagline**: A digital evolution for every school
+- **Brand Color**: #1e2a4a (dark navy blue)
+- **Target Market**: K-12 schools in India
+- **Mission**: Make powerful school management software accessible and affordable for every school, regardless of size

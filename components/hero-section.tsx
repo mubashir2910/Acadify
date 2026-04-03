@@ -46,7 +46,7 @@ export default function HeroSection() {
                                 container: {
                                     visible: {
                                         transition: {
-                                            delayChildren: 1,
+                                            delayChildren: 0.2,
                                         },
                                     },
                                 },
@@ -61,7 +61,7 @@ export default function HeroSection() {
                                         transition: {
                                             type: 'spring',
                                             bounce: 0.3,
-                                            duration: 2,
+                                            duration: 1.2,
                                         },
                                     },
                                 },
@@ -69,10 +69,12 @@ export default function HeroSection() {
                             className="mask-b-from-35% mask-b-to-90% absolute inset-0 top-56 -z-20 lg:top-32">
                             <Image
                                 src="https://ik.imagekit.io/lrigu76hy/tailark/night-background.jpg?updatedAt=1745733451120"
-                                alt="background"
+                                alt=""
+                                aria-hidden="true"
                                 className="hidden size-full dark:block"
                                 width="3276"
                                 height="4095"
+                                priority
                             />
                         </AnimatedGroup>
 
@@ -103,19 +105,14 @@ export default function HeroSection() {
                                     </Link>
                                 </AnimatedGroup>
 
-                                <TextEffect
-                                    preset="fade-in-blur"
-                                    speedSegment={0.3}
-                                    as="h1"
-                                    className="text-primary mx-auto mt-8 max-w-4xl text-balance text-4xl font-semibold max-md:font-semibold md:text-6xl lg:mt-16 xl:text-[4.75rem]">
-                                    Modern Digital Platform
-                                    for Schools
-                                </TextEffect>
+                                <h1 className="text-primary mx-auto mt-8 max-w-4xl text-balance text-4xl font-semibold max-md:font-semibold md:text-6xl lg:mt-16 xl:text-[4.75rem]">
+                                    Modern Digital Platform for Schools
+                                </h1>
                                 <TextEffect
                                     per="line"
                                     preset="fade-in-blur"
-                                    speedSegment={0.3}
-                                    delay={0.5}
+                                    speedSegment={1}
+                                    delay={0.2}
                                     as="p"
                                     className="mx-auto mt-8 max-w-2xl text-balance text-lg md:text-xl">
                                     A simple and affordable platform to manage
@@ -128,7 +125,7 @@ export default function HeroSection() {
                                             visible: {
                                                 transition: {
                                                     staggerChildren: 0.05,
-                                                    delayChildren: 0.75,
+                                                    delayChildren: 0.35,
                                                 },
                                             },
                                         },
