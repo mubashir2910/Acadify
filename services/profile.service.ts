@@ -14,11 +14,13 @@ function throwIfUniqueViolation(error: unknown): never {
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
   ) {
-    const target = (error.meta?.target as string[]) ?? []
-    if (target.includes("aadhaar_number")) {
-      throw new Error("This Aadhaar number is already registered. Please check the number. If it is correct, contact your teacher.")
+    const target = error.meta?.target
+    const targetStr = Array.isArray(target) ? target.join(",") : String(target)
+    
+    if (targetStr.includes("aadhaar_number")) {
+      throw new Error("This Aadhaar number may already be registered or is incorrect. If this is unexpected, please contact your administrator.")
     }
-    if (target.includes("email")) {
+    if (targetStr.includes("email")) {
       throw new Error("This email address is already registered to another account")
     }
     throw new Error("A unique constraint was violated")
