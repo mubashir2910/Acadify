@@ -154,7 +154,7 @@ export default function HeroSection() {
                                         size="lg"
                                         variant="ghost"
                                         className="h-10.5 rounded-xl px-5 bg-gray-100 border hover:bg-gray-200">
-                                        <Link href="#link">
+                                        <Link href="#how-it-works">
                                             <span className="text-nowrap">See How It Works</span>
                                         </Link>
                                     </Button>

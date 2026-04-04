@@ -27,9 +27,19 @@ interface StudentRow {
   }
 }
 
+function getValidPhone(userPhone?: string | null, guardianPhone?: string | null) {
+  const up = userPhone?.trim()
+  if (up && up.length >= 6 && up !== "-") return up
+  const gp = guardianPhone?.trim()
+  if (gp && gp.length >= 6 && gp !== "-") return gp
+  return null
+}
+
 function WhatsAppCell({ data }: { data?: StudentRow }) {
+  const displayPhone = getValidPhone(data?.user?.phone, data?.guardian_phone)
+
   function handleClick() {
-    const raw = data?.user.phone || data?.guardian_phone
+    const raw = displayPhone
     const cleaned = raw ? raw.replace(/\D/g, "") : ""
 
     if (!cleaned || cleaned.length < 7) {
@@ -39,8 +49,6 @@ function WhatsAppCell({ data }: { data?: StudentRow }) {
 
     window.open(`https://wa.me/${cleaned}`, "_blank", "noopener,noreferrer")
   }
-
-  const displayPhone = data?.user.phone || data?.guardian_phone
 
   return (
     <div className="flex items-center justify-center h-full">
@@ -105,7 +113,7 @@ export function AdminStudentsSection() {
         headerName: "Phone",
         flex: 1,
         minWidth: 120,
-        valueGetter: (p) => p.data?.user.phone || p.data?.guardian_phone || "—",
+        valueGetter: (p) => getValidPhone(p.data?.user?.phone, p.data?.guardian_phone) || "—",
       },
       {
         headerName: "Class",
