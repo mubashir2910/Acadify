@@ -10,6 +10,8 @@ import type { PeriodRow } from "@/schemas/timetable.schema"
 
 interface PeriodFormModalProps {
   mode: "create" | "edit"
+  /** Required for create mode — scopes the new period to a timetable group */
+  groupId?: string
   period?: PeriodRow
   lastPeriodEndTime?: string
   defaultOrder?: number
@@ -19,6 +21,7 @@ interface PeriodFormModalProps {
 
 export default function PeriodFormModal({
   mode,
+  groupId,
   period,
   lastPeriodEndTime,
   defaultOrder = 1,
@@ -48,7 +51,14 @@ export default function PeriodFormModal({
       const method = mode === "create" ? "POST" : "PATCH"
       const body =
         mode === "create"
-          ? { label: label.trim(), start_time: startTime, end_time: endTime, is_break: isBreak, order: defaultOrder }
+          ? {
+              group_id: groupId,
+              label: label.trim(),
+              start_time: startTime,
+              end_time: endTime,
+              is_break: isBreak,
+              order: defaultOrder,
+            }
           : { label: label.trim(), start_time: startTime, end_time: endTime, is_break: isBreak }
 
       const res = await fetch(url, {
@@ -121,7 +131,7 @@ export default function PeriodFormModal({
             <button
               type="button"
               onClick={fillFromLastPeriod}
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
             >
               Use last period&apos;s end time as start
             </button>
@@ -146,8 +156,12 @@ export default function PeriodFormModal({
             <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving…" : mode === "create" ? "Add" : "Save"}
+            <Button
+              type="submit"
+              loading={submitting}
+              loadingText="Saving…"
+            >
+              {mode === "create" ? "Add" : "Save"}
             </Button>
           </DialogFooter>
         </form>

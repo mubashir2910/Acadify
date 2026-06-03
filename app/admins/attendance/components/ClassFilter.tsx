@@ -28,7 +28,7 @@ export default function ClassFilter({
         <select
           value={selected}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900"
+          className="w-full rounded-full border border-border bg-card px-4 py-1.5 text-sm font-medium text-muted-foreground focus:outline-none focus:ring-2 focus:ring-slate-900"
         >
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -48,7 +48,7 @@ export default function ClassFilter({
               "rounded-full px-4 py-1.5 text-sm font-medium transition-colors border",
               selected === opt.value
                 ? "bg-slate-900 text-white border-slate-900"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                : "bg-card text-muted-foreground border-border hover:bg-muted/50"
             )}
           >
             {opt.label}

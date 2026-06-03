@@ -106,9 +106,9 @@ export default function SchoolCalendarView() {
   const getBadgeColor = (type: string) => {
     switch (type) {
       case "HOLIDAY": return "bg-rose-100 text-rose-600"
-      case "HALF_DAY": return "bg-amber-100 text-amber-700"
-      case "EVENT": return "bg-blue-100 text-blue-700"
-      default: return "bg-green-100 text-green-700"
+      case "HALF_DAY": return "bg-amber-100 text-amber-700 dark:text-amber-400"
+      case "EVENT": return "bg-blue-100 text-blue-700 dark:text-blue-400"
+      default: return "bg-green-100 text-green-700 dark:text-green-400"
     }
   }
 
@@ -192,10 +192,10 @@ export default function SchoolCalendarView() {
                   o.type === "HOLIDAY"
                     ? "border border-rose-300 text-rose-600 bg-rose-50"
                     : o.type === "HALF_DAY"
-                      ? "border border-amber-300 text-amber-700 bg-amber-50"
+                      ? "border border-amber-300 text-amber-700 dark:text-amber-400 bg-amber-50"
                       : o.type === "EVENT"
-                        ? "border border-blue-300 text-blue-700 bg-blue-50"
-                        : "border border-green-300 text-green-700 bg-green-50"
+                        ? "border border-blue-300 text-blue-700 dark:text-blue-400 bg-blue-50"
+                        : "border border-green-300 text-green-700 dark:text-green-400 bg-green-50"
                 return (
                   <div key={o.date} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pillClass}`}>
                     <span className="font-semibold">

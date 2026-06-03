@@ -84,7 +84,7 @@ export default function MarkTeacherAttendanceSection() {
         <div className="flex items-center justify-between lg:hidden">
           <div className="flex items-center gap-2">
             {isSubmitted && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 dark:text-green-400">
                 <Info className="h-3 w-3" />
                 {isToday ? "Submitted — editing" : "Submitted"}
               </span>
@@ -109,7 +109,7 @@ export default function MarkTeacherAttendanceSection() {
         {/* Desktop: submitted badge */}
         <div className="hidden lg:flex items-center gap-2">
           {isSubmitted && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 dark:text-green-400">
               <Info className="h-3 w-3" />
               {isToday ? "Submitted — editing" : "Submitted"}
             </span>
@@ -119,7 +119,7 @@ export default function MarkTeacherAttendanceSection() {
         {/* View-only banner */}
         {!isWithinEditWindow && (
           <div className={cn(
-            "flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"
+            "flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:text-blue-400"
           )}>
             <Eye className="h-4 w-4 shrink-0" />
             Viewing past attendance (editing for past weeks available through Teacher Overview page)

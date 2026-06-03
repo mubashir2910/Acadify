@@ -18,6 +18,7 @@ const ERROR_STATUS: Record<string, number> = {
   TEACHER_ALREADY_ASSIGNED: 409,
   CLASS_ALREADY_ASSIGNED: 409,
   ASSIGNMENT_NOT_FOUND: 404,
+  USER_NOT_IN_SCHOOL: 404,
 }
 
 async function getSchoolIdOrFail(userId: string) {
@@ -73,11 +74,14 @@ export async function POST(req: Request) {
   try {
     const input = assignClassTeacherSchema.parse(body)
     const schoolId = await getSchoolIdOrFail(session.user.id)
+    const target = input.teacherId
+      ? ({ kind: "teacher", teacherId: input.teacherId } as const)
+      : ({ kind: "admin", userId: input.adminUserId! } as const)
     const result = await assignClassTeacher(
       schoolId,
-      input.teacherId,
+      target,
       input.class,
-      input.section
+      input.section,
     )
     return NextResponse.json(result, { status: 201 })
   } catch (error) {
@@ -120,11 +124,14 @@ export async function PUT(req: Request) {
   try {
     const input = changeClassTeacherSchema.parse(body)
     const schoolId = await getSchoolIdOrFail(session.user.id)
+    const target = input.teacherId
+      ? ({ kind: "teacher", teacherId: input.teacherId } as const)
+      : ({ kind: "admin", userId: input.adminUserId! } as const)
     const result = await changeClassTeacher(
       schoolId,
       input.class,
       input.section,
-      input.newTeacherId
+      target,
     )
     return NextResponse.json(result)
   } catch (error) {

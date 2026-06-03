@@ -10,8 +10,9 @@ import AdminAttendanceChart from "./AdminAttendanceChart"
 import AddStudentModal from "./AddStudentModal"
 import AddTeacherModal from "./AddTeacherModal"
 import RecentEnrollmentsTable, { type EnrollmentRow } from "./RecentEnrollmentsTable"
+import TeacherTodaySchedule from "@/app/teacher/components/TeacherTodaySchedule"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
+import { StatCardSkeleton } from "@/components/ui/skeletons"
 import type { AttendanceSummaryStats, ClassAttendanceSummary } from "@/schemas/attendance.schema"
 import type { CreateStudentResult } from "@/schemas/student.schema"
 import type { CreateTeacherResult } from "@/schemas/teacher.schema"
@@ -29,6 +30,9 @@ export default function AdminDashboard() {
   const [addStudentOpen, setAddStudentOpen] = useState(false)
   const [addTeacherOpen, setAddTeacherOpen] = useState(false)
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([])
+  // Show Today's Schedule widget only when the admin actually has teaching
+  // duties (class-teacher or any timetable subject). Pure admins see no change.
+  const [showTodaySchedule, setShowTodaySchedule] = useState(false)
 
   const today = format(new Date(), "yyyy-MM-dd")
 
@@ -47,6 +51,17 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchAttendance()
   }, [fetchAttendance])
+
+  useEffect(() => {
+    fetch("/api/admin/teaching-context")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((ctx) =>
+        setShowTodaySchedule(
+          Boolean(ctx?.isClassTeacher) || Boolean(ctx?.hasTimetable),
+        ),
+      )
+      .catch(() => {/* non-critical */})
+  }, [])
 
   function handleStudentSuccess(result: CreateStudentResult) {
     setEnrollments((prev) =>
@@ -86,10 +101,14 @@ export default function AdminDashboard() {
         subtitle="Here's an overview of your school today."
       />
 
+      {showTodaySchedule && (
+        <TeacherTodaySchedule title="Today's Assigned Classes" />
+      )}
+
       {loading ? (
         <div className="grid grid-cols-2 gap-3">
-          <Skeleton className="h-24 rounded-xl" />
-          <Skeleton className="h-24 rounded-xl" />
+          <StatCardSkeleton />
+          <StatCardSkeleton />
         </div>
       ) : error ? (
         <p className="text-sm text-red-500">{error}</p>

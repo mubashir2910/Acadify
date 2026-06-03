@@ -16,8 +16,8 @@ export default function StudentSummaryCards({ stats }: StudentSummaryCardsProps)
       value: stats.presentDays,
       icon: CheckCircle,
       bg: "bg-green-50",
-      iconColor: "text-green-600",
-      valueColor: "text-green-700",
+      iconColor: "text-green-600 dark:text-green-400",
+      valueColor: "text-green-700 dark:text-green-400",
     },
     {
       label: "Absent",
@@ -25,8 +25,8 @@ export default function StudentSummaryCards({ stats }: StudentSummaryCardsProps)
       value: stats.absentDays,
       icon: XCircle,
       bg: "bg-red-50",
-      iconColor: "text-red-600",
-      valueColor: "text-red-700",
+      iconColor: "text-red-600 dark:text-red-400",
+      valueColor: "text-red-700 dark:text-red-400",
     },
     {
       label: "Late",
@@ -34,8 +34,8 @@ export default function StudentSummaryCards({ stats }: StudentSummaryCardsProps)
       value: stats.lateDays,
       icon: Clock,
       bg: "bg-amber-50",
-      iconColor: "text-amber-600",
-      valueColor: "text-amber-700",
+      iconColor: "text-amber-600 dark:text-amber-400",
+      valueColor: "text-amber-700 dark:text-amber-400",
     },
   ]
 

@@ -30,6 +30,9 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === "PERIOD_NOT_FOUND") {
       return NextResponse.json({ message: "One or more periods not found" }, { status: 404 })
     }
+    if (error instanceof Error && error.message === "GROUP_NOT_FOUND") {
+      return NextResponse.json({ message: "Timetable group not found" }, { status: 404 })
+    }
     console.error("[POST /api/timetable/periods/reorder]", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }

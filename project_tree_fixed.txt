@@ -1,0 +1,443 @@
+E:\Projects\acadify
+├── app
+|  ├── about
+|  |  └── page.tsx
+|  ├── admins
+|  |  ├── arena
+|  |  |  ├── components
+|  |  |  ├── create
+|  |  |  ├── page.tsx
+|  |  |  └── upcoming
+|  |  ├── assign-class-teachers
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── attendance
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── birthdays
+|  |  |  └── page.tsx
+|  |  ├── calendar
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── class-log
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── components
+|  |  |  ├── AddStudentModal.tsx
+|  |  |  ├── AddTeacherModal.tsx
+|  |  |  ├── AdminAttendanceChart.tsx
+|  |  |  ├── AdminDashboard.tsx
+|  |  |  ├── AdminQuickStats.tsx
+|  |  |  ├── RecentEnrollmentsTable.tsx
+|  |  |  └── ResetPasswordModal.tsx
+|  |  ├── error.tsx
+|  |  ├── layout.tsx
+|  |  ├── notifications
+|  |  |  └── page.tsx
+|  |  ├── page.tsx
+|  |  ├── profile
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── quiz
+|  |  |  ├── page.tsx
+|  |  |  └── [quizId]
+|  |  ├── students
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── teacher-attendance
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── teacher-attendance-overview
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── timetable
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  └── track-logs
+|  |     ├── components
+|  |     └── page.tsx
+|  ├── api
+|  |  ├── arena
+|  |  |  └── leaderboard
+|  |  ├── attendance
+|  |  |  ├── route.ts
+|  |  |  ├── student-monthly
+|  |  |  └── summary
+|  |  ├── attendance-access
+|  |  |  ├── route.ts
+|  |  |  └── [id]
+|  |  ├── auth
+|  |  |  ├── reset-password
+|  |  |  └── [...nextauth]
+|  |  ├── birthdays
+|  |  |  └── route.ts
+|  |  ├── calendar
+|  |  |  └── route.ts
+|  |  ├── class-log
+|  |  |  └── route.ts
+|  |  ├── class-teachers
+|  |  |  ├── all-class-sections
+|  |  |  ├── assigned-classes
+|  |  |  ├── available-classes
+|  |  |  ├── available-teachers
+|  |  |  ├── my-class
+|  |  |  ├── my-teacher
+|  |  |  └── route.ts
+|  |  ├── contact
+|  |  |  └── route.ts
+|  |  ├── notifications
+|  |  |  ├── class-sections
+|  |  |  ├── route.ts
+|  |  |  ├── unread-count
+|  |  |  └── [id]
+|  |  ├── profile
+|  |  |  ├── complete
+|  |  |  └── route.ts
+|  |  ├── quiz
+|  |  |  ├── classes
+|  |  |  ├── leaderboard
+|  |  |  ├── route.ts
+|  |  |  └── [quizId]
+|  |  ├── schools
+|  |  |  ├── route.ts
+|  |  |  └── [schoolCode]
+|  |  ├── students
+|  |  |  └── route.ts
+|  |  ├── super-admin
+|  |  |  └── dashboard-stats
+|  |  ├── teacher-attendance
+|  |  |  ├── monthly
+|  |  |  ├── route.ts
+|  |  |  └── summary
+|  |  ├── teachers
+|  |  |  └── route.ts
+|  |  ├── timetable
+|  |  |  ├── my
+|  |  |  ├── periods
+|  |  |  ├── route.ts
+|  |  |  └── today
+|  |  ├── upload
+|  |  |  ├── attachment
+|  |  |  └── profile-picture
+|  |  └── users
+|  |     └── [userId]
+|  ├── complete-profile
+|  |  ├── components
+|  |  |  ├── AdminCompleteProfileForm.tsx
+|  |  |  ├── StudentCompleteProfileForm.tsx
+|  |  |  └── TeacherCompleteProfileForm.tsx
+|  |  └── page.tsx
+|  ├── contact-us
+|  |  └── page.tsx
+|  ├── error.tsx
+|  ├── globals.css
+|  ├── icon.png
+|  ├── layout.tsx
+|  ├── login
+|  |  └── page.tsx
+|  ├── page.tsx
+|  ├── privacy-policy
+|  |  └── page.tsx
+|  ├── reset-password
+|  |  ├── components
+|  |  |  └── reset-password-form.tsx
+|  |  └── page.tsx
+|  ├── sitemap.ts
+|  ├── student
+|  |  ├── arena
+|  |  |  ├── components
+|  |  |  ├── layout.tsx
+|  |  |  ├── page.tsx
+|  |  |  └── quiz
+|  |  ├── attendance
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── birthdays
+|  |  |  └── page.tsx
+|  |  ├── calendar
+|  |  |  └── page.tsx
+|  |  ├── class-log
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── class-teacher
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── components
+|  |  |  ├── StudentAttendanceSummary.tsx
+|  |  |  ├── StudentCalendarPreview.tsx
+|  |  |  ├── StudentDashboard.tsx
+|  |  |  └── StudentTodaySchedule.tsx
+|  |  ├── error.tsx
+|  |  ├── layout.tsx
+|  |  ├── notifications
+|  |  |  └── page.tsx
+|  |  ├── page.tsx
+|  |  ├── profile
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  └── timetable
+|  |     ├── components
+|  |     └── page.tsx
+|  ├── super-admins
+|  |  ├── components
+|  |  |  ├── AddSchool.tsx
+|  |  |  ├── CreateAdminModal.tsx
+|  |  |  ├── DashboardAnalytics.tsx
+|  |  |  ├── DashboardStats.tsx
+|  |  |  ├── ImportStudentsModal.tsx
+|  |  |  ├── ImportTeachersModal.tsx
+|  |  |  ├── SchoolCard.tsx
+|  |  |  ├── SchoolsGrowthChart.tsx
+|  |  |  ├── SchoolsTable.tsx
+|  |  |  ├── SubscriptionInsights.tsx
+|  |  |  └── UserDistributionChart.tsx
+|  |  ├── error.tsx
+|  |  ├── layout.tsx
+|  |  ├── page.tsx
+|  |  └── [schoolCode]
+|  |     ├── admin
+|  |     ├── components
+|  |     ├── details
+|  |     ├── page.tsx
+|  |     └── teachers
+|  ├── teacher
+|  |  ├── arena
+|  |  |  ├── components
+|  |  |  ├── create
+|  |  |  └── page.tsx
+|  |  ├── attendance
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── birthdays
+|  |  |  └── page.tsx
+|  |  ├── calendar
+|  |  |  └── page.tsx
+|  |  ├── class-attendance
+|  |  |  └── page.tsx
+|  |  ├── class-log
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── class-teacher
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── components
+|  |  |  ├── TeacherAttendanceRadialChart.tsx
+|  |  |  ├── TeacherClassInfo.tsx
+|  |  |  ├── TeacherDashboard.tsx
+|  |  |  ├── TeacherQuickStats.tsx
+|  |  |  ├── TeacherSelfAttendanceStats.tsx
+|  |  |  └── TeacherTodaySchedule.tsx
+|  |  ├── error.tsx
+|  |  ├── layout.tsx
+|  |  ├── notifications
+|  |  |  └── page.tsx
+|  |  ├── page.tsx
+|  |  ├── profile
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  ├── quiz
+|  |  |  ├── create
+|  |  |  ├── page.tsx
+|  |  |  └── [quizId]
+|  |  ├── students
+|  |  |  ├── components
+|  |  |  └── page.tsx
+|  |  └── timetable
+|  |     ├── components
+|  |     └── page.tsx
+|  ├── terms-of-service
+|  |  └── page.tsx
+|  └── tw-animate.css
+├── ARCHITECTURE.md
+├── auth.config.ts
+├── auth.ts
+├── build_log.txt
+├── clean_tree.js
+├── components
+|  ├── amplification.tsx
+|  ├── arena
+|  |  └── ArenaManagementSection.tsx
+|  ├── attendance-calendar.tsx
+|  ├── birthdays-section.tsx
+|  ├── book-demo.tsx
+|  ├── cal-init.tsx
+|  ├── coming-soon.tsx
+|  ├── dashboard-greeting.tsx
+|  ├── faq.tsx
+|  ├── footer.tsx
+|  ├── forms
+|  |  ├── contact-us-form.tsx
+|  |  ├── create-school-form.tsx
+|  |  ├── login-form.tsx
+|  |  └── profile-picture-uploader.tsx
+|  ├── header.tsx
+|  ├── hero-section.tsx
+|  ├── layout
+|  |  ├── app-sidebar.tsx
+|  |  ├── dashboard-shell.tsx
+|  |  ├── mobile-header.tsx
+|  |  ├── sidebar-nav.tsx
+|  |  └── sidebar-user.tsx
+|  ├── login-form.tsx
+|  ├── logo.tsx
+|  ├── notifications
+|  |  ├── CreateNotificationModal.tsx
+|  |  ├── NotificationCard.tsx
+|  |  ├── NotificationDetailModal.tsx
+|  |  ├── NotificationsSection.tsx
+|  |  └── utils.ts
+|  ├── pricing.tsx
+|  ├── quiz
+|  |  ├── ConfirmContestModal.tsx
+|  |  ├── ContestCard.tsx
+|  |  ├── CreateQuizWizard.tsx
+|  |  ├── MyContestsSection.tsx
+|  |  ├── QuestionEditor.tsx
+|  |  ├── QuizDetailSection.tsx
+|  |  ├── QuizLeaderboard.tsx
+|  |  ├── StepBasicInfo.tsx
+|  |  ├── StepQuestions.tsx
+|  |  └── StepReview.tsx
+|  ├── school-calendar-view.tsx
+|  ├── timetable-grid-view.tsx
+|  ├── ui
+|  |  ├── animated-group.tsx
+|  |  ├── avatar.tsx
+|  |  ├── badge.tsx
+|  |  ├── button.tsx
+|  |  ├── calendar.tsx
+|  |  ├── card.tsx
+|  |  ├── chart.tsx
+|  |  ├── dialog.tsx
+|  |  ├── dropdown-menu.tsx
+|  |  ├── field-error.tsx
+|  |  ├── field.tsx
+|  |  ├── form.tsx
+|  |  ├── input.tsx
+|  |  ├── label.tsx
+|  |  ├── popover.tsx
+|  |  ├── profile-pic-cell.tsx
+|  |  ├── select.tsx
+|  |  ├── separator.tsx
+|  |  ├── sheet.tsx
+|  |  ├── sidebar.tsx
+|  |  ├── skeleton.tsx
+|  |  ├── switch.tsx
+|  |  ├── tabs.tsx
+|  |  ├── text-effect.tsx
+|  |  ├── textarea.tsx
+|  |  └── tooltip.tsx
+|  └── works.tsx
+├── components.json
+├── CONTRIBUTING.md
+├── curl_out.txt
+├── eslint.config.mjs
+├── generated
+|  └── prisma
+|     └── client
+|        ├── browser.ts
+|        ├── client.ts
+|        ├── commonInputTypes.ts
+|        ├── enums.ts
+|        ├── internal
+|        ├── models
+|        └── models.ts
+├── get_stats.ps1
+├── GUIDE.md
+├── hooks
+|  └── use-mobile.ts
+├── lib
+|  ├── aadhaar.ts
+|  ├── auth-redirect.ts
+|  ├── date-parser.ts
+|  ├── pdf-generator.ts
+|  ├── prisma.ts
+|  ├── quiz-status.ts
+|  ├── rate-limit.ts
+|  ├── student-id.ts
+|  ├── teacher-id.ts
+|  ├── utils.ts
+|  └── working-days.ts
+├── make_md.js
+├── make_tree.js
+├── make_tree2.js
+├── middleware.ts
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── prisma
+|  ├── migrations
+|  |  ├── 20260303184506_init
+|  |  |  └── migration.sql
+|  |  ├── 20260309191139_adding_meaningfull_name
+|  |  |  └── migration.sql
+|  |  ├── 20260309203443_make_admission_no_optional
+|  |  |  └── migration.sql
+|  |  ├── 20260310022940_scoped_roll_no_unique
+|  |  |  └── migration.sql
+|  |  ├── 20260310201109_add_school_cascade_delete
+|  |  |  └── migration.sql
+|  |  ├── manual_add_role
+|  |  |  └── migration.sql
+|  |  └── migration_lock.toml
+|  ├── schema.prisma
+|  └── seed-super-admins.ts
+├── prisma.config.ts
+├── project_files.txt
+├── project_structure.txt
+├── project_structure_clean.txt
+├── public
+|  ├── acadify.png
+|  ├── llms.txt
+|  ├── og-image.png
+|  ├── robots.txt
+|  └── site.webmanifest
+├── README.md
+├── schemas
+|  ├── admin.schema.ts
+|  ├── attendance-access.schema.ts
+|  ├── attendance.schema.ts
+|  ├── auth.schema.ts
+|  ├── birthday.schema.ts
+|  ├── calendar.schema.ts
+|  ├── class-log.schema.ts
+|  ├── class-teacher.schema.ts
+|  ├── contact.schema.ts
+|  ├── notifications.schema.ts
+|  ├── profile.schema.ts
+|  ├── quiz.schema.ts
+|  ├── school.schema.ts
+|  ├── student.schema.ts
+|  ├── subscription.schema.ts
+|  ├── teacher-attendance.schema.ts
+|  ├── teacher.schema.ts
+|  └── timetable.schema.ts
+├── services
+|  ├── admin.service.ts
+|  ├── attendance-access.service.ts
+|  ├── attendance.service.ts
+|  ├── auth.service.ts
+|  ├── birthday.service.ts
+|  ├── calendar.service.ts
+|  ├── class-log.service.ts
+|  ├── class-teacher.service.ts
+|  ├── notifications.service.ts
+|  ├── profile.service.ts
+|  ├── quiz-attempt.service.ts
+|  ├── quiz.service.ts
+|  ├── school.service.ts
+|  ├── student.service.ts
+|  ├── teacher-attendance.service.ts
+|  ├── teacher.service.ts
+|  └── timetable.service.ts
+├── ts-error.txt
+├── tsconfig.json
+├── tsconfig.tsbuildinfo
+└── types
+   └── next-auth.d.ts
+
+directory: 2664 file: 18062
+
+ignored: directory (40)

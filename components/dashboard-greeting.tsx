@@ -23,7 +23,7 @@ export function DashboardGreeting({ name, subtitle }: DashboardGreetingProps) {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">{greeting}, {name}!</h1>
+      <h1 className="text-2xl font-bold text-foreground">{greeting}, {name}!</h1>
       <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
     </div>
   )

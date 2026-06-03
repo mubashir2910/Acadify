@@ -17,6 +17,7 @@ interface AppSidebarProps {
   user: {
     name: string
     role: string
+    profilePicture?: string | null
   }
 }
 
@@ -25,7 +26,7 @@ function SidebarMobileClose() {
   return (
     <button
       onClick={() => setOpenMobile(false)}
-      className="md:hidden flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+      className="md:hidden flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
       aria-label="Close sidebar"
     >
       <PanelRightClose className="h-6 w-6" />
@@ -37,7 +38,7 @@ export function AppSidebar({ basePath, user }: AppSidebarProps) {
   return (
     <Sidebar
       collapsible="icon"
-      className="bg-white/75 backdrop-blur-2xl border-r border-white/40 shadow-[2px_0_20px_rgba(0,0,0,0.06)]"
+      className="bg-sidebar/75 backdrop-blur-2xl border-r border-sidebar-border shadow-[2px_0_20px_rgba(0,0,0,0.06)] dark:shadow-[2px_0_20px_rgba(0,0,0,0.3)]"
     >
       <SidebarHeader className="pb-2 pt-3 px-3">
         <div className="flex items-center justify-between">

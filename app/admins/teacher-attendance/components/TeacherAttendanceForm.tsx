@@ -81,7 +81,7 @@ export default function TeacherAttendanceForm({
     <div className="space-y-3">
       {/* Bulk action bar */}
       {!readOnly && (
-        <div className="flex items-center gap-2 rounded-xl bg-slate-50 border p-3">
+        <div className="flex items-center gap-2 rounded-xl bg-muted/50 border p-3">
           <span className="text-xs font-medium text-muted-foreground mr-1">Mark all:</span>
           {(["PRESENT", "ABSENT", "LATE"] as AttendanceStatus[]).map((s) => (
             <button
@@ -90,9 +90,9 @@ export default function TeacherAttendanceForm({
               onClick={() => markAll(s)}
               className={cn(
                 "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                s === "PRESENT" && "bg-green-100 text-green-700 hover:bg-green-200",
-                s === "ABSENT"  && "bg-red-100 text-red-700 hover:bg-red-200",
-                s === "LATE"    && "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                s === "PRESENT" && "bg-green-100 text-green-700 dark:text-green-400 hover:bg-green-200",
+                s === "ABSENT"  && "bg-red-100 text-red-700 dark:text-red-400 hover:bg-red-200",
+                s === "LATE"    && "bg-amber-100 text-amber-700 dark:text-amber-400 hover:bg-amber-200"
               )}
             >
               {s === "PRESENT" && <Check className="h-3 w-3" />}

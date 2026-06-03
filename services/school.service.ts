@@ -1,20 +1,156 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { CreateSchoolInput, PlatformStats } from "@/schemas/school.schema";
+import { CreateSchoolApiInput, PlatformStats, UpdateSchoolBrandingInput } from "@/schemas/school.schema";
+import type { ChangeSchoolCodeInput } from "@/schemas/school-code-change.schema";
+import { logFeeAction } from "@/services/fee-audit.service";
 
 const TRIAL_DAYS = 60
 
-export async function createSchool(data: CreateSchoolInput) {
+export async function createSchool(data: CreateSchoolApiInput) {
     const trialEndsAt = new Date()
     trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS)
 
-    const school = await prisma.school.create({
-        data: {
-            schoolCode: data.schoolCode,
-            schoolName: data.schoolName,
-            trial_ends_at: trialEndsAt,
-        },
+    try {
+        const school = await prisma.$transaction(async (tx) => {
+            const created = await tx.school.create({
+                data: {
+                    schoolCode: data.schoolCode,
+                    schoolName: data.schoolName,
+                    trial_ends_at: trialEndsAt,
+                    currency: data.paymentConfig?.currency ?? "INR",
+                    logo_url: data.logoUrl ?? null,
+                    motto: data.motto?.trim() || null,
+                    brand_color: data.brandColor ?? "#000000",
+                },
+            })
+
+            if (data.paymentConfig) {
+                const cfg = data.paymentConfig
+                await tx.schoolPaymentConfig.create({
+                    data: {
+                        school_id: created.id,
+                        payment_mode: cfg.paymentMode,
+                        currency: cfg.currency ?? "INR",
+                        gateway_provider: cfg.gatewayProvider ?? null,
+                        gateway_key_id: cfg.gatewayKeyId ?? null,
+                        // TODO: encrypt at rest — stored plaintext for Phase 1 dev only
+                        gateway_key_secret_encrypted: cfg.gatewayKeySecret ?? null,
+                        gateway_webhook_secret: cfg.gatewayWebhookSecret ?? null,
+                        default_late_fee_enabled: cfg.defaultLateFeeEnabled ?? false,
+                        default_late_fee_type: cfg.defaultLateFeeType ?? null,
+                        default_late_fee_value:
+                            cfg.defaultLateFeeValue != null
+                                ? new Prisma.Decimal(cfg.defaultLateFeeValue.toFixed(2))
+                                : null,
+                        default_late_fee_grace_day_of_month: cfg.defaultLateFeeGraceDayOfMonth ?? null,
+                        default_late_fee_frequency: cfg.defaultLateFeeFrequency ?? "MONTHLY",
+                    },
+                })
+            }
+
+            return created
+        })
+        return school
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+            throw new Error("SCHOOL_CODE_EXISTS")
+        }
+        throw error
+    }
+}
+
+export async function changeSchoolCode(
+    actorUserId: string,
+    data: ChangeSchoolCodeInput,
+) {
+    const trimmedCurrent = data.currentSchoolCode.trim()
+    const trimmedNew = data.newSchoolCode.trim()
+
+    if (trimmedCurrent === trimmedNew) {
+        throw new Error("SCHOOL_CODE_UNCHANGED")
+    }
+
+    const school = await prisma.school.findUnique({
+        where: { schoolCode: trimmedCurrent },
+        select: { id: true },
     })
-    return school
+    if (!school) throw new Error("SCHOOL_NOT_FOUND")
+
+    try {
+        return await prisma.$transaction(async (tx) => {
+            const updated = await tx.school.update({
+                where: { id: school.id },
+                data: { schoolCode: trimmedNew },
+                select: { id: true, schoolCode: true, schoolName: true },
+            })
+
+            await logFeeAction({
+                client: tx,
+                schoolId: school.id,
+                actorUserId,
+                action: "UPDATE_SCHOOL_BRANDING",
+                entityType: "SCHOOL_BRANDING",
+                entityId: school.id,
+                previousValue: { schoolCode: trimmedCurrent },
+                newValue: { schoolCode: updated.schoolCode },
+                reason: "School code changed",
+            })
+
+            return updated
+        })
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+            throw new Error("SCHOOL_CODE_EXISTS")
+        }
+        throw error
+    }
+}
+
+export async function updateSchoolBranding(
+    schoolCode: string,
+    actorUserId: string,
+    data: UpdateSchoolBrandingInput,
+) {
+    const school = await prisma.school.findUnique({
+        where: { schoolCode },
+        select: { id: true, logo_url: true, motto: true, brand_color: true },
+    })
+    if (!school) throw new Error("SCHOOL_NOT_FOUND")
+
+    const next = {
+        logo_url: data.logoUrl !== undefined ? data.logoUrl : school.logo_url,
+        motto: data.motto !== undefined ? (data.motto?.trim() || null) : school.motto,
+        brand_color: data.brandColor ?? school.brand_color,
+    }
+
+    return prisma.$transaction(async (tx) => {
+        const updated = await tx.school.update({
+            where: { id: school.id },
+            data: next,
+            select: { id: true, schoolCode: true, schoolName: true, logo_url: true, motto: true, brand_color: true },
+        })
+
+        await logFeeAction({
+            client: tx,
+            schoolId: school.id,
+            actorUserId,
+            action: "UPDATE_SCHOOL_BRANDING",
+            entityType: "SCHOOL_BRANDING",
+            entityId: school.id,
+            previousValue: {
+                logo_url: school.logo_url,
+                motto: school.motto,
+                brand_color: school.brand_color,
+            },
+            newValue: {
+                logo_url: updated.logo_url,
+                motto: updated.motto,
+                brand_color: updated.brand_color,
+            },
+        })
+
+        return updated
+    })
 }
 
 export async function getSchools() {
@@ -40,6 +176,9 @@ export async function getSchoolByCode(schoolCode: string) {
             trial_ends_at: true,
             subscription_ends_at: true,
             session_started_on: true,
+            logo_url: true,
+            motto: true,
+            brand_color: true,
         },
     })
 }
@@ -60,20 +199,104 @@ export async function updateSessionStartDate(
 export async function updateSubscription(
     schoolCode: string,
     status: "ACTIVE" | "SUSPENDED" | "CANCELLED",
-    subscriptionEndsAt?: string | null
+    subscriptionEndsAt: string | null | undefined,
+    actorUserId: string,
+    reason?: string | null,
 ) {
     const school = await prisma.school.findUnique({ where: { schoolCode } })
     if (!school) throw new Error("SCHOOL_NOT_FOUND")
 
-    return prisma.school.update({
+    const newEndsAt =
+        status === "ACTIVE" && subscriptionEndsAt
+            ? new Date(subscriptionEndsAt)
+            : null
+
+    // Atomically apply the change AND record an immutable history entry so
+    // super-admins can later audit who flipped the status and when.
+    const [updated] = await prisma.$transaction([
+        prisma.school.update({
+            where: { schoolCode },
+            data: {
+                subscription_status: status,
+                subscription_ends_at: newEndsAt,
+            },
+        }),
+        prisma.schoolSubscriptionHistory.create({
+            data: {
+                school_id: school.id,
+                previous_status: school.subscription_status,
+                new_status: status,
+                previous_ends_at: school.subscription_ends_at,
+                new_ends_at: newEndsAt,
+                changed_by: actorUserId,
+                reason: reason?.trim() || null,
+            },
+        }),
+    ])
+
+    return updated
+}
+
+export async function getSubscriptionHistory(schoolCode: string) {
+    const school = await prisma.school.findUnique({
         where: { schoolCode },
-        data: {
-            subscription_status: status,
-            subscription_ends_at: status === "ACTIVE" && subscriptionEndsAt
-                ? new Date(subscriptionEndsAt)
-                : null,
+        select: { id: true },
+    })
+    if (!school) throw new Error("SCHOOL_NOT_FOUND")
+
+    return prisma.schoolSubscriptionHistory.findMany({
+        where: { school_id: school.id },
+        orderBy: { created_at: "desc" },
+        include: {
+            changedBy: { select: { id: true, name: true, role: true } },
         },
     })
+}
+
+export async function getSchoolStats(schoolCode: string) {
+    const school = await prisma.school.findUnique({
+        where: { schoolCode },
+        select: {
+            id: true,
+            created_at: true,
+            session_started_on: true,
+        },
+    })
+    if (!school) throw new Error("SCHOOL_NOT_FOUND")
+
+    const [
+        studentTotal,
+        studentActive,
+        teacherTotal,
+        teacherActive,
+        adminCount,
+        pendingFeeTransactions,
+    ] = await Promise.all([
+        prisma.student.count({ where: { school_id: school.id } }),
+        prisma.student.count({ where: { school_id: school.id, status: "ACTIVE" } }),
+        prisma.teacher.count({ where: { school_id: school.id } }),
+        prisma.teacher.count({ where: { school_id: school.id, status: "ACTIVE" } }),
+        prisma.schoolUser.count({
+            where: { school_id: school.id, role: "ADMIN", status: "ACTIVE" },
+        }),
+        prisma.feeTransaction.count({
+            where: { school_id: school.id, status: "PENDING_VERIFICATION" },
+        }),
+    ])
+
+    const daysSinceCreated = Math.max(
+        1,
+        Math.floor((Date.now() - school.created_at.getTime()) / 86_400_000),
+    )
+
+    return {
+        students: { total: studentTotal, active: studentActive },
+        teachers: { total: teacherTotal, active: teacherActive },
+        admins: adminCount,
+        pendingFeeVerifications: pendingFeeTransactions,
+        daysSinceCreated,
+        sessionStartedOn: school.session_started_on,
+    }
 }
 
 export async function getPlatformStats(): Promise<PlatformStats> {

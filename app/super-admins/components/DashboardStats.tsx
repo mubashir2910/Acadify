@@ -13,14 +13,14 @@ const statCards = [
         key: "totalSchools" as const,
         label: "Total Schools",
         icon: School,
-        color: "text-blue-600",
+        color: "text-blue-600 dark:text-blue-400",
         bg: "bg-blue-50",
     },
     {
         key: "totalStudents" as const,
         label: "Total Students",
         icon: Users,
-        color: "text-emerald-600",
+        color: "text-emerald-600 dark:text-emerald-400",
         bg: "bg-emerald-50",
     },
     {
@@ -34,7 +34,7 @@ const statCards = [
         key: "totalAdmins" as const,
         label: "Total Admins",
         icon: UserCheck,
-        color: "text-amber-600",
+        color: "text-amber-600 dark:text-amber-400",
         bg: "bg-amber-50",
     },
 ]

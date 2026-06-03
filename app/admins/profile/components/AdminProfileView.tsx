@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
@@ -8,7 +9,7 @@ import {
   type AdminProfileUpdateInput,
   BLOOD_GROUPS,
 } from "@/schemas/profile.schema"
-import { Pencil, X, Lock, Loader2 } from "lucide-react"
+import { Pencil, X, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,6 +49,7 @@ function formatDate(val: string | null) {
 }
 
 export function AdminProfileView() {
+  const router = useRouter()
   const [profile, setProfile] = useState<AdminProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -116,6 +118,8 @@ export function AdminProfileView() {
 
       setEditing(false)
       await fetchProfile()
+      // Refresh the server component shell so the sidebar avatar updates
+      router.refresh()
     } catch {
       setServerError("Network error — please try again")
     } finally {
@@ -141,7 +145,7 @@ export function AdminProfileView() {
   return (
     <div className="space-y-6">
       {/* Header Card */}
-      <div className="bg-white rounded-xl border shadow-sm p-6">
+      <div className="bg-card rounded-xl border shadow-sm p-6">
         <div className="flex items-center gap-5">
           {editing ? (
             <ProfilePictureUploader
@@ -150,7 +154,7 @@ export function AdminProfileView() {
               onUpload={(url) => setValue("profile_picture", url)}
             />
           ) : (
-            <div className="h-20 w-20 rounded-full overflow-hidden bg-[#1e2a4a] flex items-center justify-center text-white text-xl font-semibold shrink-0">
+            <div className="h-20 w-20 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-foreground text-xl font-semibold shrink-0">
               {profile.profile_picture ? (
                 <img
                   src={profile.profile_picture}
@@ -168,7 +172,7 @@ export function AdminProfileView() {
             </div>
           )}
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">
+            <h2 className="text-xl font-semibold text-foreground">
               {profile.name}
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -182,9 +186,9 @@ export function AdminProfileView() {
       </div>
 
       {/* Personal Information */}
-      <div className="bg-white rounded-xl border shadow-sm p-6">
+      <div className="bg-card rounded-xl border shadow-sm p-6">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-semibold text-slate-900">
+          <h3 className="text-base font-semibold text-foreground">
             Personal Information
           </h3>
           {!editing ? (
@@ -264,15 +268,8 @@ export function AdminProfileView() {
               <p className="text-sm text-destructive">{serverError}</p>
             )}
 
-            <Button type="submit" disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save Changes"
-              )}
+            <Button type="submit" loading={saving} loadingText="Saving...">
+              Save Changes
             </Button>
           </form>
         ) : (
@@ -286,9 +283,9 @@ export function AdminProfileView() {
       </div>
 
       {/* Account Information (read-only) */}
-      <div className="bg-white rounded-xl border shadow-sm p-6">
+      <div className="bg-card rounded-xl border shadow-sm p-6">
         <div className="flex items-center gap-2 mb-5">
-          <h3 className="text-base font-semibold text-slate-900">
+          <h3 className="text-base font-semibold text-foreground">
             Account Information
           </h3>
           <Lock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -307,7 +304,7 @@ function InfoField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-      <p className="font-medium text-slate-800">{value}</p>
+      <p className="font-medium text-foreground">{value}</p>
     </div>
   )
 }

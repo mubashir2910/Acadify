@@ -36,7 +36,7 @@ function ProfilePicCell(params: ICellRendererParams<Classmate>) {
 
   return (
     <div className="flex items-center justify-center h-full">
-      <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-xs font-medium">
+      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium">
         {name.charAt(0).toUpperCase()}
       </div>
     </div>
@@ -96,10 +96,10 @@ export function StudentClassTeacherView() {
   return (
     <div className="space-y-6">
       {/* Class teacher card */}
-      <div className="rounded-lg border bg-slate-50 p-6">
+      <div className="rounded-lg border bg-muted/50 p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center">
-            <UserRound className="h-5 w-5 text-slate-500" />
+          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+            <UserRound className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Your Class Teacher</p>

@@ -71,7 +71,7 @@ export function StudentCompleteProfileForm({ userName }: Props) {
   const bloodGroup = watch("blood_group")
 
   return (
-    <div className="bg-white rounded-xl border shadow-sm p-6">
+    <div className="bg-card rounded-xl border shadow-sm p-6">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Profile Picture */}
         <ProfilePictureUploader
@@ -81,7 +81,7 @@ export function StudentCompleteProfileForm({ userName }: Props) {
 
         {/* Required Fields */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-slate-700">
+          <h3 className="text-sm font-semibold text-foreground">
             Required Information
           </h3>
 
@@ -132,7 +132,7 @@ export function StudentCompleteProfileForm({ userName }: Props) {
 
         {/* Optional Fields */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-slate-700">
+          <h3 className="text-sm font-semibold text-foreground">
             Optional Information
           </h3>
 
@@ -176,8 +176,13 @@ export function StudentCompleteProfileForm({ userName }: Props) {
           <p className="text-sm text-destructive text-center">{serverError}</p>
         )}
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : "Complete Profile"}
+        <Button
+          type="submit"
+          className="w-full"
+          loading={isSubmitting}
+          loadingText="Saving..."
+        >
+          Complete Profile
         </Button>
       </form>
     </div>

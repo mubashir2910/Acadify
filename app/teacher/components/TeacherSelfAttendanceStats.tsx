@@ -41,10 +41,10 @@ export default function TeacherSelfAttendanceStats() {
 
   const rateColor =
     stats.attendanceRate >= 80
-      ? "text-green-700"
+      ? "text-green-700 dark:text-green-400"
       : stats.attendanceRate >= 60
-      ? "text-amber-700"
-      : "text-red-700"
+      ? "text-amber-700 dark:text-amber-400"
+      : "text-red-700 dark:text-red-400"
 
   const rateBg =
     stats.attendanceRate >= 80
@@ -62,21 +62,21 @@ export default function TeacherSelfAttendanceStats() {
       <div className="grid grid-cols-3 gap-3">
         <Card className="bg-green-50 border-0 shadow-none">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-green-700">{stats.presentDays}</p>
+            <p className="text-2xl font-bold text-green-700 dark:text-green-400">{stats.presentDays}</p>
             <p className="text-xs text-muted-foreground mt-1">Present</p>
           </CardContent>
         </Card>
 
         <Card className="bg-amber-50 border-0 shadow-none">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-amber-700">{stats.lateDays}</p>
+            <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{stats.lateDays}</p>
             <p className="text-xs text-muted-foreground mt-1">Late</p>
           </CardContent>
         </Card>
 
         <Card className="bg-red-50 border-0 shadow-none">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-red-700">{stats.absentDays}</p>
+            <p className="text-2xl font-bold text-red-700 dark:text-red-400">{stats.absentDays}</p>
             <p className="text-xs text-muted-foreground mt-1">Absent</p>
           </CardContent>
         </Card>

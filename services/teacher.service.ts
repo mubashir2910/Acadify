@@ -9,7 +9,8 @@ import type { CreateTeacherInput, CreateTeacherResult } from "@/schemas/teacher.
 
 export async function getTeachersBySchoolCode(schoolCode: string) {
   return prisma.teacher.findMany({
-    where: { school: { schoolCode } },
+    // Exclude admin-Teacher rows from the public teachers list.
+    where: { school: { schoolCode }, user: { role: "TEACHER" } },
     select: {
       id: true,
       employee_id: true,
@@ -298,4 +299,62 @@ export async function createSingleTeacher(
   })
 
   return { employeeId: teacherUniqueId, temporaryPassword, name: input.name }
+}
+
+/**
+ * Ensures a Teacher row exists for a given user in the school.
+ * Idempotent — if one already exists (admin already has teaching duties, or
+ * the user is a regular teacher), returns it. Otherwise creates one with an
+ * auto-generated employee_id ("ADM-NNN" per school) and status=ACTIVE.
+ *
+ * Used when an admin gets assigned as a class teacher or a timetable subject —
+ * downstream services (attendance, timetable, classlog) all resolve assignments
+ * via Teacher rows, so this gives the admin a Teacher row they can hang
+ * teaching duties off without losing their admin role.
+ */
+export async function ensureTeacherForUser(
+  schoolId: string,
+  userId: string,
+): Promise<{ teacherId: string }> {
+  // Fast path: a Teacher row already exists for this (school, user).
+  const existing = await prisma.teacher.findFirst({
+    where: { school_id: schoolId, user_id: userId },
+    select: { id: true },
+  })
+  if (existing) return { teacherId: existing.id }
+
+  // Verify the user belongs to this school (any role — typically ADMIN).
+  const schoolUser = await prisma.schoolUser.findFirst({
+    where: { school_id: schoolId, user_id: userId, status: "ACTIVE" },
+    select: { id: true },
+  })
+  if (!schoolUser) throw new Error("USER_NOT_IN_SCHOOL")
+
+  // Allocate the next ADM-NNN identifier for this school.
+  const adminTeacherCount = await prisma.teacher.count({
+    where: { school_id: schoolId, employee_id: { startsWith: "ADM-" } },
+  })
+
+  // Retry on the rare race where two concurrent assigns pick the same suffix.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const seq = adminTeacherCount + 1 + attempt
+    const employeeId = `ADM-${String(seq).padStart(3, "0")}`
+    try {
+      const created = await prisma.teacher.create({
+        data: {
+          school_id: schoolId,
+          user_id: userId,
+          employee_id: employeeId,
+          status: "ACTIVE",
+        },
+        select: { id: true },
+      })
+      return { teacherId: created.id }
+    } catch (err) {
+      const code = (err as { code?: string }).code
+      if (code === "P2002") continue // employee_id collision, try next
+      throw err
+    }
+  }
+  throw new Error("FAILED_TO_ALLOCATE_TEACHER_ID")
 }

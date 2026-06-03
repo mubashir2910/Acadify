@@ -1,9 +1,8 @@
 "use client"
 
-import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
-import { LayoutDashboard, CalendarCheck, CalendarDays, Users, GraduationCap, Cake, ClipboardList, Bell, TableProperties, Compass, FolderCog, BarChart3, Settings } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { LayoutDashboard, CalendarCheck, CalendarDays, Users, GraduationCap, Cake, ClipboardList, Bell, TableProperties, Compass, FolderCog, BarChart3, Settings, CreditCard, Wallet, ShieldCheck, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   SidebarMenu,
@@ -11,6 +10,7 @@ import {
   SidebarMenuButton,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { NavLink } from "@/components/layout/nav-link"
 
 interface NavItem {
   label: string
@@ -55,6 +55,14 @@ const ADMIN_SECTIONS: NavSection[] = [
     items: [
       { label: "Staff Insights", icon: Users, slug: "/teacher-attendance-overview" },
       { label: "Student Insights", icon: CalendarCheck, slug: "/attendance" },
+    ],
+  },
+  {
+    heading: "Financials",
+    headingIcon: "💳",
+    items: [
+      { label: "Fees", icon: CreditCard, slug: "/fees" },
+      { label: "Pending Verifications", icon: ShieldCheck, slug: "/fees/pending" },
     ],
   },
   {
@@ -136,6 +144,13 @@ const STUDENT_SECTIONS: NavSection[] = [
     ],
   },
   {
+    heading: "Financials",
+    headingIcon: "💳",
+    items: [
+      { label: "My Fees", icon: Wallet, slug: "/fees" },
+    ],
+  },
+  {
     heading: "Utilities",
     headingIcon: "⚙",
     items: [
@@ -163,6 +178,9 @@ export function SidebarNav({ basePath, role }: SidebarNavProps) {
   const pathname = usePathname()
   const { setOpenMobile } = useSidebar()
   const [unreadCount, setUnreadCount] = useState(0)
+  // Admin-as-class-teacher detection. Determined by assignment data (not role),
+  // so admins with no teaching duties see the original admin sidebar unchanged.
+  const [isAdminClassTeacher, setIsAdminClassTeacher] = useState(false)
 
   // Fetch unread count on mount (updates on full page navigation)
   useEffect(() => {
@@ -171,6 +189,15 @@ export function SidebarNav({ basePath, role }: SidebarNavProps) {
       .then((r) => r.json())
       .then((data) => setUnreadCount(data?.count ?? 0))
       .catch(() => {/* badge is non-critical */})
+  }, [role])
+
+  // Fetch teaching context only for admins
+  useEffect(() => {
+    if (role !== "ADMIN") return
+    fetch("/api/admin/teaching-context")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((ctx) => setIsAdminClassTeacher(Boolean(ctx?.isClassTeacher)))
+      .catch(() => {/* non-critical */})
   }, [role])
 
   // Decrement badge in real time when a notification is marked as read
@@ -182,7 +209,30 @@ export function SidebarNav({ basePath, role }: SidebarNavProps) {
     return () => window.removeEventListener("notifications:marked-read", onRead)
   }, [])
 
-  const sections = getSections(role)
+  // Conditional injection of "Student Attendance" into the admin's Operations
+  // section, only when assignment data shows they're a class teacher.
+  const sections = useMemo(() => {
+    const base = getSections(role)
+    if (role !== "ADMIN" || !isAdminClassTeacher) return base
+    return base.map((section) => {
+      if (section.heading !== "Operations") return section
+      // Don't double-add if a previous render somehow injected it
+      if (section.items.some((i) => i.slug === "/student-attendance")) {
+        return section
+      }
+      return {
+        ...section,
+        items: [
+          {
+            label: "Student Attendance",
+            icon: ClipboardList,
+            slug: "/student-attendance",
+          },
+          ...section.items,
+        ],
+      }
+    })
+  }, [role, isAdminClassTeacher])
 
   return (
     <div className="mt-2 flex flex-col">
@@ -193,7 +243,7 @@ export function SidebarNav({ basePath, role }: SidebarNavProps) {
               {section.headingIcon && (
                 <span className="text-xs leading-none">{section.headingIcon}</span>
               )}
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 group-data-[collapsible=icon]:hidden">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground group-data-[collapsible=icon]:hidden">
                 {section.heading}
               </span>
             </div>
@@ -211,19 +261,33 @@ export function SidebarNav({ basePath, role }: SidebarNavProps) {
                     className={cn(
                       "h-9 gap-2.5 rounded-lg text-[13.5px]",
                       isActive
-                        ? "bg-slate-100 text-slate-900 font-medium hover:bg-slate-100 hover:text-slate-900"
-                        : "text-slate-500 font-normal hover:bg-slate-50 hover:text-slate-700"
+                        ? "bg-accent text-foreground font-medium hover:bg-accent hover:text-foreground"
+                        : "text-muted-foreground font-normal hover:bg-accent/50 hover:text-foreground"
                     )}
                   >
-                    <Link href={href} onClick={() => setOpenMobile(false)}>
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span className="flex-1">{label}</span>
-                      {label === "Notifications" && unreadCount > 0 && (
-                        <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
-                          {unreadCount > 99 ? "99+" : unreadCount}
+                    <NavLink href={href} onNavigate={() => setOpenMobile(false)}>
+                      {({ pending }) => (
+                        <span
+                          className={cn(
+                            "flex w-full items-center gap-2.5 rounded-md transition-[background,opacity] duration-150",
+                            pending && !isActive && "bg-accent/50",
+                            pending && "opacity-70"
+                          )}
+                        >
+                          {pending ? (
+                            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                          ) : (
+                            <Icon className="h-4 w-4 shrink-0" />
+                          )}
+                          <span className="flex-1">{label}</span>
+                          {label === "Notifications" && unreadCount > 0 && (
+                            <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
                         </span>
                       )}
-                    </Link>
+                    </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )

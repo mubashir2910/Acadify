@@ -39,7 +39,7 @@ export default function TeacherAttendanceTable({ teachers, date, onRefresh }: Te
           }
           return (
             <div className="flex items-center justify-center h-full">
-              <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-xs font-medium">
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium">
                 {name.charAt(0).toUpperCase()}
               </div>
             </div>
@@ -67,9 +67,9 @@ export default function TeacherAttendanceTable({ teachers, date, onRefresh }: Te
         cellRenderer: (params: { value: string | null }) => {
           if (!params.value) return <span className="text-muted-foreground">—</span>
           const map: Record<string, { label: string; className: string }> = {
-            PRESENT: { label: "Present", className: "bg-green-100 text-green-800 hover:bg-green-200" },
-            ABSENT:  { label: "Absent",  className: "bg-red-100 text-red-800 hover:bg-red-200" },
-            LATE:    { label: "Late",    className: "bg-amber-100 text-amber-800 hover:bg-amber-200" },
+            PRESENT: { label: "Present", className: "bg-green-100 text-green-700 dark:text-green-400 hover:bg-green-200" },
+            ABSENT:  { label: "Absent",  className: "bg-red-100 text-red-700 dark:text-red-400 hover:bg-red-200" },
+            LATE:    { label: "Late",    className: "bg-amber-100 text-amber-700 dark:text-amber-400 hover:bg-amber-200" },
           }
           const info = map[params.value]
           if (!info) return params.value
@@ -87,7 +87,7 @@ export default function TeacherAttendanceTable({ teachers, date, onRefresh }: Te
               <button
                 type="button"
                 onClick={() => setEditTeacher(params.data!)}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 aria-label="Edit attendance"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -133,7 +133,7 @@ export default function TeacherAttendanceTable({ teachers, date, onRefresh }: Te
                   params.data && setResetTarget({ userId: params.data.userId, name: params.data.name })
                 }
                 title="Reset password"
-                className="rounded-full p-1 hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-700"
+                className="rounded-full p-1 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
               >
                 <KeyRound className="h-4 w-4" />
               </button>

@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import { AgGridReact } from "ag-grid-react"
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community"
 import type { ColDef, ValueGetterParams } from "ag-grid-community"
+import { TableSkeleton } from "@/components/ui/skeletons"
 
 ModuleRegistry.registerModules([AllCommunityModule])
 
@@ -108,7 +109,7 @@ export default function StudentsTable({ schoolCode }: StudentsTableProps) {
   )
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading students...</p>
+    return <TableSkeleton rows={8} columns={6} />
   }
 
   if (error) {

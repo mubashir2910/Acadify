@@ -82,7 +82,7 @@ export function NotificationDetailModal({
               notification.target_section
             )}
           </Badge>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-muted-foreground">
             From {notification.created_by_name ?? "Deleted User"} ·{" "}
             {format(new Date(notification.created_at), "dd MMM yyyy, h:mm a")}
           </span>
@@ -90,7 +90,7 @@ export function NotificationDetailModal({
 
         {/* Scrollable message body */}
         <div className="max-h-[50vh] overflow-y-auto">
-          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+          <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
             {notification.message}
           </p>
         </div>
@@ -99,7 +99,7 @@ export function NotificationDetailModal({
           <DialogFooter>
             {confirmDelete ? (
               <div className="flex items-center gap-2 w-full justify-end">
-                <span className="text-sm text-slate-500">Are you sure?</span>
+                <span className="text-sm text-muted-foreground">Are you sure?</span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -112,16 +112,17 @@ export function NotificationDetailModal({
                   variant="destructive"
                   size="sm"
                   onClick={handleDelete}
-                  disabled={deleting}
+                  loading={deleting}
+                  loadingText="Deleting…"
                 >
-                  {deleting ? "Deleting…" : "Yes, delete"}
+                  Yes, delete
                 </Button>
               </div>
             ) : (
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 onClick={handleDelete}
               >
                 <Trash2 className="h-4 w-4 mr-1" />

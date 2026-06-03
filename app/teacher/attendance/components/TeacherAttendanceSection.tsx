@@ -26,7 +26,17 @@ interface ClassData {
   isSubmitted?: boolean
 }
 
-export default function TeacherAttendanceSection() {
+interface TeacherAttendanceSectionProps {
+  // When true, the section will pass ?scope=class on attendance reads so the
+  // API routes through the class-teacher branch (used when an ADMIN reuses
+  // this section via /admins/student-attendance). TEACHER role uses the
+  // teacher branch unconditionally, so this prop is a no-op for them.
+  forceClassScope?: boolean
+}
+
+export default function TeacherAttendanceSection({
+  forceClassScope = false,
+}: TeacherAttendanceSectionProps = {}) {
   const [activeTab, setActiveTab] = useState<TabType>("mark")
   const [selectedDate, setSelectedDate] = useState<Date>(() => getMostRecentWorkingDay())
   const [displayMonth, setDisplayMonth] = useState<Date>(() => getMostRecentWorkingDay())
@@ -68,7 +78,10 @@ export default function TeacherAttendanceSection() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/attendance?date=${dateStr}`)
+      const url = forceClassScope
+        ? `/api/attendance?date=${dateStr}&scope=class`
+        : `/api/attendance?date=${dateStr}`
+      const res = await fetch(url)
       if (!res.ok) {
         throw new Error("Failed to fetch attendance")
       }
@@ -79,7 +92,7 @@ export default function TeacherAttendanceSection() {
     } finally {
       setLoading(false)
     }
-  }, [dateStr])
+  }, [dateStr, forceClassScope])
 
   useEffect(() => {
     fetchAttendance()
@@ -120,12 +133,12 @@ export default function TeacherAttendanceSection() {
       {/* Class info + date picker + tabs */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-medium">
+          <span className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-sm font-medium">
             Class {classData.class}-{classData.section}
           </span>
 
           {classData.isSubmitted && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-700 dark:text-green-400">
               <Info className="h-3 w-3" />
               {isToday ? "Submitted — editing" : "Submitted"}
             </span>
@@ -187,7 +200,7 @@ export default function TeacherAttendanceSection() {
       {activeTab === "mark" ? (
         <>
           {!isWithinEditWindow && (
-            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:text-blue-400">
               <Eye className="h-4 w-4 shrink-0" />
               Viewing past attendance (editing only available for the current week)
             </div>
@@ -202,7 +215,7 @@ export default function TeacherAttendanceSection() {
           />
         </>
       ) : (
-        <TeacherAttendanceHistory />
+        <TeacherAttendanceHistory forceClassScope={forceClassScope} />
       )}
     </div>
   )

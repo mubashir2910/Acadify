@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Loader2 } from "lucide-react"
 import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
@@ -43,21 +44,46 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  loading = false,
+  loadingText,
+  disabled,
+  children,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    loading?: boolean
+    loadingText?: React.ReactNode
   }) {
   const Comp = asChild ? Slot.Root : "button"
+
+  // asChild bypasses loading: Slot can't accept arbitrary structural children.
+  const effectiveLoading = !asChild && loading
+  const isDisabled = disabled || effectiveLoading
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-loading={effectiveLoading || undefined}
+      className={cn(
+        buttonVariants({ variant, size, className }),
+        effectiveLoading && "cursor-progress disabled:opacity-100"
+      )}
+      disabled={isDisabled}
+      aria-busy={effectiveLoading || undefined}
       {...props}
-    />
+    >
+      {effectiveLoading ? (
+        <>
+          <Loader2 className="animate-spin" aria-hidden="true" />
+          {loadingText ?? children}
+        </>
+      ) : (
+        children
+      )}
+    </Comp>
   )
 }
 

@@ -19,29 +19,29 @@ export default function LoginPage() {
                 </div>
 
                 {/* Login card */}
-                <div className="rounded-2xl bg-white border border-slate-100 shadow-sm px-8 py-10 md:px-10 md:py-12">
+                <div className="rounded-2xl bg-card border border-border shadow-sm px-8 py-10 md:px-10 md:py-12">
                     <LoginForm />
 
                     {/* Separator */}
                     <div className="relative my-7">
                         <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-slate-200" />
+                            <span className="w-full border-t border-border" />
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-white px-3 text-muted-foreground tracking-widest font-medium">
+                            <span className="bg-card px-3 text-muted-foreground tracking-widest font-medium">
                                 Not registered?
                             </span>
                         </div>
                     </div>
 
                     {/* Guidance for unregistered users */}
-                    <div className="space-y-3 text-sm text-gray-500 text-center">
+                    <div className="space-y-3 text-sm text-muted-foreground text-center">
                         <p>
-                            <span className="font-semibold text-gray-700">Student or Teacher?</span>{' '}
+                            <span className="font-semibold text-foreground">Student or Teacher?</span>{' '}
                             Your credentials are provided by your school admin. Contact your school if you haven&apos;t received them yet.
                         </p>
                         <p>
-                            <span className="font-semibold text-gray-700">School not on Acadify?</span>{' '}
+                            <span className="font-semibold text-foreground">School not on Acadify?</span>{' '}
                             <button
                                 data-cal-namespace="acadify-demo"
                                 data-cal-link="mubashir2910/acadify-demo"

@@ -18,6 +18,11 @@ interface AvailableTeacher {
   user: { name: string }
 }
 
+interface AvailableAdmin {
+  userId: string
+  name: string
+}
+
 interface AssignedClass {
   class: string
   section: string
@@ -27,16 +32,20 @@ interface AssignedClass {
   }
 }
 
+type AssigneeOption =
+  | { kind: "teacher"; id: string; label: string }
+  | { kind: "admin"; userId: string; label: string }
+
 interface ChangeModalProps {
   onClose: () => void
   onSuccess: () => void
 }
 
 export default function ChangeModal({ onClose, onSuccess }: ChangeModalProps) {
-  const [teachers, setTeachers] = useState<AvailableTeacher[]>([])
+  const [options, setOptions] = useState<AssigneeOption[]>([])
   const [assignedClasses, setAssignedClasses] = useState<AssignedClass[]>([])
   const [selectedClass, setSelectedClass] = useState("")
-  const [selectedTeacherId, setSelectedTeacherId] = useState("")
+  const [selectedAssignee, setSelectedAssignee] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [loadingData, setLoadingData] = useState(true)
@@ -47,10 +56,23 @@ export default function ChangeModal({ onClose, onSuccess }: ChangeModalProps) {
 
     Promise.all([
       fetch("/api/class-teachers/available-teachers", { signal }).then((r) => r.json()),
+      fetch("/api/class-teachers/available-admins", { signal }).then((r) => r.json()),
       fetch("/api/class-teachers/assigned-classes", { signal }).then((r) => r.json()),
     ])
-      .then(([t, c]) => {
-        setTeachers(t)
+      .then(([t, a, c]) => {
+        const teacherOpts: AssigneeOption[] = (t as AvailableTeacher[]).map(
+          (x) => ({
+            kind: "teacher",
+            id: x.id,
+            label: `${x.user.name} (${x.employee_id})`,
+          }),
+        )
+        const adminOpts: AssigneeOption[] = (a as AvailableAdmin[]).map((x) => ({
+          kind: "admin",
+          userId: x.userId,
+          label: `${x.name} (Admin)`,
+        }))
+        setOptions([...teacherOpts, ...adminOpts])
         setAssignedClasses(c)
         setLoadingData(false)
       })
@@ -69,21 +91,22 @@ export default function ChangeModal({ onClose, onSuccess }: ChangeModalProps) {
   )?.teacher
 
   async function handleSubmit() {
-    if (!selectedClass || !selectedTeacherId) return
+    if (!selectedClass || !selectedAssignee) return
     setSubmitting(true)
     setServerError(null)
 
     const [cls, sec] = selectedClass.split("|")
+    const [kind, id] = selectedAssignee.split(":")
+    const body =
+      kind === "admin"
+        ? { class: cls, section: sec, adminUserId: id }
+        : { class: cls, section: sec, teacherId: id }
 
     try {
       const res = await fetch("/api/class-teachers", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          class: cls,
-          section: sec,
-          newTeacherId: selectedTeacherId,
-        }),
+        body: JSON.stringify(body),
       })
 
       if (!res.ok) {
@@ -132,7 +155,7 @@ export default function ChangeModal({ onClose, onSuccess }: ChangeModalProps) {
                 value={selectedClass}
                 onValueChange={(val) => {
                   setSelectedClass(val)
-                  setSelectedTeacherId("")
+                  setSelectedAssignee("")
                 }}
               >
                 <SelectTrigger>
@@ -161,27 +184,33 @@ export default function ChangeModal({ onClose, onSuccess }: ChangeModalProps) {
               </p>
             )}
 
-            {/* New teacher dropdown */}
+            {/* New assignee dropdown (teachers + admins) */}
             <div className="space-y-1.5">
-              <Label>New Teacher</Label>
+              <Label>New Class Teacher</Label>
               <Select
-                value={selectedTeacherId}
-                onValueChange={setSelectedTeacherId}
+                value={selectedAssignee}
+                onValueChange={setSelectedAssignee}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select new teacher" />
+                  <SelectValue placeholder="Select new teacher or admin" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teachers.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.user.name} ({t.employee_id})
-                    </SelectItem>
-                  ))}
+                  {options.map((opt) => {
+                    const value =
+                      opt.kind === "teacher"
+                        ? `teacher:${opt.id}`
+                        : `admin:${opt.userId}`
+                    return (
+                      <SelectItem key={value} value={value}>
+                        {opt.label}
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
-              {teachers.length === 0 && (
+              {options.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  No available teachers. All are already assigned.
+                  No available teachers or admins.
                 </p>
               )}
             </div>
@@ -202,18 +231,11 @@ export default function ChangeModal({ onClose, onSuccess }: ChangeModalProps) {
               <Button
                 size="sm"
                 onClick={handleSubmit}
-                disabled={
-                  submitting || !selectedClass || !selectedTeacherId
-                }
+                disabled={!selectedClass || !selectedAssignee}
+                loading={submitting}
+                loadingText="Changing..."
               >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                    Changing...
-                  </>
-                ) : (
-                  "Change"
-                )}
+                Change
               </Button>
             </div>
           </div>

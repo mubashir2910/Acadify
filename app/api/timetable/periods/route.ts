@@ -2,11 +2,15 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { ZodError } from "zod"
 import { createPeriodSchema } from "@/schemas/timetable.schema"
-import { getPeriodsForSchool, createPeriod, getAdminSchoolId } from "@/services/timetable.service"
+import {
+  createPeriod,
+  getAdminSchoolId,
+  getPeriodsForGroup,
+} from "@/services/timetable.service"
 import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
 
-// GET — Admin fetches period structure
-export async function GET() {
+// GET — Admin fetches period structure for a specific group
+export async function GET(request: Request) {
   try {
     const session = await auth()
     if (!session?.user?.id || session.user.role !== "ADMIN") {
@@ -16,15 +20,24 @@ export async function GET() {
     const schoolId = await getAdminSchoolId(session.user.id)
     if (!schoolId) return NextResponse.json({ message: "School not found" }, { status: 404 })
 
-    const periods = await getPeriodsForSchool(schoolId)
+    const url = new URL(request.url)
+    const groupId = url.searchParams.get("groupId")
+    if (!groupId) {
+      return NextResponse.json({ message: "groupId query parameter required" }, { status: 400 })
+    }
+
+    const periods = await getPeriodsForGroup(schoolId, groupId)
     return NextResponse.json(periods)
   } catch (error) {
+    if (error instanceof Error && error.message === "GROUP_NOT_FOUND") {
+      return NextResponse.json({ message: "Timetable group not found" }, { status: 404 })
+    }
     console.error("[GET /api/timetable/periods]", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }
 
-// POST — Admin creates a period
+// POST — Admin creates a period for a specific group
 export async function POST(request: Request) {
   try {
     const session = await auth()
@@ -44,7 +57,13 @@ export async function POST(request: Request) {
     return NextResponse.json(period, { status: 201 })
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ message: error.issues[0]?.message ?? "Validation error" }, { status: 422 })
+      return NextResponse.json(
+        { message: error.issues[0]?.message ?? "Validation error" },
+        { status: 422 },
+      )
+    }
+    if (error instanceof Error && error.message === "GROUP_NOT_FOUND") {
+      return NextResponse.json({ message: "Timetable group not found" }, { status: 404 })
     }
     console.error("[POST /api/timetable/periods]", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })

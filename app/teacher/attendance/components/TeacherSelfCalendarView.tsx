@@ -150,7 +150,7 @@ export default function TeacherSelfCalendarView() {
           </Badge>
           {isSpecialDay && (
             <>
-              <Badge className={dayInfo.type === "HALF_DAY" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}>
+              <Badge className={dayInfo.type === "HALF_DAY" ? "bg-amber-100 text-amber-700 dark:text-amber-400" : "bg-blue-100 text-blue-700 dark:text-blue-400"}>
                 {dayInfo.type === "HALF_DAY" ? "Half Day" : "Event"}
               </Badge>
               {dayInfo.reason && <span className="text-muted-foreground">— {dayInfo.reason}</span>}
@@ -161,13 +161,13 @@ export default function TeacherSelfCalendarView() {
     }
 
     if (dayInfo.type === "HOLIDAY") return (
-      <><Badge className="bg-slate-200 text-slate-600">Holiday</Badge>{dayInfo.reason && <span className="text-muted-foreground">— {dayInfo.reason}</span>}</>
+      <><Badge className="bg-muted text-muted-foreground">Holiday</Badge>{dayInfo.reason && <span className="text-muted-foreground">— {dayInfo.reason}</span>}</>
     )
     if (dayInfo.type === "HALF_DAY") return (
-      <><Badge className="bg-amber-100 text-amber-700">Half Day</Badge>{dayInfo.reason && <span className="text-muted-foreground">— {dayInfo.reason}</span>}</>
+      <><Badge className="bg-amber-100 text-amber-700 dark:text-amber-400">Half Day</Badge>{dayInfo.reason && <span className="text-muted-foreground">— {dayInfo.reason}</span>}</>
     )
     if (dayInfo.type === "EVENT") return (
-      <><Badge className="bg-blue-100 text-blue-700">Event</Badge>{dayInfo.reason && <span className="text-muted-foreground">— {dayInfo.reason}</span>}</>
+      <><Badge className="bg-blue-100 text-blue-700 dark:text-blue-400">Event</Badge>{dayInfo.reason && <span className="text-muted-foreground">— {dayInfo.reason}</span>}</>
     )
     return <span className="text-muted-foreground">No record</span>
   }
@@ -196,9 +196,9 @@ export default function TeacherSelfCalendarView() {
             present: "[&_button]:bg-green-100 [&_button]:text-green-800 [&_button]:hover:bg-green-200",
             absent:  "[&_button]:bg-red-100 [&_button]:text-red-800 [&_button]:hover:bg-red-200",
             late:    "[&_button]:bg-amber-100 [&_button]:text-amber-800 [&_button]:hover:bg-amber-200",
-            holiday: "[&_button]:bg-slate-100 [&_button]:text-slate-400",
-            halfDay: "[&_button]:bg-amber-50 [&_button]:text-amber-700 [&_button]:ring-1 [&_button]:ring-amber-200",
-            event:   "[&_button]:bg-blue-50 [&_button]:text-blue-700 [&_button]:ring-1 [&_button]:ring-blue-200",
+            holiday: "[&_button]:bg-muted [&_button]:text-muted-foreground",
+            halfDay: "[&_button]:bg-amber-500/10 [&_button]:text-amber-700 [&_button]:ring-1 [&_button]:ring-amber-200",
+            event:   "[&_button]:bg-accent [&_button]:text-blue-700 [&_button]:ring-1 [&_button]:ring-blue-200",
             presentHalfDay: "[&_button]:ring-2 [&_button]:ring-amber-400",
             presentEvent:   "[&_button]:ring-2 [&_button]:ring-blue-400",
             absentHalfDay:  "[&_button]:ring-2 [&_button]:ring-amber-400",
@@ -222,7 +222,7 @@ export default function TeacherSelfCalendarView() {
           <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-green-200" /><span>Present</span></div>
           <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-red-200" /><span>Absent</span></div>
           <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-amber-200" /><span>Late</span></div>
-          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-slate-200" /><span>Holiday</span></div>
+          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-muted" /><span>Holiday</span></div>
           <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-amber-100 ring-1 ring-amber-300" /><span>Half Day</span></div>
           <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-blue-100 ring-1 ring-blue-300" /><span>Event</span></div>
         </div>

@@ -125,7 +125,7 @@ export function NotificationsSection() {
     return (
       <>
         {canCreate && <TabBar tab={tab} onTabChange={setTab} onNew={() => setCreateOpen(true)} />}
-        <div className="flex flex-col items-center gap-3 py-16 text-slate-500 mt-4">
+        <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground mt-4">
           <p className="text-sm">Failed to load notifications.</p>
           <Button
             variant="outline"
@@ -156,7 +156,7 @@ export function NotificationsSection() {
         <TabBar tab={tab} onTabChange={setTab} onNew={() => setCreateOpen(true)} />
       ) : (
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {total > 0 ? `${total} notification${total !== 1 ? "s" : ""}` : ""}
           </p>
         </div>
@@ -164,7 +164,7 @@ export function NotificationsSection() {
 
       {/* Empty state */}
       {notifications.length === 0 && (
-        <div className="flex flex-col items-center gap-3 py-20 text-slate-400">
+        <div className="flex flex-col items-center gap-3 py-20 text-muted-foreground">
           <Bell className="h-10 w-10 opacity-30" />
           <p className="text-sm">
             {tab === "mine"
@@ -231,8 +231,8 @@ function TabBar({ tab, onTabChange, onNew }: TabBarProps) {
           className={cn(
             "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
             tab === "inbox"
-              ? "bg-slate-100 text-slate-900"
-              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           )}
         >
           Inbox
@@ -242,8 +242,8 @@ function TabBar({ tab, onTabChange, onNew }: TabBarProps) {
           className={cn(
             "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
             tab === "mine"
-              ? "bg-slate-100 text-slate-900"
-              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           )}
         >
           Created by Me

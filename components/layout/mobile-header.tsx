@@ -6,7 +6,7 @@ import { Logo } from "../logo"
 
 export function MobileHeader() {
   return (
-    <header className="flex items-center justify-between px-4 h-16 border-b border-white/40 bg-white/80 backdrop-blur-md sticky top-0 z-10 md:hidden">
+    <header className="flex items-center justify-between px-4 h-16 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-10 md:hidden">
       {/* Logo + name — left side */}
       <div className="flex items-center gap-2.5">
         <Logo />

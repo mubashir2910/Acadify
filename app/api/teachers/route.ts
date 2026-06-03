@@ -21,7 +21,14 @@ export async function GET() {
     }
 
     const teachers = await prisma.teacher.findMany({
-      where: { school_id: schoolId, status: "ACTIVE" },
+      where: {
+        school_id: schoolId,
+        status: "ACTIVE",
+        // Exclude admin-Teacher rows (auto-attached when an admin gets teaching
+        // duties); admin candidates are listed separately so the picker can
+        // label them distinctly.
+        user: { role: "TEACHER" },
+      },
       select: {
         id: true,
         employee_id: true,

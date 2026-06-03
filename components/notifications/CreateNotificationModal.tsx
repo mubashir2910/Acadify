@@ -263,8 +263,12 @@ export function CreateNotificationModal({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Sending…" : "Send"}
+              <Button
+                type="submit"
+                loading={form.formState.isSubmitting}
+                loadingText="Sending…"
+              >
+                Send
               </Button>
             </DialogFooter>
           </form>

@@ -116,8 +116,13 @@ export function LoginForm({ className }: { className?: string }) {
           <p className="text-sm text-destructive text-center">{serverError}</p>
         )}
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Signing in..." : "Sign in"}
+        <Button
+          type="submit"
+          className="w-full"
+          loading={isSubmitting}
+          loadingText="Signing in..."
+        >
+          Sign in
         </Button>
       </div>
     </form>

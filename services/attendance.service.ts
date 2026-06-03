@@ -541,6 +541,7 @@ export async function getClassStudentStats(
       name: s.user.name,
       rollNo: s.roll_no,
       profilePicture: s.user.profile_picture,
+      totalWorkingDays,
       totalPresent: c.present,
       totalAbsent: c.absent,
       totalLate: c.late,
@@ -575,16 +576,8 @@ export async function getStudentSchoolId(userId: string): Promise<string | null>
 }
 
 // ─── Get distinct class-sections for a school ────────────────────────
-
-export async function getSchoolClassSections(schoolId: string): Promise<{ class: string; section: string }[]> {
-  const students = await prisma.student.findMany({
-    where: { school_id: schoolId, status: "ACTIVE" },
-    select: { class: true, section: true },
-    distinct: ["class", "section"],
-    orderBy: [{ class: "asc" }, { section: "asc" }],
-  })
-  return students
-}
+// Delegated to class.service.ts (single source of truth). Re-exported for back-compat.
+export { getSchoolClassSections } from "@/services/class.service"
 
 // ─── Admin Edit Single Student Attendance ────────────────────────────
 
