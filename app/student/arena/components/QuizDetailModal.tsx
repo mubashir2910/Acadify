@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { X, CheckCircle2, XCircle, Clock, Target } from "lucide-react"
+import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
 
 interface QuizOption {
   id: string
@@ -28,6 +29,7 @@ interface QuizQuestion {
 interface QuizResultData {
   title: string
   subject: string
+  subject_group?: SubjectGroup
   total_marks: number
   score: number
   status: string
@@ -98,7 +100,11 @@ export function QuizDetailModal({ quizId, onClose }: QuizDetailModalProps) {
           <div className="sticky top-0 bg-[#0B0F1A] border-b border-white/10 px-5 py-3 flex items-center justify-between z-10">
             <div>
               <p className="font-semibold text-white text-sm truncate max-w-[240px]">{data?.title ?? "Loading..."}</p>
-              <p className="text-xs text-slate-500">{data?.subject}</p>
+              <p className="text-xs text-slate-500">
+                {data?.subject_group ? SUBJECT_GROUP_LABELS[data.subject_group] : ""}
+                {data?.subject_group && data?.subject ? " · " : ""}
+                {data?.subject}
+              </p>
             </div>
             <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors ml-2 flex-shrink-0">
               <X className="h-5 w-5" />
@@ -175,7 +181,7 @@ export function QuizDetailModal({ quizId, onClose }: QuizDetailModalProps) {
                               <Clock className="h-2.5 w-2.5" />{q.time_limit_secs}s
                             </span>
                             <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                              <Target className="h-2.5 w-2.5" />{marksAwarded}/{q.marks} pts
+                              <Target className="h-2.5 w-2.5" />{marksAwarded}/{q.marks} XP
                             </span>
                           </div>
                         </div>

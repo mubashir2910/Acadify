@@ -40,7 +40,10 @@
       "Bash(curl -s -o /dev/null -w \"GET /api/timetable-groups: %{http_code}\\\\n\" http://localhost:3000/api/timetable-groups)",
       "Bash(curl -s -o /dev/null -w \"GET /api/timetable?groupId=missing: %{http_code}\\\\n\" \"http://localhost:3000/api/timetable?groupId=11111111-2222-3333-4444-555555555555\")",
       "Bash(curl -s -o /dev/null -w \"GET /api/timetable \\(no groupId\\): %{http_code}\\\\n\" \"http://localhost:3000/api/timetable\")",
-      "Bash(curl -s http://localhost:3000/api/timetable-groups -L --max-redirs 0 -o /dev/null -w \"Status: %{http_code} Location: %header{location}\\\\n\")"
+      "Bash(curl -s http://localhost:3000/api/timetable-groups -L --max-redirs 0 -o /dev/null -w \"Status: %{http_code} Location: %header{location}\\\\n\")",
+      "Bash(grep -E '\\\\.\\(ts|tsx|prisma\\)$')",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=8192\" npx tsc --noEmit)",
+      "Bash(powershell -Command \"Get-Content app/globals.css -Tail 4\")"
     ]
   }
 }

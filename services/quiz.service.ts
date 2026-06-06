@@ -60,6 +60,7 @@ export async function createQuiz(
         created_by: creatorUserId,
         title: data.title,
         subject: data.subject,
+        subject_group: data.subjectGroup,
         instructions: data.instructions ?? null,
         class: data.class,
         section: data.section,
@@ -96,6 +97,7 @@ export async function createQuiz(
         id: true,
         title: true,
         subject: true,
+        subject_group: true,
         class: true,
         section: true,
         status: true,
@@ -122,6 +124,7 @@ export async function getCreatorQuizzes(creatorUserId: string) {
       id: true,
       title: true,
       subject: true,
+      subject_group: true,
       class: true,
       section: true,
       status: true,
@@ -156,6 +159,7 @@ export async function getAdminQuizzes(adminUserId: string) {
       id: true,
       title: true,
       subject: true,
+      subject_group: true,
       class: true,
       section: true,
       status: true,
@@ -210,6 +214,7 @@ export async function getStudentAvailableQuizzes(studentUserId: string) {
       id: true,
       title: true,
       subject: true,
+      subject_group: true,
       class: true,
       section: true,
       status: true,
@@ -256,6 +261,7 @@ export async function getQuizDetail(quizId: string, userId: string, role: string
       created_by: true,
       title: true,
       subject: true,
+      subject_group: true,
       instructions: true,
       class: true,
       section: true,
@@ -376,7 +382,7 @@ export async function deleteQuiz(quizId: string, userId: string, role: string) {
 export async function getQuizLeaderboard(quizId: string, userId: string, role: string) {
   const quiz = await prisma.quiz.findUnique({
     where: { id: quizId },
-    select: { id: true, school_id: true, created_by: true, total_marks: true, title: true, subject: true, class: true, section: true },
+    select: { id: true, school_id: true, created_by: true, total_marks: true, title: true, subject: true, subject_group: true, class: true, section: true },
   })
   if (!quiz) throw new Error("QUIZ_NOT_FOUND")
 
@@ -406,7 +412,7 @@ export async function getQuizLeaderboard(quizId: string, userId: string, role: s
       score: true,
       started_at: true,
       submitted_at: true,
-      student: { select: { name: true } },
+      student: { select: { id: true, name: true, profile_picture: true } },
     },
   })
 
@@ -425,6 +431,8 @@ export async function getQuizLeaderboard(quizId: string, userId: string, role: s
     return {
       rank,
       name: a.student.name,
+      avatarUrl: a.student.profile_picture ?? null,
+      isCurrentUser: a.student.id === userId,
       score: a.score ?? 0,
       totalMarks: quiz.total_marks,
       submittedAt: a.submitted_at,
@@ -449,6 +457,7 @@ export async function getAdminLeaderboardOverview(adminUserId: string) {
       id: true,
       title: true,
       subject: true,
+      subject_group: true,
       class: true,
       section: true,
       status: true,
@@ -503,7 +512,7 @@ export async function getMonthlyLeaderboard(
   const monthStart = new Date(year, mon - 1, 1)
   const monthEnd = new Date(year, mon, 1) // exclusive
 
-  return buildLeaderboard(schoolId, effectiveClassFilter, { gte: monthStart, lt: monthEnd })
+  return buildLeaderboard(schoolId, effectiveClassFilter, { gte: monthStart, lt: monthEnd }, userId)
 }
 
 // ─── Accumulated Arena Leaderboard ───────────────────────────────────────
@@ -521,7 +530,64 @@ export async function getAccumulatedLeaderboard(
     ? { class: classSection.class, section: classSection.section }
     : (classFilter ?? {})
 
-  return buildLeaderboard(schoolId, effectiveClassFilter, null)
+  return buildLeaderboard(schoolId, effectiveClassFilter, null, userId)
+}
+
+// ─── Arena Available Months (from School.session_started_on) ──────────────
+// Returns months from the school's session start (super-admin-set) up to the
+// current month, newest first. Falls back to last 12 months if session start
+// is null. Capped at 60 entries.
+//
+// All arithmetic is done in UTC: `session_started_on` is stored as UTC midnight
+// of a DATE column, so mixing local-TZ Date construction with it would drop
+// the anchor month in some server timezones.
+
+export async function getArenaAvailableMonths(userId: string, role: string) {
+  const { schoolId } = await resolveArenaScope(userId, role)
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { session_started_on: true },
+  })
+
+  const now = new Date()
+  const nowYear = now.getUTCFullYear()
+  const nowMonth = now.getUTCMonth() // 0..11
+
+  const fallback = new Date(Date.UTC(nowYear, nowMonth - 11, 1))
+  const anchor = school?.session_started_on ?? fallback
+  const anchorYear = anchor.getUTCFullYear()
+  const anchorMonth = anchor.getUTCMonth()
+
+  const months: { value: string; label: string }[] = []
+  let cy = nowYear
+  let cm = nowMonth
+  for (let i = 0; i < 60; i++) {
+    if (cy < anchorYear || (cy === anchorYear && cm < anchorMonth)) break
+    const mm = String(cm + 1).padStart(2, "0")
+    months.push({
+      value: `${cy}-${mm}`,
+      label: new Date(Date.UTC(cy, cm, 1)).toLocaleString("en-US", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      }),
+    })
+    cm -= 1
+    if (cm < 0) {
+      cm = 11
+      cy -= 1
+    }
+  }
+
+  return {
+    months,
+    meta: {
+      sessionStartedOn: school?.session_started_on ?? null,
+      anchorYear,
+      anchorMonth: anchorMonth + 1, // 1-based for human readability
+      nowUtc: now.toISOString(),
+    },
+  }
 }
 
 // ─── Arena Scope Helper ───────────────────────────────────────────────────
@@ -570,13 +636,17 @@ async function resolveArenaScope(userId: string, role: string) {
 async function buildLeaderboard(
   schoolId: string,
   classFilter: Record<string, string>,
-  timeRange: { gte: Date; lt: Date } | null
+  timeRange: { gte: Date; lt: Date } | null,
+  currentUserId?: string
 ) {
-  // Step 1: Resolve quiz IDs matching school/class/time filter
+  // Step 1: Resolve quiz IDs matching school/class/time filter.
+  // Include both ACTIVE and CLOSED — `QuizAttempt.status` filter below already
+  // restricts to finished submissions, so a contest's lifecycle status is not
+  // the right gate for leaderboard inclusion.
   const quizIds = await prisma.quiz.findMany({
     where: {
       school_id: schoolId,
-      status: "CLOSED",
+      status: { in: ["ACTIVE", "CLOSED"] },
       ...classFilter,
       ...(timeRange ? { start_time: timeRange } : {}),
     },
@@ -601,11 +671,14 @@ async function buildLeaderboard(
 
   const topStudentIds = scoreGroups.map((g) => g.student_id)
 
-  // Step 3: Fetch names + timing rows for top students only
-  const [nameMap, timeAttempts] = await Promise.all([
+  // Step 3: Fetch names + avatars + timing rows for top students only
+  const [userMap, timeAttempts] = await Promise.all([
     prisma.user
-      .findMany({ where: { id: { in: topStudentIds } }, select: { id: true, name: true } })
-      .then((users) => new Map(users.map((u) => [u.id, u.name]))),
+      .findMany({
+        where: { id: { in: topStudentIds } },
+        select: { id: true, name: true, profile_picture: true },
+      })
+      .then((users) => new Map(users.map((u) => [u.id, u]))),
     prisma.quizAttempt.findMany({
       where: {
         student_id: { in: topStudentIds },
@@ -624,11 +697,16 @@ async function buildLeaderboard(
   }
 
   // Build and sort leaderboard
-  const entries = scoreGroups.map((g) => ({
-    name: nameMap.get(g.student_id) ?? "Unknown",
-    totalPoints: g._sum.score ?? 0,
-    totalTimeMs: timingMap.get(g.student_id) ?? 0,
-  }))
+  const entries = scoreGroups.map((g) => {
+    const user = userMap.get(g.student_id)
+    return {
+      studentId: g.student_id,
+      name: user?.name ?? "Unknown",
+      avatarUrl: user?.profile_picture ?? null,
+      totalPoints: g._sum.score ?? 0,
+      totalTimeMs: timingMap.get(g.student_id) ?? 0,
+    }
+  })
 
   entries.sort((a, b) => {
     if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints
@@ -644,7 +722,14 @@ async function buildLeaderboard(
         rank = i + 1
       }
     }
-    return { rank, name: entry.name, totalPoints: entry.totalPoints, totalTimeMs: entry.totalTimeMs }
+    return {
+      rank,
+      name: entry.name,
+      avatarUrl: entry.avatarUrl,
+      totalPoints: entry.totalPoints,
+      totalTimeMs: entry.totalTimeMs,
+      isCurrentUser: currentUserId ? entry.studentId === currentUserId : false,
+    }
   })
 }
 
@@ -677,6 +762,7 @@ export async function getStudentQuizResult(quizId: string, studentUserId: string
     select: {
       title: true,
       subject: true,
+      subject_group: true,
       total_marks: true,
       questions: {
         orderBy: { order: "asc" },
@@ -708,6 +794,7 @@ export async function getStudentQuizResult(quizId: string, studentUserId: string
   return {
     title: quiz.title,
     subject: quiz.subject,
+    subject_group: quiz.subject_group,
     total_marks: quiz.total_marks,
     score: attempt.score ?? 0,
     status: attempt.status,

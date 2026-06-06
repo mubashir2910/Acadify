@@ -12,7 +12,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { TableSkeleton } from "@/components/ui/skeletons"
+
+interface MonthOption {
+  value: string
+  label: string
+}
+
+function currentMonthValue(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+}
 
 interface LeaderboardEntry {
   rank: number
@@ -70,7 +81,11 @@ const colDefs: ColDef<LeaderboardEntry>[] = [
 type LeaderboardType = "monthly" | "accumulated"
 
 export function ArenaManagementSection() {
-  const currentMonth = new Date().toISOString().slice(0, 7)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => currentMonthValue())
+  const [months, setMonths] = useState<MonthOption[]>([])
+  const [monthsLoading, setMonthsLoading] = useState(true)
+  const [pickerOpen, setPickerOpen] = useState(false)
+
   const [classSections, setClassSections] = useState<ClassSection[]>([])
   const [selectedClass, setSelectedClass] = useState<string>("")
   const [lbType, setLbType] = useState<LeaderboardType>("monthly")
@@ -85,23 +100,33 @@ export function ArenaManagementSection() {
       .catch(() => {})
   }, [])
 
-  const fetchLeaderboard = useCallback((classKey: string, type: LeaderboardType) => {
+  // Fetch the available month list (anchored to school session_started_on)
+  useEffect(() => {
+    setMonthsLoading(true)
+    fetch("/api/arena/months", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data: { months: MonthOption[] }) => setMonths(data.months ?? []))
+      .catch(() => setMonths([]))
+      .finally(() => setMonthsLoading(false))
+  }, [])
+
+  const fetchLeaderboard = useCallback((classKey: string, type: LeaderboardType, month: string) => {
     if (!classKey) { setLeaderboard([]); return }
     setLbLoading(true)
     const selected = classSections.find((c) => `${c.class}-${c.section}` === classKey)
     const classSuffix = selected ? `&class=${selected.class}&section=${selected.section}` : ""
-    const monthSuffix = type === "monthly" ? `&month=${currentMonth}` : ""
+    const monthSuffix = type === "monthly" ? `&month=${month}` : ""
 
     fetch(`/api/arena/leaderboard?type=${type}${monthSuffix}${classSuffix}`)
       .then((r) => r.json())
       .then((data: { leaderboard: LeaderboardEntry[] }) => setLeaderboard(data.leaderboard ?? []))
       .catch(() => setLeaderboard([]))
       .finally(() => setLbLoading(false))
-  }, [currentMonth, classSections])
+  }, [classSections])
 
   useEffect(() => {
-    fetchLeaderboard(selectedClass, lbType)
-  }, [selectedClass, lbType, fetchLeaderboard])
+    fetchLeaderboard(selectedClass, lbType, selectedMonth)
+  }, [selectedClass, lbType, selectedMonth, fetchLeaderboard])
 
   const gridHeight = leaderboard.length > 0
     ? Math.min(leaderboard.length * 48 + 52, 480)
@@ -127,19 +152,55 @@ export function ArenaManagementSection() {
             <Trophy className="h-4 w-4 text-amber-500" /> Leaderboards
           </h2>
           <div className="flex items-center gap-2">
-            {/* Monthly / All-Time toggle */}
+            {/* Monthly / All-Time toggle — Monthly opens a month picker popover */}
             <div className="flex items-center bg-muted rounded-lg p-1 gap-1">
-              <button
-                type="button"
-                onClick={() => setLbType("monthly")}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  lbType === "monthly"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Monthly
-              </button>
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setLbType("monthly")}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                      lbType === "monthly"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-44 p-1 max-h-72 overflow-y-auto">
+                  {monthsLoading ? (
+                    <div className="space-y-1 p-1">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-7 rounded bg-muted animate-pulse" />
+                      ))}
+                    </div>
+                  ) : months.length === 0 ? (
+                    <p className="text-center text-xs text-muted-foreground py-3">
+                      No months available
+                    </p>
+                  ) : (
+                    months.map((m) => (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => {
+                          setSelectedMonth(m.value)
+                          setPickerOpen(false)
+                        }}
+                        className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors ${
+                          m.value === selectedMonth
+                            ? "bg-accent text-accent-foreground font-medium"
+                            : "text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))
+                  )}
+                </PopoverContent>
+              </Popover>
+
               <button
                 type="button"
                 onClick={() => setLbType("accumulated")}

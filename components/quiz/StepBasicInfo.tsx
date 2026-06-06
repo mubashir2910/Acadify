@@ -20,7 +20,7 @@ import {
 import { FieldError } from "@/components/ui/field-error"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import type { CreateQuizInput } from "@/schemas/quiz.schema"
+import { SUBJECT_GROUPS, SUBJECT_GROUP_LABELS, type CreateQuizInput } from "@/schemas/quiz.schema"
 
 interface ClassSection {
   class: string
@@ -84,20 +84,47 @@ export function StepBasicInfo({ form }: StepBasicInfoProps) {
         )}
       />
 
-      {/* Subject */}
-      <FormField
-        control={control}
-        name="subject"
-        render={({ field, fieldState }) => (
-          <FormItem>
-            <FormLabel>Subject <span className="text-red-500">*</span></FormLabel>
-            <FormControl>
-              <Input placeholder="e.g. Biology" {...field} />
-            </FormControl>
-            <FieldError message={fieldState.error?.message} />
-          </FormItem>
-        )}
-      />
+      {/* Subject Group + Subject */}
+      <div className="grid grid-cols-2 gap-4">
+        <FormField
+          control={control}
+          name="subjectGroup"
+          render={({ field, fieldState }) => (
+            <FormItem>
+              <FormLabel>Subject Group <span className="text-red-500">*</span></FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select group" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {SUBJECT_GROUPS.map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {SUBJECT_GROUP_LABELS[g]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldError message={fieldState.error?.message} />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={control}
+          name="subject"
+          render={({ field, fieldState }) => (
+            <FormItem>
+              <FormLabel>Subject <span className="text-red-500">*</span></FormLabel>
+              <FormControl>
+                <Input placeholder="e.g. Biology" {...field} />
+              </FormControl>
+              <FieldError message={fieldState.error?.message} />
+            </FormItem>
+          )}
+        />
+      </div>
 
       {/* Class + Section */}
       {classLoadError && (

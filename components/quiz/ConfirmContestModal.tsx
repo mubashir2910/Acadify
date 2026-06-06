@@ -9,10 +9,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Trophy, Clock, CalendarClock, Users } from "lucide-react"
+import { Trophy, Clock, CalendarClock, Users, BookOpen } from "lucide-react"
 
 interface ContestSummary {
   title: string
+  subject: string
+  subjectGroupLabel: string
   questions: number
   totalPoints: number
   durationMins: number
@@ -64,6 +66,16 @@ export function ConfirmContestModal({
         <div className="space-y-3 py-2">
           <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3 text-sm">
             <p className="font-semibold text-foreground text-base">{summary.title}</p>
+            {(summary.subjectGroupLabel || summary.subject) && (
+              <div className="flex items-center gap-2 text-muted-foreground -mt-1">
+                <BookOpen className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                <span>
+                  {summary.subjectGroupLabel}
+                  {summary.subjectGroupLabel && summary.subject ? " · " : ""}
+                  {summary.subject}
+                </span>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2 text-muted-foreground">
               <div className="flex items-center gap-2">

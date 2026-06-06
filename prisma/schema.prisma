@@ -571,6 +571,7 @@ model Quiz {
   created_by             String        @db.Uuid
   title                  String
   subject                String
+  subject_group          SubjectGroup  @default(GENERAL_KNOWLEDGE)
   instructions           String?
   class                  String
   section                String
@@ -593,19 +594,21 @@ model Quiz {
   @@index([end_time])
   @@index([school_id, class, section])
   @@index([school_id, status])
+  @@index([school_id, subject_group, end_time])
   @@index([start_time])
 }
 
 model QuizAnswer {
-  id            String      @id @default(uuid()) @db.Uuid
-  attempt_id    String      @db.Uuid
-  question_id   String      @db.Uuid
-  given_answer  String?
-  is_correct    Boolean?
-  marks_awarded Int?
-  answered_at   DateTime?
-  attempt       QuizAttempt @relation(fields: [attempt_id], references: [id], onDelete: Cascade)
-  question      Question    @relation(fields: [question_id], references: [id])
+  id              String      @id @default(uuid()) @db.Uuid
+  attempt_id      String      @db.Uuid
+  question_id     String      @db.Uuid
+  given_answer    String?
+  is_correct      Boolean?
+  marks_awarded   Int?
+  answered_at     DateTime?
+  time_taken_secs Int?
+  attempt         QuizAttempt @relation(fields: [attempt_id], references: [id], onDelete: Cascade)
+  question        Question    @relation(fields: [question_id], references: [id])
 
   @@unique([attempt_id, question_id])
   @@index([attempt_id])
@@ -629,7 +632,9 @@ model QuizAttempt {
   @@unique([quiz_id, student_id])
   @@index([quiz_id, score])
   @@index([quiz_id, status])
+  @@index([quiz_id, submitted_at])
   @@index([student_id])
+  @@index([student_id, submitted_at])
 }
 
 model QuizOption {
@@ -1008,6 +1013,17 @@ enum QuizStatus {
   DRAFT
   ACTIVE
   CLOSED
+}
+
+enum SubjectGroup {
+  SCIENCE
+  MATHEMATICS
+  SOCIAL_SCIENCE
+  LANGUAGES
+  COMPUTER_SCIENCE
+  COMMERCE
+  ARTS
+  GENERAL_KNOWLEDGE
 }
 
 enum SchoolPaymentMode {

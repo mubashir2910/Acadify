@@ -5,11 +5,13 @@ import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Clock, Users, Shuffle, Timer, AlertCircle, Swords, ChevronLeft, BookOpen, Loader2 } from "lucide-react"
 import { motion } from "motion/react"
+import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
 
 interface Quiz {
   id: string
   title: string
   subject: string
+  subject_group?: SubjectGroup
   class: string
   section: string
   instructions: string | null
@@ -116,7 +118,11 @@ export default function ArenaQuizInstructionsPage() {
           <h1 className="text-2xl font-bold text-white">{quiz.title}</h1>
           <div className="flex items-center gap-2 mt-1">
             <BookOpen className="h-4 w-4 text-[#3B82F6]" />
-            <span className="text-slate-400 text-sm">{quiz.subject}</span>
+            <span className="text-slate-400 text-sm">
+              {quiz.subject_group ? SUBJECT_GROUP_LABELS[quiz.subject_group] : ""}
+              {quiz.subject_group ? " · " : ""}
+              {quiz.subject}
+            </span>
           </div>
         </div>
 
@@ -133,7 +139,7 @@ export default function ArenaQuizInstructionsPage() {
             <Users className="h-4 w-4 text-[#22D3EE] shrink-0" />
             <div>
               <p className="text-slate-500 text-xs">Questions</p>
-              <p className="text-white font-medium text-sm">{quiz._count.questions} · {quiz.total_marks} points</p>
+              <p className="text-white font-medium text-sm">{quiz._count.questions} · {quiz.total_marks} XP</p>
             </div>
           </div>
           {quiz.per_question_time_secs && (

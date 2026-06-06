@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { ChevronLeft, ChevronRight, Send, Lock, Loader2 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
+import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
 
 interface Option {
   id: string
@@ -36,6 +37,7 @@ interface QuizData {
   id: string
   title: string
   subject: string
+  subject_group?: SubjectGroup
   questions: Question[]
 }
 
@@ -44,27 +46,39 @@ function pad(n: number) {
 }
 
 function QuestionTimer({
-  key: _key,
   secs,
   onExpire,
 }: {
-  key: string
   secs: number
   onExpire: () => void
 }) {
   const [remaining, setRemaining] = useState(secs)
+  const onExpireRef = useRef(onExpire)
+  const expiredRef = useRef(false)
 
+  // Keep the latest callback in a ref so the interval effect doesn't depend on it.
   useEffect(() => {
-    setRemaining(secs)
+    onExpireRef.current = onExpire
+  })
+
+  // Tick — updater is pure; no side effects on parent state from inside setState.
+  useEffect(() => {
     const id = setInterval(() => {
       setRemaining((prev) => {
-        if (prev <= 1) { clearInterval(id); onExpire(); return 0 }
+        if (prev <= 1) { clearInterval(id); return 0 }
         return prev - 1
       })
     }, 1000)
     return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [_key])
+  }, [])
+
+  // Fire onExpire once after the timer commits to 0 — safe to setState on parent here.
+  useEffect(() => {
+    if (remaining === 0 && !expiredRef.current) {
+      expiredRef.current = true
+      onExpireRef.current()
+    }
+  }, [remaining])
 
   return (
     <div className={`px-3 py-1 rounded-full font-mono text-sm font-semibold ${
@@ -273,7 +287,11 @@ export default function ArenaAttemptPage() {
       <div className="sticky top-0 z-10 bg-[#0B0F1A]/95 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-white truncate text-sm">{quizData.title}</p>
-          <p className="text-xs text-slate-500">{quizData.subject}</p>
+          <p className="text-xs text-slate-500">
+            {quizData.subject_group ? SUBJECT_GROUP_LABELS[quizData.subject_group] : ""}
+            {quizData.subject_group ? " · " : ""}
+            {quizData.subject}
+          </p>
         </div>
         {contestSecsLeft !== null && (
           <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-xs font-semibold border ${
@@ -310,7 +328,7 @@ export default function ArenaAttemptPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-slate-400 font-medium">Q{currentIdx + 1} of {orderedQuestions.length}</span>
               <span className="text-xs bg-white/10 text-slate-300 px-2 py-0.5 rounded-full">{typeLabel}</span>
-              <span className="text-xs bg-[#FACC15]/10 text-[#FACC15] border border-[#FACC15]/20 px-2 py-0.5 rounded-full">{currentQuestion.marks} pts</span>
+              <span className="text-xs bg-[#FACC15]/10 text-[#FACC15] border border-[#FACC15]/20 px-2 py-0.5 rounded-full">{currentQuestion.marks} XP</span>
               {isLocked && (
                 <span className="text-xs bg-white/10 text-slate-400 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Lock className="h-3 w-3" /> Locked

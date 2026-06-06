@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Form } from "@/components/ui/form"
 import { Button } from "@/components/ui/button"
-import { createQuizSchema, type CreateQuizInput } from "@/schemas/quiz.schema"
+import { createQuizSchema, SUBJECT_GROUP_LABELS, type CreateQuizInput, type SubjectGroup } from "@/schemas/quiz.schema"
 import { StepBasicInfo } from "./StepBasicInfo"
 import { StepQuestions } from "./StepQuestions"
 import { StepReview } from "./StepReview"
@@ -31,6 +31,7 @@ export function CreateQuizWizard({ successRedirect }: CreateQuizWizardProps) {
     resolver: zodResolver(createQuizSchema),
     defaultValues: {
       title: "",
+      subjectGroup: "" as unknown as SubjectGroup,
       subject: "",
       instructions: "",
       class: "",
@@ -60,7 +61,7 @@ export function CreateQuizWizard({ successRedirect }: CreateQuizWizardProps) {
 
   // Fields validated per step
   const STEP_FIELDS: (keyof CreateQuizInput)[][] = [
-    ["title", "subject", "class", "section", "totalPoints", "startTime", "endTime"],
+    ["title", "subjectGroup", "subject", "class", "section", "totalPoints", "startTime", "endTime"],
     ["questions"],
     [],
   ]
@@ -225,6 +226,10 @@ export function CreateQuizWizard({ successRedirect }: CreateQuizWizardProps) {
         submitting={submitting}
         summary={{
           title: values.title,
+          subject: values.subject,
+          subjectGroupLabel: values.subjectGroup
+            ? SUBJECT_GROUP_LABELS[values.subjectGroup]
+            : "",
           questions: values.questions.length,
           totalPoints: values.totalPoints,
           durationMins,

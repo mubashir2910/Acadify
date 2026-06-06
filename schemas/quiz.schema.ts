@@ -1,5 +1,32 @@
 import { z } from "zod"
 
+// ─── Subject Group ─────────────────────────────────────────────────────────
+
+export const SUBJECT_GROUPS = [
+  "SCIENCE",
+  "MATHEMATICS",
+  "SOCIAL_SCIENCE",
+  "LANGUAGES",
+  "COMPUTER_SCIENCE",
+  "COMMERCE",
+  "ARTS",
+  "GENERAL_KNOWLEDGE",
+] as const
+
+export const subjectGroupSchema = z.enum(SUBJECT_GROUPS)
+export type SubjectGroup = z.infer<typeof subjectGroupSchema>
+
+export const SUBJECT_GROUP_LABELS: Record<SubjectGroup, string> = {
+  SCIENCE: "Science",
+  MATHEMATICS: "Mathematics",
+  SOCIAL_SCIENCE: "Social Science",
+  LANGUAGES: "Languages",
+  COMPUTER_SCIENCE: "Computer Science",
+  COMMERCE: "Commerce",
+  ARTS: "Arts",
+  GENERAL_KNOWLEDGE: "General Knowledge",
+}
+
 // ─── Option (MCQ) ──────────────────────────────────────────────────────────
 
 export const optionSchema = z.object({
@@ -59,6 +86,7 @@ export const questionSchema = z
 export const createQuizSchema = z
   .object({
     title: z.string().min(3, "Title must be at least 3 characters"),
+    subjectGroup: subjectGroupSchema,
     subject: z.string().min(1, "Subject is required"),
     instructions: z.string().optional(),
     class: z.string().min(1, "Class is required"),

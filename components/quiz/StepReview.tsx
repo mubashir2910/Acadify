@@ -4,7 +4,7 @@ import { UseFormReturn } from "react-hook-form"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Clock, BookOpen, Users, Shuffle, Trophy } from "lucide-react"
-import type { CreateQuizInput } from "@/schemas/quiz.schema"
+import { SUBJECT_GROUP_LABELS, type CreateQuizInput } from "@/schemas/quiz.schema"
 
 const TYPE_LABELS: Record<string, string> = {
   MCQ: "MCQ",
@@ -47,7 +47,11 @@ export function StepReview({ form }: StepReviewProps) {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <BookOpen className="h-4 w-4 text-blue-500" />
-              <span>{values.subject}</span>
+              <span>
+                {values.subjectGroup ? SUBJECT_GROUP_LABELS[values.subjectGroup] : ""}
+                {values.subjectGroup && values.subject ? " · " : ""}
+                {values.subject}
+              </span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="h-4 w-4 text-purple-500" />

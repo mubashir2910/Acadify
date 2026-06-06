@@ -186,6 +186,7 @@ export async function saveAnswer(
     select: {
       id: true,
       status: true,
+      started_at: true,
       quiz: { select: { end_time: true } },
     },
   })
@@ -196,11 +197,33 @@ export async function saveAnswer(
   // Deadline is the contest end_time (when teacher closed the window)
   if (new Date() > attempt.quiz.end_time) throw new Error("TIME_EXPIRED")
 
+  // Anchor for time-per-question = the most recent answered_at across all OTHER
+  // answers on this attempt; fall back to attempt.started_at if none yet.
+  // Cap at 900s (15 min) so idle/AFK time doesn't inflate analytics.
+  const lastOtherAnswer = await prisma.quizAnswer.findFirst({
+    where: {
+      attempt_id: attempt.id,
+      answered_at: { not: null },
+      NOT: { question_id: questionId },
+    },
+    orderBy: { answered_at: "desc" },
+    select: { answered_at: true },
+  })
+
+  const now = new Date()
+  const anchor = lastOtherAnswer?.answered_at ?? attempt.started_at
+  const elapsedSecs = Math.max(0, Math.round((now.getTime() - anchor.getTime()) / 1000))
+  const timeTakenSecs = Math.min(elapsedSecs, 900)
+
   await prisma.quizAnswer.update({
     where: {
       attempt_id_question_id: { attempt_id: attempt.id, question_id: questionId },
     },
-    data: { given_answer: givenAnswer, answered_at: new Date() },
+    data: {
+      given_answer: givenAnswer,
+      answered_at: now,
+      time_taken_secs: timeTakenSecs,
+    },
   })
 
   return { saved: true }

@@ -2,39 +2,36 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Star } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { ArenaLoader } from "./components/ArenaLoader"
 import { ArenaBottomNav, type ArenaTab } from "./components/ArenaBottomNav"
 import { AttemptTab } from "./components/AttemptTab"
-import { PerformanceTab } from "./components/PerformanceTab"
+import { StatisticsTab } from "./components/StatisticsTab"
 import { LeaderboardTab } from "./components/LeaderboardTab"
+import { HistoryTab } from "./components/HistoryTab"
+import { AchievementsTab } from "./components/AchievementsTab"
+import StarBorder from "@/components/ui/star-border"
 
 export default function ArenaPage() {
-  const [activeTab, setActiveTab] = useState<ArenaTab>("attempt")
-  const [totalPoints, setTotalPoints] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<ArenaTab>("arena")
+  const [totalXp, setTotalXp] = useState<number | null>(null)
   const [initialLoading, setInitialLoading] = useState(true)
   const router = useRouter()
 
-  // Fetch student's accumulated total points for the top bar
+  // Fetch the student's accumulated XP (lifetime contest points) for the top bar.
   useEffect(() => {
-    fetch("/api/arena/leaderboard?type=accumulated")
+    fetch("/api/quiz")
       .then((r) => r.json())
-      .then((data) => {
-        // Find this student in the leaderboard — we just need the total
-        fetch("/api/quiz")
-          .then((r2) => r2.json())
-          .then((quizzes: Array<{ attempt: { score: number | null } | null }>) => {
-            const pts = quizzes.reduce((s, q) => {
-              if (q.attempt && q.attempt.status !== "IN_PROGRESS") {
-                return s + (q.attempt.score ?? 0)
-              }
-              return s
-            }, 0)
-            setTotalPoints(pts)
-          })
-          .catch(() => setTotalPoints(0))
+      .then((quizzes: Array<{ attempt: { score: number | null; status: string } | null }>) => {
+        const xp = quizzes.reduce((s, q) => {
+          if (q.attempt && q.attempt.status !== "IN_PROGRESS") {
+            return s + (q.attempt.score ?? 0)
+          }
+          return s
+        }, 0)
+        setTotalXp(xp)
       })
-      .catch(() => setTotalPoints(0))
+      .catch(() => setTotalXp(0))
       .finally(() => setTimeout(() => setInitialLoading(false), 1200)) // min loader time for UX
   }, [])
 
@@ -43,9 +40,11 @@ export default function ArenaPage() {
   }
 
   const TAB_TITLES: Record<ArenaTab, string> = {
-    attempt: "ARENA",
-    performance: "MY PERFORMANCE",
+    achievements: "ACHIEVEMENTS",
+    statistics: "MY STATISTICS",
+    arena: "ARENA",
     leaderboard: "LEADERBOARD",
+    history: "HISTORY",
   }
 
   return (
@@ -67,17 +66,27 @@ export default function ArenaPage() {
           <p className="text-[10px] text-slate-500 uppercase tracking-wider">{TAB_TITLES[activeTab]}</p>
         </div>
 
-        <div className="flex items-center gap-1.5 text-[#FACC15]">
-          <Star className="h-4 w-4 fill-[#FACC15]" />
-          <span className="text-sm font-bold">{totalPoints ?? "—"}</span>
+        <div className="flex items-center gap-2">
+          <StarBorder
+            as="div"
+            color="#FACC15"
+            speed="4s"
+            thickness={3}
+            radius={9999}
+            innerClassName="bg-[#0B0F1A] text-[#FACC15] text-sm font-bold px-3 py-1 flex items-center gap-1"
+          >
+            <span>{totalXp ?? "—"}</span> XP
+          </StarBorder>
         </div>
       </header>
 
       {/* Tab Content */}
       <main className="flex-1 overflow-y-auto px-4 pt-5 pb-32">
-        {activeTab === "attempt" && <AttemptTab />}
-        {activeTab === "performance" && <PerformanceTab />}
+        {activeTab === "achievements" && <AchievementsTab />}
+        {activeTab === "statistics" && <StatisticsTab />}
+        {activeTab === "arena" && <AttemptTab />}
         {activeTab === "leaderboard" && <LeaderboardTab />}
+        {activeTab === "history" && <HistoryTab />}
       </main>
 
       {/* Bottom Navigation */}

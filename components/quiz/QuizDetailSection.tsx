@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { QuizLeaderboard } from "@/components/quiz/QuizLeaderboard"
 import { type EffectiveStatus, deriveEffectiveStatus } from "@/lib/quiz-status"
 import { Clock, BookOpen, Users, X, CheckCircle } from "lucide-react"
+import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
 
 type QuizStatus = "DRAFT" | "ACTIVE" | "CLOSED"
 
@@ -17,6 +18,7 @@ interface Quiz {
   id: string
   title: string
   subject: string
+  subject_group?: SubjectGroup
   instructions: string | null
   class: string
   section: string
@@ -118,7 +120,11 @@ export function QuizDetailSection({ quizId }: { quizId: string }) {
               <h2 className="text-xl font-bold text-foreground">{quiz.title}</h2>
               <div className="flex items-center gap-2 mt-1">
                 <BookOpen className="h-4 w-4 text-blue-500" />
-                <span className="text-sm text-muted-foreground">{quiz.subject}</span>
+                <span className="text-sm text-muted-foreground">
+                  {quiz.subject_group ? SUBJECT_GROUP_LABELS[quiz.subject_group] : ""}
+                  {quiz.subject_group ? " · " : ""}
+                  {quiz.subject}
+                </span>
               </div>
             </div>
             <Badge className={`${EFFECTIVE_STATUS_STYLES[effectiveStatus]} text-sm`}>{effectiveStatus}</Badge>

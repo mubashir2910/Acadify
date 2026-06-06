@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { type EffectiveStatus, deriveEffectiveStatus } from "@/lib/quiz-status"
 import { Clock, Users, BookOpen, Trash2, Eye, X } from "lucide-react"
+import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
 
 type QuizStatus = "DRAFT" | "ACTIVE" | "CLOSED"
 
@@ -16,6 +17,7 @@ interface ContestCardProps {
     id: string
     title: string
     subject: string
+    subject_group?: SubjectGroup
     class: string
     section: string
     status: QuizStatus
@@ -92,7 +94,11 @@ export function ContestCard({ quiz, detailBasePath, onDeleted, onStatusChanged }
             <p className="font-semibold text-foreground truncate">{quiz.title}</p>
             <div className="flex items-center gap-2 mt-1">
               <BookOpen className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
-              <span className="text-sm text-muted-foreground">{quiz.subject}</span>
+              <span className="text-sm text-muted-foreground">
+                {quiz.subject_group ? SUBJECT_GROUP_LABELS[quiz.subject_group] : ""}
+                {quiz.subject_group ? " · " : ""}
+                {quiz.subject}
+              </span>
             </div>
           </div>
           <Badge className={`${EFFECTIVE_STATUS_STYLES[effectiveStatus]} text-xs flex-shrink-0`}>
