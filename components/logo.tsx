@@ -1,7 +1,14 @@
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
-export const Logo = ({ className }: { className?: string }) => {
+export const Logo = ({
+    className,
+    textClassName,
+}: {
+    className?: string
+    // Override the wordmark colour (e.g. white when the header sits over the dark hero video)
+    textClassName?: string
+}) => {
     return (
         <div className={cn('flex items-center', className)}>
             <Image
@@ -12,7 +19,7 @@ export const Logo = ({ className }: { className?: string }) => {
                 className="h-10 w-10 shrink-0"
                 priority
             />
-            <span className="text-2xl font-bold tracking-tight text-primary">ACADIFY</span>
+            <span className={cn('text-2xl font-bold tracking-tight text-primary', textClassName)}>ACADIFY</span>
         </div>
     )
 }

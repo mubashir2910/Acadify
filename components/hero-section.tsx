@@ -1,10 +1,10 @@
 import React from 'react'
 import Link from 'next/link'
-import { ArrowRight, ChevronRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import Image from 'next/image'
 import { TextEffect } from '@/components/ui/text-effect'
 import { AnimatedGroup } from '@/components/ui/animated-group'
+import { HeroVideoBackground } from './hero-video-background'
 import { HeroHeader } from './header'
 
 const transitionVariants = {
@@ -32,136 +32,107 @@ export default function HeroSection() {
         <>
             <HeroHeader />
             <main className="overflow-hidden">
-                <div
-                    aria-hidden
-                    className="absolute inset-0 isolate hidden opacity-65 contain-strict lg:block">
-                    <div className="w-140 h-320 -translate-y-87.5 absolute left-0 top-0 -rotate-45 rounded-full bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,hsla(0,0%,85%,.08)_0,hsla(0,0%,55%,.02)_50%,hsla(0,0%,45%,0)_80%)]" />
-                    <div className="h-320 absolute left-0 top-0 w-60 -rotate-45 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,hsla(0,0%,85%,.06)_0,hsla(0,0%,45%,.02)_80%,transparent_100%)] [translate:5%_-50%]" />
-                    <div className="h-320 -translate-y-87.5 absolute left-0 top-0 w-60 -rotate-45 bg-[radial-gradient(50%_50%_at_50%_50%,hsla(0,0%,85%,.04)_0,hsla(0,0%,45%,.02)_80%,transparent_100%)]" />
-                </div>
-                <section>
-                    <div className="relative pt-24 md:pt-36">
-                        <AnimatedGroup
-                            variants={{
-                                container: {
-                                    visible: {
-                                        transition: {
-                                            delayChildren: 0.2,
-                                        },
-                                    },
-                                },
-                                item: {
-                                    hidden: {
-                                        opacity: 0,
-                                        y: 20,
-                                    },
-                                    visible: {
-                                        opacity: 1,
-                                        y: 0,
-                                        transition: {
-                                            type: 'spring',
-                                            bounce: 0.3,
-                                            duration: 1.2,
-                                        },
-                                    },
-                                },
-                            }}
-                            className="mask-b-from-35% mask-b-to-90% absolute inset-0 top-56 -z-20 lg:top-32">
-                            <Image
-                                src="https://ik.imagekit.io/lrigu76hy/tailark/night-background.jpg?updatedAt=1745733451120"
-                                alt=""
-                                aria-hidden="true"
-                                className="hidden size-full dark:block"
-                                width="3276"
-                                height="4095"
-                                priority
-                            />
-                        </AnimatedGroup>
+                <section className="relative min-h-svh w-full overflow-hidden">
+                    {/* Full-screen looping background video (sits at -z-20 with a dark base) */}
+                    <HeroVideoBackground />
 
-                        <div
-                            aria-hidden
-                            className="absolute inset-0 -z-10 size-full [background:radial-gradient(125%_125%_at_50%_100%,transparent_0%,var(--color-background)_75%)]"
-                        />
+                    {/* Dimming overlay so white typography stays readable over the video */}
+                    <div
+                        aria-hidden
+                        className="absolute inset-0 -z-10 bg-gradient-to-b from-black/55 via-black/35 to-black/60"
+                    />
 
-                        <div className="mx-auto max-w-7xl px-6">
-                            <div className="text-center sm:mx-auto lg:mr-auto lg:mt-0">
-                                <AnimatedGroup variants={transitionVariants}>
-                                    <Link
-                                        href="/login"
-                                        className="hover:bg-background dark:hover:border-t-border bg-muted group mx-auto flex w-fit items-center gap-4 rounded-full border p-1 pl-4 shadow-md shadow-zinc-950/5 transition-colors duration-300 dark:border-t-white/5 dark:shadow-zinc-950">
-                                        <span className="text-foreground text-sm">Access your Workspace</span>
-                                        <span className="dark:border-background block h-4 w-0.5 border-l bg-white dark:bg-zinc-700"></span>
+                    {/* Bottom blend — melts the dark hero into the light page section below */}
+                    <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-b from-transparent to-[var(--color-background)]"
+                    />
 
-                                        <div className="bg-background group-hover:bg-muted size-6 overflow-hidden rounded-full duration-500">
-                                            <div className="flex w-12 -translate-x-1/2 duration-500 ease-in-out group-hover:translate-x-0">
-                                                <span className="flex size-6">
-                                                    <ArrowRight className="m-auto size-3" />
-                                                </span>
-                                                <span className="flex size-6">
-                                                    <ArrowRight className="m-auto size-3" />
-                                                </span>
-                                            </div>
+                    <div className="relative z-10 mx-auto flex min-h-svh max-w-7xl flex-col items-center justify-center px-6 pt-16 md:pt-20 -mt-12 md:-mt-16">
+                        <div className="w-full text-center">
+                            {/* <AnimatedGroup variants={transitionVariants}>
+                                <Link
+                                    href="/login"
+                                    className="group mx-auto flex w-fit items-center gap-4 rounded-full border border-white/20 bg-white/10 p-1 pl-4 text-white shadow-lg shadow-black/20 backdrop-blur-md transition-colors duration-300 hover:bg-white/20">
+                                    <span className="text-sm text-white/90">Access your Workspace</span>
+                                    <span className="block h-4 w-0.5 border-l border-white/20 bg-white/30"></span>
+
+                                    <div className="size-6 overflow-hidden rounded-full bg-white/15 duration-500 group-hover:bg-white/25">
+                                        <div className="flex w-12 -translate-x-1/2 duration-500 ease-in-out group-hover:translate-x-0">
+                                            <span className="flex size-6">
+                                                <ArrowRight className="m-auto size-3 text-white" />
+                                            </span>
+                                            <span className="flex size-6">
+                                                <ArrowRight className="m-auto size-3 text-white" />
+                                            </span>
                                         </div>
-                                    </Link>
-                                </AnimatedGroup>
+                                    </div>
+                                </Link>
+                            </AnimatedGroup> */}
 
-                                <h1 className="text-primary mx-auto mt-8 max-w-4xl text-balance text-4xl font-semibold max-md:font-semibold md:text-6xl lg:mt-16 xl:text-[4.75rem]">
-                                    Modern Digital Platform for Schools
-                                </h1>
-                                <TextEffect
-                                    per="line"
-                                    preset="fade-in-blur"
-                                    speedSegment={1}
-                                    delay={0.2}
-                                    as="p"
-                                    className="mx-auto mt-8 max-w-2xl text-balance text-lg md:text-xl">
-                                    A simple and affordable platform to manage
-                                    academic operations and communication.
-                                </TextEffect>
+                            {/* Split heading: left = Stop/Start, right = Managing./Growing. */}
+                            <h1 className="w-full text-4xl font-extrabold italic text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.5)] md:text-7xl lg:text-5xl xl:text-7xl tracking-tighter">
+                                <span className="flex w-full justify-between items-baseline">
+                                    <span>Stop.</span>
+                                    <span>Managing.</span>
+                                </span>
+                                
+                                <span className="flex w-full justify-between items-baseline">
+                                    <span>Start</span>
+                                    <span>Growing.</span>
+                                </span>
+                            </h1>
+                            <TextEffect
+                                per="line"
+                                preset="fade-in-blur"
+                                speedSegment={1}
+                                delay={0.2}
+                                as="p"
+                                className="mx-auto mt-8 max-w-2xl text-balance text-lg text-white/85 drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)] md:text-xl">
+                                The AI operating system for modern schools.
+                            </TextEffect>
 
-                                <AnimatedGroup
-                                    variants={{
-                                        container: {
-                                            visible: {
-                                                transition: {
-                                                    staggerChildren: 0.05,
-                                                    delayChildren: 0.35,
-                                                },
+                            {/* <AnimatedGroup
+                                variants={{
+                                    container: {
+                                        visible: {
+                                            transition: {
+                                                staggerChildren: 0.05,
+                                                delayChildren: 0.35,
                                             },
                                         },
-                                        ...transitionVariants,
-                                    }}
-                                    className="mt-10 flex flex-col items-center justify-center gap-2 md:flex-row">
-                                    <div
-                                        key={1}
-                                        className="bg-foreground/10 rounded-[calc(var(--radius-xl)+0.125rem)] border p-0.5">
-                                        <Button
-                                            asChild
-                                            size="lg"
-                                            className="rounded-xl px-5 text-base cursor-pointer">
-                                            <a
-                                                data-cal-namespace="acadify-demo"
-                                                data-cal-link="mubashir2910/acadify-demo"
-                                                data-cal-config='{"layout":"month_view"}'
-                                            >
-                                                <span className="text-nowrap">Book a School Demo</span>
-                                            </a>
-                                        </Button>
-                                    </div>
+                                    },
+                                    ...transitionVariants,
+                                }}
+                                className="mt-10 flex flex-col items-center justify-center gap-2 md:flex-row">
+                                <div
+                                    key={1}
+                                    className="rounded-[calc(var(--radius-xl)+0.125rem)] border border-white/20 bg-white/10 p-0.5 backdrop-blur-sm">
                                     <Button
-                                        key={2}
                                         asChild
                                         size="lg"
-                                        variant="ghost"
-                                        className="h-10.5 rounded-xl px-5 bg-gray-100 border hover:bg-gray-200">
-                                        <Link href="#how-it-works">
-                                            <span className="text-nowrap">See How It Works</span>
-                                        </Link>
+                                        className="rounded-xl px-5 text-base shadow-lg shadow-black/20 cursor-pointer">
+                                        <a
+                                            data-cal-namespace="acadify-demo"
+                                            data-cal-link="mubashir2910/acadify-demo"
+                                            data-cal-config='{"layout":"month_view"}'
+                                        >
+                                            <span className="text-nowrap">Book a School Demo</span>
+                                        </a>
                                     </Button>
-                                </AnimatedGroup>
-                            </div>
+                                </div>
+                                <Button
+                                    key={2}
+                                    asChild
+                                    size="lg"
+                                    variant="ghost"
+                                    className="h-10.5 rounded-xl border border-white/25 bg-white/10 px-5 text-white backdrop-blur-md hover:bg-white/20 hover:text-white">
+                                    <Link href="#how-it-works">
+                                        <span className="text-nowrap">See How It Works</span>
+                                    </Link>
+                                </Button>
+                            </AnimatedGroup> */}
                         </div>
-
                     </div>
                 </section>
             </main>

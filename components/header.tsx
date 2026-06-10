@@ -37,7 +37,8 @@ export const HeroHeader = () => {
                                 aria-label="home"
                                 className="flex items-center space-x-2">
 
-                                <Logo /> 
+                                {/* Over the dark hero video (top of page) the wordmark needs to be white */}
+                                <Logo textClassName={cn(!isScrolled && 'text-white')} />
                             </Link>
 
                             <button
@@ -55,7 +56,13 @@ export const HeroHeader = () => {
                                     <li key={index}>
                                         <Link
                                             href={item.href}
-                                            className="text-muted-foreground hover:text-accent-foreground block duration-150">
+                                            className={cn(
+                                                'block duration-150',
+                                                // Light text while sitting over the dark hero video; revert to muted in the scrolled pill
+                                                isScrolled
+                                                    ? 'text-muted-foreground hover:text-accent-foreground'
+                                                    : 'text-white/80 hover:text-white'
+                                            )}>
                                             <span>{item.name}</span>
                                         </Link>
                                     </li>
@@ -82,7 +89,7 @@ export const HeroHeader = () => {
                                     asChild
                                     size="sm">
                                     <Link href="/login">
-                                        <span>Get Started</span>
+                                        <span>Login</span>
                                     </Link>
                                 </Button>
                             </div>
