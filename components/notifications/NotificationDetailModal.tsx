@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { format } from "date-fns"
-import { Trash2 } from "lucide-react"
+import { Trash2, FileText, Image as ImageIcon, ExternalLink } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -94,6 +94,26 @@ export function NotificationDetailModal({
             {notification.message}
           </p>
         </div>
+
+        {/* Attachment */}
+        {notification.attachment_url && (
+          <a
+            href={notification.attachment_url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 bg-muted/50 hover:bg-muted transition-colors"
+          >
+            {notification.attachment_type === "image" ? (
+              <ImageIcon className="h-4 w-4 text-blue-500 shrink-0" />
+            ) : (
+              <FileText className="h-4 w-4 text-red-500 shrink-0" />
+            )}
+            <span className="flex-1 text-sm text-foreground truncate">
+              {notification.attachment_name ?? "View attachment"}
+            </span>
+            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          </a>
+        )}
 
         {canDelete && (
           <DialogFooter>

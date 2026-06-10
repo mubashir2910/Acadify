@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { detectWallClockOverlap, getAdminSchoolId } from "@/services/timetable.service"
 import type { DayOfWeek } from "@/schemas/timetable.schema"
 import { dayOfWeekEnum } from "@/schemas/timetable.schema"
+import { checkRateLimit, expensiveReadLimiter } from "@/lib/rate-limit"
 
 const DAYS = new Set(dayOfWeekEnum.options)
 
@@ -18,6 +19,12 @@ export async function GET(request: Request) {
     if (!session?.user?.id || session.user.role !== "ADMIN") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
+    const limited = await checkRateLimit(
+      expensiveReadLimiter,
+      `read:${session.user.id}`,
+    )
+    if (limited) return limited
+
     const schoolId = await getAdminSchoolId(session.user.id)
     if (!schoolId) return NextResponse.json({ message: "School not found" }, { status: 404 })
 

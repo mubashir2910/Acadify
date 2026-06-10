@@ -39,12 +39,14 @@ export default function StudentTimetableSection() {
     )
   }
 
-  // Check if any day has any non-break non-empty cell
-  const hasTimetable = days.some((d) =>
-    d.cells.some((c) => !c.is_break && c.subject !== null)
+  // Hide days that have no real assignments (Sunday is gone in most schools).
+  // Break-only days stay because that's still a valid school day. If every day
+  // is empty we fall through to the "no timetable" banner.
+  const visibleDays = days.filter((d) =>
+    d.cells.some((c) => c.subject !== null || c.is_break),
   )
 
-  if (!hasTimetable) {
+  if (visibleDays.length === 0) {
     return (
       <div className="p-4 md:p-6 space-y-4">
         <h1 className="text-2xl font-bold">Timetable</h1>
@@ -55,8 +57,8 @@ export default function StudentTimetableSection() {
     )
   }
 
-  // Collect period metadata from first day (all days have same periods)
-  const periods = days[0]?.cells ?? []
+  // Collect period metadata from first visible day (all days share the same periods)
+  const periods = visibleDays[0]?.cells ?? []
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -89,7 +91,7 @@ export default function StudentTimetableSection() {
             </tr>
           </thead>
           <tbody>
-            {days.map((day, idx) => (
+            {visibleDays.map((day, idx) => (
               <tr
                 key={day.day}
                 className={cn("border-b border-border", idx % 2 === 0 ? "bg-card" : "bg-muted/50/40")}

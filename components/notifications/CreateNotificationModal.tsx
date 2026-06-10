@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
+import { Paperclip, X, Loader2, FileText, Image as ImageIcon } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,27 @@ interface ClassSection {
   section: string
 }
 
+interface UploadedAttachment {
+  url: string
+  type: "image" | "pdf" | "doc"
+  name: string
+}
+
+// Accepted upload types: images, PDF, and Office documents
+const ATTACHMENT_ACCEPT = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".doc,.docx,.xls,.xlsx,.ppt,.pptx",
+].join(",")
+
 interface CreateNotificationModalProps {
   open: boolean
   onClose: () => void
@@ -52,6 +74,9 @@ export function CreateNotificationModal({
 }: CreateNotificationModalProps) {
   const [classSections, setClassSections] = useState<ClassSection[]>([])
   const [loadingClasses, setLoadingClasses] = useState(false)
+  const [attachment, setAttachment] = useState<UploadedAttachment | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const form = useForm<CreateNotificationInput>({
     resolver: zodResolver(createNotificationSchema),
@@ -65,6 +90,9 @@ export function CreateNotificationModal({
   })
 
   const watchedClass = form.watch("target_class")
+  const watchedAudience = form.watch("target_audience")
+  // Class/section targeting only affects students — disable it for TEACHER audience.
+  const classTargetingDisabled = watchedAudience === "TEACHER"
 
   // Fetch available class-sections when modal opens
   useEffect(() => {
@@ -88,6 +116,38 @@ export function CreateNotificationModal({
     form.setValue("target_section", null)
   }, [watchedClass, form])
 
+  // Clear class/section targeting when switching to TEACHER audience (it has no
+  // effect on teacher visibility and the server drops it anyway).
+  useEffect(() => {
+    if (classTargetingDisabled) {
+      form.setValue("target_class", null)
+      form.setValue("target_section", null)
+    }
+  }, [classTargetingDisabled, form])
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const res = await fetch("/api/upload/attachment", { method: "POST", body: formData })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.message ?? "Upload failed")
+        return
+      }
+      const data = await res.json()
+      setAttachment({ url: data.url, type: data.type, name: data.name })
+    } catch {
+      toast.error("Upload failed")
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
   // Available sections for the selected class
   const availableSections = classSections
     .filter((cs) => cs.class === watchedClass)
@@ -101,7 +161,12 @@ export function CreateNotificationModal({
       const res = await fetch("/api/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          attachmentUrl: attachment?.url ?? null,
+          attachmentType: attachment?.type ?? null,
+          attachmentName: attachment?.name ?? null,
+        }),
       })
 
       if (!res.ok) {
@@ -113,6 +178,7 @@ export function CreateNotificationModal({
       toast.success("Notification sent")
       onCreated()
       form.reset()
+      setAttachment(null)
       onClose()
     } catch {
       toast.error("Failed to send notification")
@@ -121,6 +187,7 @@ export function CreateNotificationModal({
 
   function handleClose() {
     form.reset()
+    setAttachment(null)
     onClose()
   }
 
@@ -201,7 +268,7 @@ export function CreateNotificationModal({
                   <Select
                     onValueChange={(v) => field.onChange(v === "__all__" ? null : v)}
                     value={field.value ?? "__all__"}
-                    disabled={loadingClasses}
+                    disabled={loadingClasses || classTargetingDisabled}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -217,6 +284,11 @@ export function CreateNotificationModal({
                       ))}
                     </SelectContent>
                   </Select>
+                  {classTargetingDisabled && (
+                    <p className="text-xs text-muted-foreground">
+                      Class targeting applies to students only.
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -254,6 +326,58 @@ export function CreateNotificationModal({
               />
             )}
 
+            {/* Attachment (optional) */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                Attachment{" "}
+                <span className="text-muted-foreground font-normal">
+                  (optional — PDF, image or Office doc, max 10MB)
+                </span>
+              </label>
+              {attachment ? (
+                <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 bg-muted/50">
+                  {attachment.type === "image" ? (
+                    <ImageIcon className="h-4 w-4 text-blue-500 shrink-0" />
+                  ) : (
+                    <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                  )}
+                  <span className="flex-1 text-sm truncate">{attachment.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAttachment(null)}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Remove attachment"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <Paperclip className="h-4 w-4 mr-1" />
+                    )}
+                    {uploading ? "Uploading…" : "Attach File"}
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={ATTACHMENT_ACCEPT}
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                </div>
+              )}
+            </div>
+
             <DialogFooter className="pt-2">
               <Button
                 type="button"
@@ -265,6 +389,7 @@ export function CreateNotificationModal({
               </Button>
               <Button
                 type="submit"
+                disabled={uploading}
                 loading={form.formState.isSubmitting}
                 loadingText="Sending…"
               >

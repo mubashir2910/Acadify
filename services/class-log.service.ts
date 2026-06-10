@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { getNowIST, getTodayISTString } from "@/lib/working-days"
+import { isSchoolHoliday } from "@/services/calendar.service"
 import type { CreateClassLogInput } from "@/schemas/class-log.schema"
 import type { DayOfWeek } from "@prisma/client"
 
@@ -52,17 +53,38 @@ export interface TeacherSlotWithLog {
   } | null
 }
 
+export interface TeacherDashboardResult {
+  // Distinguishes "user is not a teacher" from "teacher has no slots that day"
+  // so an admin without a Teacher record gets a meaningful message (BUG 3).
+  isTeacher: boolean
+  // The selected day is a school holiday — logging is disabled (EDGE 3).
+  isHoliday: boolean
+  // The selected day is within the backdate window AND not a holiday, so the
+  // teacher is allowed to create/edit a log for it (EDGE 2 / EDGE 3).
+  loggable: boolean
+  slots: TeacherSlotWithLog[]
+}
+
 export async function getTeacherLogDashboard(
   teacherUserId: string,
   dateStr: string
-): Promise<TeacherSlotWithLog[]> {
+): Promise<TeacherDashboardResult> {
   const teacher = await prisma.teacher.findFirst({
     where: { user_id: teacherUserId, status: "ACTIVE" },
     select: { id: true, school_id: true },
   })
-  if (!teacher) return []
+  if (!teacher) {
+    return { isTeacher: false, isHoliday: false, loggable: false, slots: [] }
+  }
 
   const dayOfWeek = getDayOfWeekFromDate(dateStr)
+  const targetDate = new Date(`${dateStr}T00:00:00.000Z`)
+
+  // A day is loggable only if it falls inside the backdate window and is not a
+  // school holiday — mirrors the write-time guards in createClassLog.
+  const holiday = await isSchoolHoliday(teacher.school_id, targetDate)
+  const withinWindow = dateStr >= getEarliestAllowedDate() && dateStr <= getTodayISTString()
+  const loggable = withinWindow && !holiday
 
   const slots = await prisma.timetable.findMany({
     where: {
@@ -75,9 +97,9 @@ export async function getTeacherLogDashboard(
     },
     orderBy: { period: { order: "asc" } },
   })
-  if (slots.length === 0) return []
-
-  const targetDate = new Date(`${dateStr}T00:00:00.000Z`)
+  if (slots.length === 0) {
+    return { isTeacher: true, isHoliday: holiday, loggable, slots: [] }
+  }
   const logs = await prisma.classLog.findMany({
     where: {
       timetable_id: { in: slots.map((s) => s.id) },
@@ -95,7 +117,7 @@ export async function getTeacherLogDashboard(
 
   const logMap = new Map(logs.map((l) => [l.timetable_id, l]))
 
-  return slots.map((slot) => {
+  const mappedSlots: TeacherSlotWithLog[] = slots.map((slot) => {
     const log = logMap.get(slot.id) ?? null
     return {
       timetableId: slot.id,
@@ -116,6 +138,8 @@ export async function getTeacherLogDashboard(
         : null,
     }
   })
+
+  return { isTeacher: true, isHoliday: holiday, loggable, slots: mappedSlots }
 }
 
 // ─── Teacher: log history ─────────────────────────────────────────────────────
@@ -157,7 +181,8 @@ export async function getTeacherLogHistory(
 
   const logs = await prisma.classLog.findMany({
     where,
-    orderBy: [{ date: "desc" }, { period_label: "asc" }],
+    orderBy: [{ date: "desc" }, { created_at: "asc" }],
+    take: 500,
   })
 
   return logs.map((l) => ({
@@ -206,6 +231,10 @@ export async function createClassLog(
   if (dayOfWeek !== slot.day_of_week) throw new Error("DAY_MISMATCH")
 
   const targetDate = new Date(`${input.date}T00:00:00.000Z`)
+
+  // Block logging on school holidays / non-working days (consistent with the
+  // attendance feature, which also gates on isSchoolHoliday).
+  if (await isSchoolHoliday(schoolId, targetDate)) throw new Error("SCHOOL_HOLIDAY")
 
   const log = await prisma.classLog.upsert({
     where: { timetable_id_date: { timetable_id: input.timetableId, date: targetDate } },
@@ -287,7 +316,8 @@ export async function getStudentClassLogs(
     include: {
       teacher: { include: { user: { select: { name: true } } } },
     },
-    orderBy: [{ date: "desc" }, { period_label: "asc" }],
+    orderBy: [{ date: "desc" }, { created_at: "asc" }],
+    take: 500,
   })
 
   return logs.map((l) => ({

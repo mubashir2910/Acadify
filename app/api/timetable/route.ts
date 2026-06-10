@@ -6,6 +6,7 @@ import {
   getAdminSchoolId,
   getSchoolIdForTeacher,
 } from "@/services/timetable.service"
+import { checkRateLimit, expensiveReadLimiter } from "@/lib/rate-limit"
 
 /**
  * GET — multi-role.
@@ -20,6 +21,14 @@ export async function GET(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
+
+    // Grid + student-day computation pull from several tables; throttle so a
+    // hot-reload loop in a tab can't hammer the DB.
+    const limited = await checkRateLimit(
+      expensiveReadLimiter,
+      `read:${session.user.id}`,
+    )
+    if (limited) return limited
 
     const { id: userId, role } = session.user
 

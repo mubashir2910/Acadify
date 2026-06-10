@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
-import { Bell, RefreshCw } from "lucide-react"
+import { Bell } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DataErrorState } from "@/components/ui/data-error-state"
 import { NotificationItem, NotificationListResponse } from "@/schemas/notifications.schema"
 import { NotificationCard } from "./NotificationCard"
 import { NotificationDetailModal } from "./NotificationDetailModal"
@@ -125,20 +126,16 @@ export function NotificationsSection() {
     return (
       <>
         {canCreate && <TabBar tab={tab} onTabChange={setTab} onNew={() => setCreateOpen(true)} />}
-        <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground mt-4">
-          <p className="text-sm">Failed to load notifications.</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
+        <div className="mt-4">
+          <DataErrorState
+            title="Couldn't load notifications"
+            description="Something went wrong on our side."
+            onRetry={() => {
               setFetchError(false)
               setLoading(true)
               fetchNotifications(1, true, tab === "mine").finally(() => setLoading(false))
             }}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
+          />
         </div>
         <CreateNotificationModal
           open={createOpen}

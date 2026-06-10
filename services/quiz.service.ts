@@ -253,6 +253,8 @@ export async function getSchoolClassSections(userId: string, role: string) {
 // ─── Get Quiz Detail ──────────────────────────────────────────────────────
 
 export async function getQuizDetail(quizId: string, userId: string, role: string) {
+  // Meta + counts only — no question text/options here, so the Challenge Details
+  // view stays light and never leaks question content before an attempt starts.
   const quiz = await prisma.quiz.findUnique({
     where: { id: quizId },
     select: {
@@ -274,38 +276,63 @@ export async function getQuizDetail(quizId: string, userId: string, role: string
       shuffle_questions: true,
       shuffle_options: true,
       creator: { select: { name: true } },
-      questions: {
-        orderBy: { order: "asc" },
-        select: {
-          id: true,
-          text: true,
-          type: true,
-          marks: true,
-          time_limit_secs: true,
-          order: true,
-          correct_answer: true,
-          options: {
-            orderBy: { order: "asc" },
-            select: { id: true, text: true, is_correct: true, order: true },
-          },
-        },
-      },
-      _count: { select: { attempts: true } },
+      _count: { select: { questions: true, attempts: true } },
     },
   })
 
   if (!quiz) throw new Error("QUIZ_NOT_FOUND")
 
-  const withEffectiveStatus = {
+  // Real quiz length = sum of per-question time limits (cheap aggregate, no content)
+  const timeAgg = await prisma.question.aggregate({
+    where: { quiz_id: quizId },
+    _sum: { time_limit_secs: true },
+  })
+
+  const base = {
     ...quiz,
+    total_time_secs: timeAgg._sum.time_limit_secs ?? 0,
     effectiveStatus: computeEffectiveStatus(quiz.status, quiz.start_time, quiz.end_time),
   }
+
+  // Question content is served to staff always, but to a student only once they
+  // actually have an attempt (so the attempt screen + result review work). Before
+  // starting, a student gets aggregates only — they can't pre-read the questions.
+  let includeQuestions = role !== "STUDENT"
+  if (role === "STUDENT") {
+    const attempt = await prisma.quizAttempt.findUnique({
+      where: { quiz_id_student_id: { quiz_id: quizId, student_id: userId } },
+      select: { status: true },
+    })
+    includeQuestions = !!attempt
+  }
+
+  if (!includeQuestions) {
+    return { ...base, questions: [] as const }
+  }
+
+  const questions = await prisma.question.findMany({
+    where: { quiz_id: quizId },
+    orderBy: { order: "asc" },
+    select: {
+      id: true,
+      text: true,
+      type: true,
+      marks: true,
+      time_limit_secs: true,
+      order: true,
+      correct_answer: true,
+      options: {
+        orderBy: { order: "asc" },
+        select: { id: true, text: true, is_correct: true, order: true },
+      },
+    },
+  })
 
   // Students must not see correct answers
   if (role === "STUDENT") {
     return {
-      ...withEffectiveStatus,
-      questions: quiz.questions.map((q) => ({
+      ...base,
+      questions: questions.map((q) => ({
         ...q,
         correct_answer: undefined,
         options: q.options.map((o) => ({ id: o.id, text: o.text, order: o.order })),
@@ -313,7 +340,7 @@ export async function getQuizDetail(quizId: string, userId: string, role: string
     }
   }
 
-  return withEffectiveStatus
+  return { ...base, questions }
 }
 
 // ─── Update Quiz Status (Early Close only) ────────────────────────────────

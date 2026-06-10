@@ -52,10 +52,22 @@ export function AdminTrackLogSection() {
   const [missingLoading, setMissingLoading] = useState(false)
   const [missingDate, setMissingDate] = useState(() => getNowIST().toISOString().split("T")[0])
 
-  // Derive unique class-sections from loaded logs (used by filter)
-  const classSections: ClassSection[] = Array.from(
-    new Map(logs.map((l) => [`${l.class}|${l.section}`, { class: l.class, section: l.section }])).values()
-  ).sort((a, b) => a.class.localeCompare(b.class) || a.section.localeCompare(b.section))
+  // Class/section filter options come from the school's actual class list, not
+  // the loaded logs — so a class with no logs in range is still selectable.
+  const [classSections, setClassSections] = useState<ClassSection[]>([])
+
+  useEffect(() => {
+    fetch("/api/class-teachers/all-class-sections")
+      .then((r) => r.json())
+      .then((data: ClassSection[]) =>
+        setClassSections(
+          Array.isArray(data)
+            ? [...data].sort((a, b) => a.class.localeCompare(b.class) || a.section.localeCompare(b.section))
+            : []
+        )
+      )
+      .catch(() => setClassSections([]))
+  }, [])
 
   // Fetch all logs
   useEffect(() => {

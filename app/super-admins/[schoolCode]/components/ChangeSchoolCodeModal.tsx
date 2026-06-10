@@ -69,7 +69,7 @@ export default function ChangeSchoolCodeModal({
           <DialogTitle>Change School Code</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 text-sm">
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+          <div className="rounded-md border border-amber-300 bg-amber-500/10 p-3 text-xs text-amber-900">
             <p className="font-semibold mb-1">⚠ Changing the school code is risky.</p>
             <p>
               All admin/teacher/student URLs that reference this school by code

@@ -321,7 +321,7 @@ export function CreateSchoolForm({ onSuccess }: CreateSchoolFormProps) {
           />
 
           {showGatewayInfo && (
-            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 border border-amber-200 rounded p-2">
+            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-200 rounded p-2">
               Online payment gateway integration is coming soon. You can configure
               keys later from the school settings.
             </p>

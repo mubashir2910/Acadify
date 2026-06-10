@@ -220,7 +220,7 @@ export default function StructuresTab() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-emerald-700 dark:text-emerald-400 border-emerald-300 hover:bg-emerald-50"
+                        className="text-emerald-700 dark:text-emerald-400 border-emerald-300 hover:bg-emerald-500/10"
                         onClick={() =>
                           toast.info(
                             `Structure already locked for ${s.session.name} — ${s.ledger_row_count} ledger rows exist.`,
@@ -478,14 +478,14 @@ function CreateStructureModal({
 
         <div className="space-y-4">
           {sessions.length === 0 && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-700 dark:text-amber-400">
+            <div className="rounded-md border border-amber-300 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
               No academic sessions yet. Open the <strong>Sessions</strong> tab,
               create one (e.g. <code>2025-26</code> with start/end dates), then
               come back here.
             </div>
           )}
           {classes.length === 0 && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-700 dark:text-amber-400">
+            <div className="rounded-md border border-amber-300 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
               No active students enrolled yet. Import students first so classes appear in the dropdown.
             </div>
           )}
@@ -833,7 +833,7 @@ function LockStructureModal({
             </p>
           </div>
 
-          <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-2 text-xs text-amber-800 dark:text-amber-300">
+          <div className="rounded-md border border-amber-300 bg-amber-500/10 dark:bg-amber-900/20 p-2 text-xs text-amber-800 dark:text-amber-300">
             Once locked, ledger rows are created and the structure can&apos;t be
             re-locked without deleting first.
           </div>

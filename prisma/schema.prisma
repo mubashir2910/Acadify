@@ -267,6 +267,9 @@ model Notification {
   target_audience NotificationAudience @default(ALL)
   target_class    String?
   target_section  String?
+  attachment_url  String?
+  attachment_type String?
+  attachment_name String?
   created_at      DateTime             @default(now())
   updated_at      DateTime             @updatedAt
   creator         User?                @relation("NotificationCreatedBy", fields: [created_by], references: [id])
@@ -379,7 +382,7 @@ model ClassLog {
   updated_at      DateTime  @updatedAt
   school          School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
   teacher         Teacher   @relation(fields: [teacher_id], references: [id])
-  timetable       Timetable @relation(fields: [timetable_id], references: [id])
+  timetable       Timetable @relation(fields: [timetable_id], references: [id], onDelete: Cascade)
 
   @@unique([timetable_id, date])
   @@index([school_id, class, section, date])

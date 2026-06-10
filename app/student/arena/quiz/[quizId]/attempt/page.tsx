@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { ChevronLeft, ChevronRight, Send, Lock, Loader2 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
+import { ArenaSpinner } from "@/app/student/arena/components/ArenaSpinner"
 import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
 
 interface Option {
@@ -249,9 +250,7 @@ export default function ArenaAttemptPage() {
 
   if (loading || !quizData || !attemptState) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin w-8 h-8 border-2 border-[#3B82F6] border-t-transparent rounded-full" />
-      </div>
+      <ArenaSpinner fullscreen size="lg" tagline="Setting up your Contest" />
     )
   }
 
@@ -324,24 +323,28 @@ export default function ArenaAttemptPage() {
             className="bg-[#121826] border border-white/[0.06] rounded-2xl p-5 space-y-5"
           >
           {/* Question header */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-slate-400 font-medium">Q{currentIdx + 1} of {orderedQuestions.length}</span>
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-slate-300 font-semibold">
+                Question {currentIdx + 1} / {orderedQuestions.length}
+              </span>
+              {questionTimeRemainingSecs > 0 && (
+                <QuestionTimer
+                  key={currentQuestion.id}
+                  secs={Math.ceil(questionTimeRemainingSecs)}
+                  onExpire={handleQuestionTimeExpire}
+                />
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap mt-1.5">
               <span className="text-xs bg-white/10 text-slate-300 px-2 py-0.5 rounded-full">{typeLabel}</span>
-              <span className="text-xs bg-[#FACC15]/10 text-[#FACC15] border border-[#FACC15]/20 px-2 py-0.5 rounded-full">{currentQuestion.marks} XP</span>
+              <span className="text-xs bg-[#FACC15]/10 text-[#FACC15] border border-[#FACC15]/20 px-2 py-0.5 rounded-full">+{currentQuestion.marks} XP</span>
               {isLocked && (
                 <span className="text-xs bg-white/10 text-slate-400 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Lock className="h-3 w-3" /> Locked
                 </span>
               )}
             </div>
-            {questionTimeRemainingSecs > 0 && (
-              <QuestionTimer
-                key={currentQuestion.id}
-                secs={Math.ceil(questionTimeRemainingSecs)}
-                onExpire={handleQuestionTimeExpire}
-              />
-            )}
           </div>
 
           {/* Question text */}

@@ -22,10 +22,10 @@ export default function TeacherClassInfo({ assigned, className, section }: Teach
   }
 
   return (
-    <Card className="bg-blue-50 border-0 shadow-none">
+    <Card className="bg-blue-500/10 border-0 shadow-none">
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
-          <div className="bg-blue-100 rounded-lg p-2">
+          <div className="bg-blue-500/10 rounded-lg p-2">
             <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>

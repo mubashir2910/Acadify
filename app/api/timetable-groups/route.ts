@@ -6,7 +6,7 @@ import {
   createGroup,
   getGroupsForSchool,
 } from "@/services/timetable-group.service"
-import { getAdminSchoolId } from "@/services/timetable.service"
+import { getAdminSchoolId, getSchoolIdForTeacher } from "@/services/timetable.service"
 import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 const ERROR_STATUS: Record<string, number> = {
@@ -19,13 +19,23 @@ const ERROR_MESSAGE: Record<string, string> = {
   CLASS_ALREADY_IN_GROUP: "One or more of these classes already belong to another group",
 }
 
+// GET — group + class data is reasonable to expose to any authenticated school
+// member. The Teacher "Others" tab uses this to populate its group picker.
 export async function GET() {
   try {
     const session = await auth()
-    if (!session?.user?.id || session.user.role !== "ADMIN") {
+    if (!session?.user?.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
-    const schoolId = await getAdminSchoolId(session.user.id)
+    const role = session.user.role
+    if (role !== "ADMIN" && role !== "TEACHER") {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 })
+    }
+
+    const schoolId =
+      role === "ADMIN"
+        ? await getAdminSchoolId(session.user.id)
+        : await getSchoolIdForTeacher(session.user.id)
     if (!schoolId) return NextResponse.json({ message: "School not found" }, { status: 404 })
 
     const groups = await getGroupsForSchool(schoolId)

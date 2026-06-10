@@ -23,6 +23,7 @@ interface SlotCardProps {
   date: string
   log: SlotCardLog | null
   onLog: () => void
+  disabled?: boolean
 }
 
 export function SlotCard({
@@ -34,6 +35,7 @@ export function SlotCard({
   endTime,
   log,
   onLog,
+  disabled = false,
 }: SlotCardProps) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex items-start justify-between gap-4">
@@ -64,12 +66,12 @@ export function SlotCard({
             <Badge className="bg-green-100 text-green-700 dark:text-green-400 hover:bg-green-100 gap-1">
               <CheckCircle2 className="h-3 w-3" /> Logged
             </Badge>
-            <Button variant="ghost" size="sm" onClick={onLog} className="h-7 text-xs px-2">
+            <Button variant="ghost" size="sm" onClick={onLog} disabled={disabled} className="h-7 text-xs px-2">
               <Pencil className="h-3 w-3 mr-1" /> Edit
             </Button>
           </>
         ) : (
-          <Button size="sm" onClick={onLog}>
+          <Button size="sm" onClick={onLog} disabled={disabled}>
             Log Class
           </Button>
         )}

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { CheckSquare, Check, X, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import TeacherAttendanceRow from "./TeacherAttendanceRow"
+import BulkActionBar from "@/app/teacher/attendance/components/BulkActionBar"
 import SubmitConfirmationModal from "@/app/teacher/attendance/components/SubmitConfirmationModal"
 import type { TeacherAttendanceRecord } from "@/schemas/teacher-attendance.schema"
 
@@ -80,7 +81,7 @@ export default function TeacherAttendanceForm({
   return (
     <div className="space-y-3">
       {/* Bulk action bar */}
-      {!readOnly && (
+      {/* {!readOnly && (
         <div className="flex items-center gap-2 rounded-xl bg-muted/50 border p-3">
           <span className="text-xs font-medium text-muted-foreground mr-1">Mark all:</span>
           {(["PRESENT", "ABSENT", "LATE"] as AttendanceStatus[]).map((s) => (
@@ -102,7 +103,9 @@ export default function TeacherAttendanceForm({
             </button>
           ))}
         </div>
-      )}
+      )} */}
+      {!readOnly && <BulkActionBar onMarkAll={markAll} />}
+      
 
       {/* Teacher list */}
       <div className="space-y-2">

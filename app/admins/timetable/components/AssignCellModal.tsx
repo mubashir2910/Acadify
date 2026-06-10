@@ -1,17 +1,24 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { AlertTriangle } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { AlertTriangle, Undo2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import type {
   PeriodRow,
   TimetableCell,
@@ -21,104 +28,103 @@ import type {
 } from "@/schemas/timetable.schema"
 import { DAY_LABELS } from "@/schemas/timetable.schema"
 import type { ClassSectionInput } from "@/schemas/timetable-group.schema"
+import type {
+  ParticipantIdentity,
+  PendingCellInfo,
+} from "@/components/timetable-grid-view"
 
-interface Teacher {
-  id: string
-  employee_id: string
-  user: { name: string }
-}
-
-interface AdminCandidate {
-  userId: string
-  name: string
-}
-
-type AssigneeOption =
-  | { value: string; label: string; kind: "teacher"; teacherId: string }
-  | { value: string; label: string; kind: "admin"; userId: string }
+/** Parent receives this when admin clicks Discard / Restore. */
+export type PendingDropMatcher =
+  | { kind: "create"; tempId: string }
+  | { kind: "update"; id: string }
+  | { kind: "delete"; id: string }
 
 interface AssignCellModalProps {
   open: boolean
   groupId: string
   period: PeriodRow
   dayOfWeek: DayOfWeek
+  /** Identity of the row that was clicked — locked, not chooseable in the modal */
+  participant: ParticipantIdentity
   existingCell?: TimetableCell
   /** Classes belonging to the currently-selected timetable group */
   groupClasses: ClassSectionInput[]
-  /**
-   * Called when the admin confirms — returns a BatchChange to enqueue.
-   * For "remove", returns `{ action: "DELETE", id }` (existing cell only).
-   * For "create", returns `{ action: "CREATE", input }`.
-   * For "update", returns `{ action: "UPDATE", id, input }`.
-   */
+  /** Pending change already queued for this cell (if any) */
+  pending?: PendingCellInfo
+  /** Called when the admin confirms a CREATE/UPDATE/DELETE — returns a BatchChange */
   onQueue: (change: BatchChange) => void
+  /** Called when the admin discards a queued change (or restores a DELETE) */
+  onDropPending: (matcher: PendingDropMatcher) => void
   onClose: () => void
 }
+
+const SECTION_PLACEHOLDER = "__none__"
 
 export default function AssignCellModal({
   open,
   groupId,
   period,
   dayOfWeek,
+  participant,
   existingCell,
   groupClasses,
+  pending,
   onQueue,
+  onDropPending,
   onClose,
 }: AssignCellModalProps) {
-  const [options, setOptions] = useState<AssigneeOption[]>([])
-  const [loadingData, setLoadingData] = useState(true)
+  // Pre-fill priority:
+  // 1. Pending CREATE/UPDATE → use queued values
+  // 2. Existing DB cell → use DB values
+  // 3. Otherwise → empty
+  const initialSubject = useMemo(() => {
+    if (pending && pending.change.action !== "DELETE") {
+      return pending.change.input.subject ?? existingCell?.subject ?? ""
+    }
+    return existingCell?.subject ?? ""
+  }, [pending, existingCell])
 
-  const [assigneeValue, setAssigneeValue] = useState(
-    existingCell?.teacher_id ? `teacher:${existingCell.teacher_id}` : "",
-  )
-  const [subject, setSubject] = useState(existingCell?.subject ?? "")
-  const [classVal, setClassVal] = useState(existingCell?.class ?? "")
-  const [sectionVal, setSectionVal] = useState(existingCell?.section ?? "")
+  const initialClass = useMemo(() => {
+    if (pending && pending.change.action !== "DELETE") {
+      return pending.change.input.class ?? existingCell?.class ?? ""
+    }
+    return existingCell?.class ?? ""
+  }, [pending, existingCell])
+
+  const initialSection = useMemo(() => {
+    if (pending && pending.change.action !== "DELETE") {
+      return pending.change.input.section ?? existingCell?.section ?? ""
+    }
+    return existingCell?.section ?? ""
+  }, [pending, existingCell])
+
+  const [subject, setSubject] = useState(initialSubject)
+  const [classVal, setClassVal] = useState(initialClass)
+  const [sectionVal, setSectionVal] = useState(initialSection)
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<OverlapWarning[]>([])
   const [checkingOverlap, setCheckingOverlap] = useState(false)
 
+  // Reset form state on open so re-opening reflects the latest pre-fill.
   useEffect(() => {
-    Promise.all([
-      fetch("/api/teachers").then((r) => {
-        if (!r.ok) throw new Error()
-        return r.json()
-      }),
-      fetch("/api/admins/teaching-eligible").then((r) => {
-        if (!r.ok) throw new Error()
-        return r.json()
-      }),
-    ])
-      .then(([t, a]) => {
-        const teacherOpts: AssigneeOption[] = (t as Teacher[]).map((x) => ({
-          kind: "teacher",
-          value: `teacher:${x.id}`,
-          label: `${x.user.name} (${x.employee_id})`,
-          teacherId: x.id,
-        }))
-        const adminOpts: AssigneeOption[] = (a as AdminCandidate[]).map((x) => ({
-          kind: "admin",
-          value: `admin:${x.userId}`,
-          label: `${x.name} (Admin)`,
-          userId: x.userId,
-        }))
-        setOptions([...teacherOpts, ...adminOpts])
-      })
-      .catch(() => setError("Failed to load teacher list"))
-      .finally(() => setLoadingData(false))
-  }, [])
+    if (!open) return
+    setSubject(initialSubject)
+    setClassVal(initialClass)
+    setSectionVal(initialSection)
+    setError(null)
+  }, [open, initialSubject, initialClass, initialSection])
 
-  // Probe wall-clock overlap whenever the chosen teacher changes (admin selections
-  // can't be checked without resolving them to a Teacher row first, so skipped).
+  // Wall-clock overlap probe — only when the row owner is a real Teacher.
+  // Admin participants have no Teacher row yet, so we can't probe; the backend
+  // surfaces any post-save warnings via the batch response.
   useEffect(() => {
-    const [kind, id] = assigneeValue.split(":")
-    if (kind !== "teacher" || !id) {
+    if (participant.kind !== "teacher") {
       setWarnings([])
       return
     }
     setCheckingOverlap(true)
     const params = new URLSearchParams({
-      teacherId: id,
+      teacherId: participant.teacher_id,
       day: dayOfWeek,
       start: period.start_time,
       end: period.end_time,
@@ -129,34 +135,58 @@ export default function AssignCellModal({
       .then((data) => setWarnings(data as OverlapWarning[]))
       .catch(() => setWarnings([]))
       .finally(() => setCheckingOverlap(false))
-  }, [assigneeValue, dayOfWeek, period.start_time, period.end_time, groupId])
+  }, [participant, dayOfWeek, period.start_time, period.end_time, groupId])
+
+  // Defensive: include the existingCell's class even if it's been removed from
+  // the group since the assignment was made.
+  const knownGroupKey = new Set(
+    groupClasses.map((cs) => `${cs.class}__${cs.section}`),
+  )
+  const orphanFromExisting =
+    existingCell && !knownGroupKey.has(`${existingCell.class}__${existingCell.section}`)
+      ? { class: existingCell.class, section: existingCell.section }
+      : null
+
+  const mergedClassMap = new Map<string, Set<string>>()
+  for (const cs of groupClasses) {
+    if (!mergedClassMap.has(cs.class)) mergedClassMap.set(cs.class, new Set())
+    mergedClassMap.get(cs.class)!.add(cs.section)
+  }
+  if (orphanFromExisting) {
+    if (!mergedClassMap.has(orphanFromExisting.class)) {
+      mergedClassMap.set(orphanFromExisting.class, new Set())
+    }
+    mergedClassMap.get(orphanFromExisting.class)!.add(orphanFromExisting.section)
+  }
+
+  const uniqueClasses = [...mergedClassMap.keys()].sort()
+  const sectionsForClass = [...(mergedClassMap.get(classVal) ?? [])].sort()
+  const isOrphanClass = (cls: string) =>
+    orphanFromExisting?.class === cls &&
+    !groupClasses.some((cs) => cs.class === cls)
+  const isOrphanSection = (cls: string, sec: string) =>
+    orphanFromExisting?.class === cls &&
+    orphanFromExisting?.section === sec &&
+    !groupClasses.some((cs) => cs.class === cls && cs.section === sec)
 
   function handleClassChange(cls: string) {
     setClassVal(cls)
     setSectionVal("")
   }
 
-  const uniqueClasses = [...new Set(groupClasses.map((cs) => cs.class))].sort()
-  const sectionsForClass = groupClasses
-    .filter((cs) => cs.class === classVal)
-    .map((cs) => cs.section)
-    .sort()
+  // ─── Action handlers ─────────────────────────────────────────────────────
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (!assigneeValue) return setError("Please select a teacher or admin")
     if (!subject.trim()) return setError("Subject is required")
     if (!classVal) return setError("Please select a class")
     if (!sectionVal) return setError("Please select a section")
 
-    const opt = options.find((o) => o.value === assigneeValue)
-    if (!opt) return setError("Invalid teacher selection")
-
     const assignee =
-      opt.kind === "teacher"
-        ? { teacher_id: opt.teacherId }
-        : { admin_user_id: opt.userId }
+      participant.kind === "teacher"
+        ? { teacher_id: participant.teacher_id }
+        : { admin_user_id: participant.admin_user_id }
 
     const baseInput = {
       period_id: period.id,
@@ -167,8 +197,28 @@ export default function AssignCellModal({
       ...assignee,
     }
 
-    if (existingCell) {
-      onQueue({ action: "UPDATE", id: existingCell.id, input: baseInput })
+    if (pending?.change.action === "CREATE") {
+      // Drop the previously-queued CREATE for this slot and queue the fresh one.
+      onDropPending({ kind: "create", tempId: pending.change.temp_id ?? "" })
+      onQueue({
+        action: "CREATE",
+        temp_id: `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        input: baseInput,
+      })
+    } else if (existingCell) {
+      // UPDATE never reassigns the teacher — drop the assignee from the input
+      // so the backend keeps the existing Timetable.teacher_id.
+      onQueue({
+        action: "UPDATE",
+        id: existingCell.id,
+        input: {
+          period_id: period.id,
+          day_of_week: dayOfWeek,
+          subject: subject.trim(),
+          class: classVal,
+          section: sectionVal,
+        },
+      })
     } else {
       onQueue({
         action: "CREATE",
@@ -179,14 +229,48 @@ export default function AssignCellModal({
     onClose()
   }
 
-  function handleRemove() {
+  function handleQueueDelete() {
     if (!existingCell) return
-    if (!confirm("Mark this assignment for removal? It will be deleted when you save changes.")) {
+    if (
+      !confirm(
+        "Mark this assignment for removal? It will be deleted when you save changes.",
+      )
+    ) {
       return
     }
     onQueue({ action: "DELETE", id: existingCell.id })
     onClose()
   }
+
+  function handleDiscardCreate() {
+    if (pending?.change.action !== "CREATE") return
+    onDropPending({ kind: "create", tempId: pending.change.temp_id ?? "" })
+    onClose()
+  }
+
+  function handleDiscardUpdate() {
+    if (pending?.change.action !== "UPDATE") return
+    onDropPending({ kind: "update", id: pending.change.id })
+    onClose()
+  }
+
+  function handleRestoreDelete() {
+    if (pending?.change.action !== "DELETE") return
+    onDropPending({ kind: "delete", id: pending.change.id })
+    onClose()
+  }
+
+  // ─── Render ──────────────────────────────────────────────────────────────
+
+  const title = (() => {
+    if (pending?.change.action === "DELETE") return "Marked for Removal"
+    if (pending?.change.action === "CREATE") return "Edit Queued Change"
+    if (pending?.change.action === "UPDATE") return "Edit Queued Change"
+    if (existingCell) return "Edit Assignment"
+    return "Assign Class"
+  })()
+
+  const isDeleteState = pending?.change.action === "DELETE"
 
   return (
     <Dialog
@@ -197,32 +281,44 @@ export default function AssignCellModal({
     >
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>{existingCell ? "Edit Assignment" : "Assign Class"}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <p className="text-xs text-muted-foreground -mt-2">
-          {DAY_LABELS[dayOfWeek]} · {period.label} ({period.start_time}–{period.end_time})
-        </p>
+        <div className="-mt-2 space-y-0.5">
+          <p className="text-xs text-muted-foreground">
+            {DAY_LABELS[dayOfWeek]} · {period.label} ({period.start_time}–{period.end_time})
+          </p>
+          <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+            {participant.name}
+            {participant.kind === "admin" && (
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 rounded px-1 py-0.5">
+                Admin
+              </span>
+            )}
+          </p>
+        </div>
 
-        {loadingData ? (
-          <p className="text-sm text-muted-foreground py-4">Loading…</p>
+        {isDeleteState && existingCell ? (
+          <div className="space-y-4 py-2">
+            <div className="rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 p-3 space-y-1">
+              <p className="text-xs font-semibold text-red-700 dark:text-red-300">
+                This assignment will be removed when you save changes.
+              </p>
+              <p className="text-sm line-through text-red-700/80 dark:text-red-300/80">
+                {existingCell.subject} · Class {existingCell.class}–{existingCell.section}
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Close
+              </Button>
+              <Button type="button" onClick={handleRestoreDelete} className="gap-1.5">
+                <Undo2 className="h-3.5 w-3.5" />
+                Restore
+              </Button>
+            </DialogFooter>
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Teacher / Admin</Label>
-              <select
-                value={assigneeValue}
-                onChange={(e) => setAssigneeValue(e.target.value)}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">Select teacher or admin…</option>
-                {options.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="space-y-1.5">
               <Label htmlFor="subject">Subject</Label>
               <Input
@@ -236,35 +332,42 @@ export default function AssignCellModal({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Class</Label>
-                <select
-                  value={classVal}
-                  onChange={(e) => handleClassChange(e.target.value)}
-                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">Select…</option>
-                  {uniqueClasses.map((c) => (
-                    <option key={c} value={c}>
-                      Class {c}
-                    </option>
-                  ))}
-                </select>
+                <Select value={classVal || undefined} onValueChange={handleClassChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {uniqueClasses.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        Class {c}
+                        {isOrphanClass(c) ? " (no longer in group)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5">
                 <Label>Section</Label>
-                <select
-                  value={sectionVal}
-                  onChange={(e) => setSectionVal(e.target.value)}
+                <Select
+                  value={sectionVal || undefined}
+                  onValueChange={(v) =>
+                    setSectionVal(v === SECTION_PLACEHOLDER ? "" : v)
+                  }
                   disabled={!classVal}
-                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                 >
-                  <option value="">Select…</option>
-                  {sectionsForClass.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sectionsForClass.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                        {isOrphanSection(classVal, s) ? " (no longer in group)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -284,8 +387,8 @@ export default function AssignCellModal({
                 <ul className="space-y-0.5 text-amber-700/90 dark:text-amber-300/90 list-disc pl-5">
                   {warnings.map((w, i) => (
                     <li key={i}>
-                      {w.existing_group_name} · {w.existing_period_label} ({w.existing_start_time}
-                      –{w.existing_end_time})
+                      {w.existing_group_name} · {w.existing_period_label} (
+                      {w.existing_start_time}–{w.existing_end_time})
                     </li>
                   ))}
                 </ul>
@@ -302,12 +405,32 @@ export default function AssignCellModal({
             {error && <p className="text-sm text-red-500">{error}</p>}
 
             <DialogFooter className="gap-2 flex-wrap">
-              {existingCell && (
+              {pending?.change.action === "CREATE" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mr-auto"
+                  onClick={handleDiscardCreate}
+                >
+                  Discard pending
+                </Button>
+              )}
+              {pending?.change.action === "UPDATE" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mr-auto"
+                  onClick={handleDiscardUpdate}
+                >
+                  Discard pending
+                </Button>
+              )}
+              {existingCell && !pending && (
                 <Button
                   type="button"
                   variant="outline"
                   className="text-red-500 hover:text-red-600 border-red-200 hover:border-red-300 mr-auto"
-                  onClick={handleRemove}
+                  onClick={handleQueueDelete}
                 >
                   Remove
                 </Button>

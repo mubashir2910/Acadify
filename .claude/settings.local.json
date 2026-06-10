@@ -43,7 +43,8 @@
       "Bash(curl -s http://localhost:3000/api/timetable-groups -L --max-redirs 0 -o /dev/null -w \"Status: %{http_code} Location: %header{location}\\\\n\")",
       "Bash(grep -E '\\\\.\\(ts|tsx|prisma\\)$')",
       "Bash(NODE_OPTIONS=\"--max-old-space-size=8192\" npx tsc --noEmit)",
-      "Bash(powershell -Command \"Get-Content app/globals.css -Tail 4\")"
+      "Bash(powershell -Command \"Get-Content app/globals.css -Tail 4\")",
+      "WebSearch"
     ]
   }
 }

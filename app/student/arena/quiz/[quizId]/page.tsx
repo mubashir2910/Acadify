@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Clock, Users, Shuffle, Timer, AlertCircle, Swords, ChevronLeft, BookOpen, Loader2 } from "lucide-react"
+import { AlertCircle, Swords, ChevronLeft, BookOpen, Loader2 } from "lucide-react"
 import { motion } from "motion/react"
 import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
+import { ArenaSpinner } from "@/app/student/arena/components/ArenaSpinner"
 
 interface Quiz {
   id: string
@@ -21,7 +22,21 @@ interface Quiz {
   start_time: string
   end_time: string
   shuffle_questions: boolean
+  total_time_secs: number
   _count: { questions: number }
+}
+
+// Hide a stat icon gracefully if its asset file isn't present yet.
+function hideOnError(e: React.SyntheticEvent<HTMLImageElement>) {
+  e.currentTarget.style.display = "none"
+}
+
+// Real quiz length = sum of per-question time limits (not the contest window).
+function formatQuizTime(totalSecs: number): string {
+  if (totalSecs < 60) return `${totalSecs}s`
+  const m = Math.floor(totalSecs / 60)
+  const s = totalSecs % 60
+  return s === 0 ? `${m} min` : `${m}m ${s}s`
 }
 
 export default function ArenaQuizInstructionsPage() {
@@ -82,9 +97,7 @@ export default function ArenaQuizInstructionsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin w-8 h-8 border-2 border-[#3B82F6] border-t-transparent rounded-full" />
-      </div>
+      <ArenaSpinner fullscreen size="lg" tagline="Preparing the Arena" />
     )
   }
 
@@ -94,72 +107,60 @@ export default function ArenaQuizInstructionsPage() {
   const canStart = now >= new Date(quiz.start_time) && now <= new Date(quiz.end_time)
   const notStarted = now < new Date(quiz.start_time)
 
+  const questionCount = quiz._count.questions
+  const totalQuizSecs = quiz.total_time_secs
+
   return (
     <div className="min-h-screen bg-[#0B0F1A] text-white">
       {/* Top bar */}
-      <div className="sticky top-0 z-10 bg-[#0B0F1A]/95 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-[#0B0F1A]/95 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center gap-3 relative">
         <button
           type="button"
           onClick={() => router.push("/student/arena")}
           className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
-          Back to Arena
+          Back
         </button>
-        <div className="ml-auto flex items-center gap-2">
-          <Swords className="h-4 w-4 text-[#22D3EE]" />
-          <span className="text-xs font-semibold tracking-widest text-[#22D3EE] uppercase">Arena</span>
-        </div>
+        <p className="absolute left-1/2 -translate-x-1/2 text-sm font-semibold text-white pointer-events-none">
+          Challenge Details
+        </p>
       </div>
 
       <div className="max-w-xl mx-auto px-4 py-8 space-y-6">
-        {/* Title */}
-        <div>
-          <h1 className="text-2xl font-bold text-white">{quiz.title}</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <BookOpen className="h-4 w-4 text-[#3B82F6]" />
-            <span className="text-slate-400 text-sm">
-              {quiz.subject_group ? SUBJECT_GROUP_LABELS[quiz.subject_group] : ""}
-              {quiz.subject_group ? " · " : ""}
-              {quiz.subject}
-            </span>
+        {/* Details card — title + key stats inside a contained box */}
+        <div className="bg-[#121826] border border-white/10 rounded-2xl p-5 space-y-5">
+          {/* Title */}
+          <div>
+            <h1 className="text-2xl font-bold text-white">{quiz.title}</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <BookOpen className="h-4 w-4 text-[#3B82F6]" />
+              <span className="text-slate-400 text-sm">
+                {quiz.subject_group ? SUBJECT_GROUP_LABELS[quiz.subject_group] : ""}
+                {quiz.subject_group ? " · " : ""}
+                {quiz.subject}
+              </span>
+            </div>
           </div>
-        </div>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#121826] border border-white/[0.06] rounded-xl p-3 flex items-center gap-3">
-            <Clock className="h-4 w-4 text-[#FACC15] shrink-0" />
-            <div>
-              <p className="text-slate-500 text-xs">Duration</p>
-              <p className="text-white font-medium text-sm">{quiz.duration_mins} minutes</p>
+          {/* Stat boxes — XP Reward / Questions / Quiz Time (icon on top, one line) */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-[#0F1521] border border-white/[0.08] rounded-xl p-3 flex flex-col items-center text-center gap-1">
+              <img src="/assets/arena/star.png" alt="" onError={hideOnError} className="h-6 w-6 object-contain" />
+              <p className="text-white font-bold text-base">+{quiz.total_marks}</p>
+              <p className="text-slate-500 text-[11px]">XP Reward</p>
+            </div>
+            <div className="bg-[#0F1521] border border-white/[0.08] rounded-xl p-3 flex flex-col items-center text-center gap-1">
+              <img src="/assets/arena/totalquestions.png" alt="" onError={hideOnError} className="h-6 w-6 object-contain" />
+              <p className="text-white font-bold text-base">{questionCount}</p>
+              <p className="text-slate-500 text-[11px]">Questions</p>
+            </div>
+            <div className="bg-[#0F1521] border border-white/[0.08] rounded-xl p-3 flex flex-col items-center text-center gap-1">
+              <img src="/assets/arena/totaltime.png" alt="" onError={hideOnError} className="h-6 w-6 object-contain" />
+              <p className="text-white font-bold text-base">{formatQuizTime(totalQuizSecs)}</p>
+              <p className="text-slate-500 text-[11px]">Quiz Time</p>
             </div>
           </div>
-          <div className="bg-[#121826] border border-white/[0.06] rounded-xl p-3 flex items-center gap-3">
-            <Users className="h-4 w-4 text-[#22D3EE] shrink-0" />
-            <div>
-              <p className="text-slate-500 text-xs">Questions</p>
-              <p className="text-white font-medium text-sm">{quiz._count.questions} · {quiz.total_marks} XP</p>
-            </div>
-          </div>
-          {quiz.per_question_time_secs && (
-            <div className="bg-[#121826] border border-white/[0.06] rounded-xl p-3 flex items-center gap-3">
-              <Timer className="h-4 w-4 text-[#EF4444] shrink-0" />
-              <div>
-                <p className="text-slate-500 text-xs">Per Question</p>
-                <p className="text-white font-medium text-sm">{quiz.per_question_time_secs}s</p>
-              </div>
-            </div>
-          )}
-          {quiz.shuffle_questions && (
-            <div className="bg-[#121826] border border-white/[0.06] rounded-xl p-3 flex items-center gap-3">
-              <Shuffle className="h-4 w-4 text-[#22C55E] shrink-0" />
-              <div>
-                <p className="text-slate-500 text-xs">Order</p>
-                <p className="text-white font-medium text-sm">Randomized</p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Instructions */}
@@ -205,7 +206,7 @@ export default function ArenaQuizInstructionsPage() {
             onClick={handleStart}
             disabled={starting}
             whileTap={starting ? undefined : { scale: 0.97 }}
-            className="w-full py-4 rounded-xl font-semibold text-white text-base bg-gradient-to-r from-[#3B82F6] to-[#22D3EE] hover:opacity-90 disabled:opacity-70 disabled:cursor-progress transition-opacity shadow-[0_0_24px_rgba(34,211,238,0.25)] flex items-center justify-center gap-2"
+            className="w-full py-4 rounded-xl font-semibold text-white text-base bg-gradient-to-r from-[#22C55E] to-[#16A34A] hover:opacity-90 disabled:opacity-70 disabled:cursor-progress transition-opacity shadow-[0_0_24px_rgba(34,197,94,0.3)] flex items-center justify-center gap-2"
           >
             {starting ? (
               <Loader2 className="h-5 w-5 animate-spin" />

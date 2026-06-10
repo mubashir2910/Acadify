@@ -14,7 +14,8 @@ export default function AttendanceSummaryCards({ summary }: AttendanceSummaryCar
       label: "Total Present",
       value: summary.totalPresent,
       icon: UserCheck,
-      bg: "bg-green-50",
+      bg: "bg-green-500/10",
+      borderColor: "border-l-green-500",
       iconColor: "text-green-600 dark:text-green-400",
       valueColor: "text-green-700 dark:text-green-400",
     },
@@ -22,7 +23,8 @@ export default function AttendanceSummaryCards({ summary }: AttendanceSummaryCar
       label: "Total Absent",
       value: summary.totalAbsent,
       icon: UserX,
-      bg: "bg-red-50",
+      bg: "bg-red-500/10",
+      borderColor: "border-l-red-500",
       iconColor: "text-red-600 dark:text-red-400",
       valueColor: "text-red-700 dark:text-red-400",
     },
@@ -30,7 +32,8 @@ export default function AttendanceSummaryCards({ summary }: AttendanceSummaryCar
       label: "Total Late",
       value: summary.totalLate,
       icon: Clock,
-      bg: "bg-amber-50",
+      bg: "bg-amber-500/10",
+      borderColor: "border-l-amber-500",
       iconColor: "text-amber-600 dark:text-amber-400",
       valueColor: "text-amber-700 dark:text-amber-400",
     },
@@ -38,7 +41,8 @@ export default function AttendanceSummaryCards({ summary }: AttendanceSummaryCar
       label: "Attendance Rate",
       value: `${summary.attendanceRate}%`,
       icon: Percent,
-      bg: "bg-blue-50",
+      bg: "bg-blue-500/10",
+      borderColor: "border-l-blue-500",
       iconColor: "text-blue-600 dark:text-blue-400",
       valueColor: "text-blue-700 dark:text-blue-400",
     },
@@ -47,7 +51,10 @@ export default function AttendanceSummaryCards({ summary }: AttendanceSummaryCar
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {cards.map((card) => (
-        <Card key={card.label} className={`${card.bg} border-0 shadow-none`}>
+        <Card
+          key={card.label}
+          className={`${card.bg} border-0 border-l-4 ${card.borderColor} rounded-l-none rounded-r-xl shadow-none`}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <card.icon className={`h-4 w-4 ${card.iconColor}`} />

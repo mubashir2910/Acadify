@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import { motion } from "motion/react"
-import { Clock, Crown } from "lucide-react"
+import { Clock, Crown, ArrowLeft } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getLevelProgress } from "@/lib/arena-levels"
 import { QuizDetailModal } from "./QuizDetailModal"
+import { ArenaSpinner } from "./ArenaSpinner"
 
 interface QuestionResult {
   studentAnswer: { isCorrect: boolean }
@@ -132,16 +133,28 @@ export function QuizResultModal({ quizId, onClose }: QuizResultModalProps) {
     <div className="fixed inset-0 z-50 bg-[#0B0F1A] text-white flex flex-col">
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin w-7 h-7 border-2 border-[#3B82F6] border-t-transparent rounded-full" />
+          <ArenaSpinner size="lg" tagline="Calculating your Score" />
         </div>
       ) : (
         <>
+          {/* ── Back button (closes the result, same as Continue) ── */}
+          <div className="shrink-0 px-4 pt-4 pb-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back</span>
+            </button>
+          </div>
+
           {/* ── Scrollable content ── */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="flex-1 overflow-y-auto px-5 pt-8 pb-6"
+            className="flex-1 overflow-y-auto px-5 pt-2 pb-6"
           >
             {/* Trophy + confetti */}
             <div className="relative flex justify-center mt-6 mb-4">

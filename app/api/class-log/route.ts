@@ -12,7 +12,7 @@ import {
   getAdminSchoolId,
 } from "@/services/class-log.service"
 import { prisma } from "@/lib/prisma"
-import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
+import { writeLimiter, expensiveReadLimiter, checkRateLimit } from "@/lib/rate-limit"
 import { getTodayISTString } from "@/lib/working-days"
 
 // GET — multi-role
@@ -23,23 +23,25 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
+    const userId = session.user.id
+    const limited = await checkRateLimit(expensiveReadLimiter, `classlog-read:${userId}`)
+    if (limited) return limited
+
     const { searchParams } = new URL(request.url)
     const query = classLogQuerySchema.parse(Object.fromEntries(searchParams))
 
     const role = session.user.role
-    const userId = session.user.id
 
     if (role === "TEACHER") {
-      const isMissing = query.missing === "true"
-      if (isMissing) {
-        // Teacher asking for "history" view
+      // Personal teaching history view (explicit param — mirrors the admin branch)
+      if (query.view === "history") {
         const logs = await getTeacherLogHistory(userId, query.from, query.to)
         return NextResponse.json(logs)
       }
       // Default: today's dashboard
       const date = query.date ?? getTodayISTString()
-      const slots = await getTeacherLogDashboard(userId, date)
-      return NextResponse.json(slots)
+      const dashboard = await getTeacherLogDashboard(userId, date)
+      return NextResponse.json(dashboard)
     }
 
     if (role === "STUDENT") {
@@ -51,8 +53,8 @@ export async function GET(request: Request) {
       // Admin's own teaching dashboard (same as teacher)
       if (query.view === "dashboard") {
         const date = query.date ?? getTodayISTString()
-        const slots = await getTeacherLogDashboard(userId, date)
-        return NextResponse.json(slots)
+        const dashboard = await getTeacherLogDashboard(userId, date)
+        return NextResponse.json(dashboard)
       }
 
       // Admin's own teaching history (same as teacher)
@@ -140,6 +142,7 @@ export async function POST(request: Request) {
         FUTURE_DATE: { status: 400, message: "Cannot log for a future date" },
         BACKDATE_LIMIT_EXCEEDED: { status: 400, message: "Cannot log more than 3 days back" },
         DAY_MISMATCH: { status: 400, message: "Date does not match the scheduled day for this slot" },
+        SCHOOL_HOLIDAY: { status: 409, message: "Cannot log a class on a school holiday" },
       }
       const mapped_error = mapped[error.message]
       if (mapped_error) {

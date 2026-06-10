@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { X, CheckCircle2, XCircle, Clock, Target } from "lucide-react"
 import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
+import { ArenaSpinner } from "./ArenaSpinner"
 
 interface QuizOption {
   id: string
@@ -113,7 +114,7 @@ export function QuizDetailModal({ quizId, onClose }: QuizDetailModalProps) {
 
           {loading ? (
             <div className="flex items-center justify-center h-48">
-              <div className="animate-spin w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full" />
+              <ArenaSpinner size="sm" tagline="Loading Challenge" />
             </div>
           ) : error ? (
             <div className="text-center py-16 text-slate-500">
@@ -142,6 +143,7 @@ export function QuizDetailModal({ quizId, onClose }: QuizDetailModalProps) {
                 <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Question Breakdown</p>
                 {data.questions.map((q, idx) => {
                   const { isCorrect, givenAnswer, marksAwarded } = q.studentAnswer
+                  const notAnswered = givenAnswer == null || givenAnswer === ""
 
                   // Resolve display answer for MCQ
                   let displayAnswer: string | null = givenAnswer
@@ -185,6 +187,11 @@ export function QuizDetailModal({ quizId, onClose }: QuizDetailModalProps) {
                             </span>
                           </div>
                         </div>
+                        {notAnswered && (
+                          <span className="shrink-0 mt-0.5 text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#FACC15]/15 text-[#FACC15] border border-[#FACC15]/30 whitespace-nowrap">
+                            Not Answered
+                          </span>
+                        )}
                       </div>
 
                       {/* MCQ options */}

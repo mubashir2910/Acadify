@@ -16,6 +16,7 @@ const ERROR_STATUS: Record<string, number> = {
   CLASS_CONFLICT: 409,
   BREAK_PERIOD_NOT_ASSIGNABLE: 409,
   ASSIGNEE_REQUIRED: 422,
+  SLOT_HAS_LOGS: 409,
 }
 
 const ERROR_MESSAGE: Record<string, string> = {
@@ -28,6 +29,7 @@ const ERROR_MESSAGE: Record<string, string> = {
   CLASS_CONFLICT: "A class has two subjects scheduled in the same period",
   BREAK_PERIOD_NOT_ASSIGNABLE: "Cannot assign a subject to a break period",
   ASSIGNEE_REQUIRED: "Each change must include either teacher_id or admin_user_id",
+  SLOT_HAS_LOGS: "Cannot remove a slot that has class logs recorded against it",
 }
 
 export async function POST(request: Request) {

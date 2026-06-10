@@ -5,6 +5,7 @@ import { AgGridReact } from "ag-grid-react"
 import { AllCommunityModule } from "ag-grid-community"
 import type { ColDef } from "ag-grid-community"
 import { Swords } from "lucide-react"
+import { ArenaSpinner } from "@/app/student/arena/components/ArenaSpinner"
 import {
   Select,
   SelectContent,
@@ -104,7 +105,7 @@ export function UpcomingContestsSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
+        <ArenaSpinner size="md" tone="light" tagline="Loading Contests" />
       </div>
     )
   }

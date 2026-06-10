@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
-import { LayoutDashboard, CalendarCheck, CalendarDays, Users, GraduationCap, Cake, ClipboardList, Bell, TableProperties, Compass, FolderCog, BarChart3, Settings, CreditCard, Wallet, ShieldCheck, Loader2 } from "lucide-react"
+import { LayoutDashboard, CalendarCheck, CalendarDays, Users, GraduationCap, Cake, ClipboardList, Bell, TableProperties, Compass, FolderCog, BarChart3, Settings, CreditCard, Wallet, ShieldCheck, Loader2, Swords, Trophy, PlusCircle, CalendarClock, ListChecks, BookOpen, ClipboardCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   SidebarMenu,
@@ -55,6 +55,17 @@ const ADMIN_SECTIONS: NavSection[] = [
     items: [
       { label: "Staff Insights", icon: Users, slug: "/teacher-attendance-overview" },
       { label: "Student Insights", icon: CalendarCheck, slug: "/attendance" },
+      { label: "Track Logs", icon: ClipboardCheck, slug: "/track-logs" },
+    ],
+  },
+  {
+    heading: "Arena",
+    headingIcon: "🎮",
+    items: [
+      { label: "Manage Arena", icon: Trophy, slug: "/arena" },
+      { label: "My Contests", icon: ListChecks, slug: "/quiz" },
+      { label: "Create Arena", icon: PlusCircle, slug: "/arena/create" },
+      { label: "Upcoming Contests", icon: CalendarClock, slug: "/arena/upcoming" },
     ],
   },
   {
@@ -99,6 +110,7 @@ const TEACHER_SECTIONS: NavSection[] = [
     headingIcon: "🛠",
     items: [
       { label: "Student Attendance", icon: ClipboardList, slug: "/class-attendance" },
+      { label: "Class Log", icon: BookOpen, slug: "/class-log" },
     ],
   },
   {
@@ -106,6 +118,15 @@ const TEACHER_SECTIONS: NavSection[] = [
     headingIcon: "📊",
     items: [
       { label: "My Attendance", icon: CalendarCheck, slug: "/attendance" },
+    ],
+  },
+  {
+    heading: "Arena",
+    headingIcon: "🎮",
+    items: [
+      { label: "Manage Arena", icon: Trophy, slug: "/arena" },
+      { label: "My Contests", icon: ListChecks, slug: "/quiz" },
+      { label: "Create Arena", icon: PlusCircle, slug: "/arena/create" },
     ],
   },
   {
@@ -141,6 +162,14 @@ const STUDENT_SECTIONS: NavSection[] = [
     headingIcon: "📊",
     items: [
       { label: "My Attendance", icon: CalendarCheck, slug: "/attendance" },
+      { label: "Class Log", icon: BookOpen, slug: "/class-log" },
+    ],
+  },
+  {
+    heading: "Arena",
+    headingIcon: "🎮",
+    items: [
+      { label: "Acadify Arena", icon: Swords, slug: "/arena" },
     ],
   },
   {
@@ -209,28 +238,22 @@ export function SidebarNav({ basePath, role }: SidebarNavProps) {
     return () => window.removeEventListener("notifications:marked-read", onRead)
   }, [])
 
-  // Conditional injection of "Student Attendance" into the admin's Operations
-  // section, only when assignment data shows they're a class teacher.
+  // Conditional injection of teaching items ("Student Attendance" + personal
+  // "Class Log") into the admin's Operations section, only when assignment data
+  // shows they're a class teacher.
   const sections = useMemo(() => {
     const base = getSections(role)
     if (role !== "ADMIN" || !isAdminClassTeacher) return base
     return base.map((section) => {
       if (section.heading !== "Operations") return section
-      // Don't double-add if a previous render somehow injected it
-      if (section.items.some((i) => i.slug === "/student-attendance")) {
-        return section
-      }
-      return {
-        ...section,
-        items: [
-          {
-            label: "Student Attendance",
-            icon: ClipboardList,
-            slug: "/student-attendance",
-          },
-          ...section.items,
-        ],
-      }
+      const injected: NavItem[] = [
+        { label: "Student Attendance", icon: ClipboardList, slug: "/student-attendance" },
+        { label: "Class Log", icon: BookOpen, slug: "/class-log" },
+      ]
+      // Don't double-add anything already present
+      const existing = new Set(section.items.map((i) => i.slug))
+      const toAdd = injected.filter((i) => !existing.has(i.slug))
+      return { ...section, items: [...toAdd, ...section.items] }
     })
   }, [role, isAdminClassTeacher])
 

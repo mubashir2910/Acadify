@@ -42,19 +42,30 @@ function formatDate(dateStr: string) {
   })
 }
 
+function getTodayStr() {
+  return getNowIST().toISOString().split("T")[0]
+}
+
+function getDefaultFrom() {
+  const d = getNowIST()
+  d.setUTCDate(d.getUTCDate() - 7)
+  return d.toISOString().split("T")[0]
+}
+
 export function StudentClassLogSection() {
   const [logs, setLogs] = useState<StudentClassLogEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [date, setDate] = useState(() => getNowIST().toISOString().split("T")[0])
+  const [from, setFrom] = useState(getDefaultFrom)
+  const [to, setTo] = useState(getTodayStr)
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/class-log?from=${date}&to=${date}`)
+    fetch(`/api/class-log?from=${from}&to=${to}`)
       .then((r) => r.json())
       .then((data) => setLogs(Array.isArray(data) ? data : []))
       .catch(() => setLogs([]))
       .finally(() => setLoading(false))
-  }, [date])
+  }, [from, to])
 
   const grouped = groupByDate(logs)
 
@@ -65,17 +76,29 @@ export function StudentClassLogSection() {
         <p className="text-sm text-muted-foreground mt-1">What was taught in your class</p>
       </div>
 
-      {/* Date filter */}
-      <div className="flex items-center gap-3 bg-muted/50 rounded-xl px-4 py-3">
+      {/* Date range filter */}
+      <div className="flex flex-wrap items-center gap-3 bg-muted/50 rounded-xl px-4 py-3">
         <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <label htmlFor="s-date" className="font-medium">Date</label>
+          <label htmlFor="s-from" className="font-medium">From</label>
           <input
-            id="s-date"
+            id="s-from"
             type="date"
-            value={date}
-            max={getNowIST().toISOString().split("T")[0]}
-            onChange={(e) => setDate(e.target.value)}
+            value={from}
+            max={to}
+            onChange={(e) => setFrom(e.target.value)}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <label htmlFor="s-to" className="font-medium">To</label>
+          <input
+            id="s-to"
+            type="date"
+            value={to}
+            min={from}
+            max={getTodayStr()}
+            onChange={(e) => setTo(e.target.value)}
             className="rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -88,8 +111,8 @@ export function StudentClassLogSection() {
       ) : grouped.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <BookOpen className="h-12 w-12 mb-3 opacity-30" />
-          <p className="font-medium">No class logs found for this date</p>
-          <p className="text-xs mt-1">Your teachers haven&apos;t logged any classes on this date</p>
+          <p className="font-medium">No class logs found for this range</p>
+          <p className="text-xs mt-1">Your teachers haven&apos;t logged any classes in this range</p>
         </div>
       ) : (
         <div className="space-y-8">

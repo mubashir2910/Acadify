@@ -30,6 +30,10 @@ export default function AddGroupModal({ open, onClose, onSuccess }: AddGroupModa
 
   useEffect(() => {
     if (!open) return
+    // Reset every time the modal opens so prior input doesn't bleed through.
+    setName("")
+    setSelected(new Set())
+    setError(null)
     setLoading(true)
     fetch("/api/timetable-groups/available-classes")
       .then((r) => {

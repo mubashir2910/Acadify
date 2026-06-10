@@ -6,6 +6,7 @@ import { motion } from "motion/react"
 import { Clock, Swords, Lock, CheckCircle2, ChevronRight } from "lucide-react"
 import { QuizResultModal } from "./QuizResultModal"
 import { DashboardLevelCard } from "./DashboardLevelCard"
+import { ArenaSpinner } from "./ArenaSpinner"
 import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
 import { subjectGroupColor, subjectGroupIcon } from "@/lib/arena-visuals"
 
@@ -68,10 +69,6 @@ function ChallengeCard({ quiz, onEnter }: { quiz: Quiz; onEnter: (id: string) =>
 
   const color = subjectGroupColor(quiz.subject_group)
   const icon = subjectGroupIcon(quiz.subject_group)
-  const durationMin = Math.max(
-    1,
-    Math.round((new Date(quiz.end_time).getTime() - new Date(quiz.start_time).getTime()) / 60000)
-  )
 
   return (
     <motion.div
@@ -106,7 +103,6 @@ function ChallengeCard({ quiz, onEnter }: { quiz: Quiz; onEnter: (id: string) =>
 
       {/* Meta line */}
       <div className="flex items-center gap-3 text-xs text-slate-400">
-        <span>{quiz._count.questions} Qs · {durationMin} min</span>
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" style={{ color: isLive ? "#22C55E" : undefined }} />
           {isLive ? `${countdown} left` : `Starts in ${countdown}`}
@@ -189,7 +185,7 @@ export function AttemptTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="animate-spin w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full" />
+        <ArenaSpinner size="md" tagline="Loading your Arena" />
       </div>
     )
   }

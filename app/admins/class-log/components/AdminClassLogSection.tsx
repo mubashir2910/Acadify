@@ -26,6 +26,12 @@ interface SlotWithLog {
   } | null
 }
 
+interface DashboardMeta {
+  isTeacher: boolean
+  isHoliday: boolean
+  loggable: boolean
+}
+
 const BACKDATE_DAYS = 3
 
 function getTodayStr() {
@@ -41,6 +47,7 @@ function getMinDate() {
 export function AdminClassLogSection() {
   const [date, setDate] = useState(getTodayStr())
   const [slots, setSlots] = useState<SlotWithLog[]>([])
+  const [meta, setMeta] = useState<DashboardMeta>({ isTeacher: true, isHoliday: false, loggable: true })
   const [loading, setLoading] = useState(true)
   const [activeSlot, setActiveSlot] = useState<SlotWithLog | null>(null)
 
@@ -49,9 +56,16 @@ export function AdminClassLogSection() {
     try {
       const res = await fetch(`/api/class-log?view=dashboard&date=${date}`)
       const data = await res.json()
-      setSlots(Array.isArray(data) ? data : [])
+      if (data && Array.isArray(data.slots)) {
+        setSlots(data.slots)
+        setMeta({ isTeacher: !!data.isTeacher, isHoliday: !!data.isHoliday, loggable: !!data.loggable })
+      } else {
+        setSlots([])
+        setMeta({ isTeacher: true, isHoliday: false, loggable: false })
+      }
     } catch {
       setSlots([])
+      setMeta({ isTeacher: true, isHoliday: false, loggable: false })
     } finally {
       setLoading(false)
     }
@@ -88,27 +102,49 @@ export function AdminClassLogSection() {
             />
           </div>
 
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
-            </div>
-          ) : slots.length === 0 ? (
+          {!loading && !meta.isTeacher ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <BookOpen className="h-12 w-12 mb-3 opacity-30" />
-              <p className="font-medium">No classes scheduled for this day</p>
-              <p className="text-xs mt-1">Timetable has no slots assigned to you on this date</p>
+              <p className="font-medium">You have no teaching assignments</p>
+              <p className="text-xs mt-1">Only staff with a teacher record can log classes</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {slots.map((slot) => (
-                <SlotCard
-                  key={slot.timetableId}
-                  {...slot}
-                  date={date}
-                  onLog={() => setActiveSlot(slot)}
-                />
-              ))}
-            </div>
+            <>
+              {!loading && meta.isHoliday && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                  This day is marked as a school holiday — logging is disabled.
+                </div>
+              )}
+              {!loading && !meta.isHoliday && !meta.loggable && (
+                <div className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                  Logging is only allowed for the last 3 days.
+                </div>
+              )}
+
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+                </div>
+              ) : slots.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <BookOpen className="h-12 w-12 mb-3 opacity-30" />
+                  <p className="font-medium">No classes scheduled for this day</p>
+                  <p className="text-xs mt-1">Timetable has no slots assigned to you on this date</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {slots.map((slot) => (
+                    <SlotCard
+                      key={slot.timetableId}
+                      {...slot}
+                      date={date}
+                      disabled={!meta.loggable}
+                      onLog={() => setActiveSlot(slot)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -119,6 +155,7 @@ export function AdminClassLogSection() {
 
       {activeSlot && (
         <LogFormModal
+          key={activeSlot.timetableId}
           open={true}
           onClose={() => setActiveSlot(null)}
           slot={{ ...activeSlot, date }}

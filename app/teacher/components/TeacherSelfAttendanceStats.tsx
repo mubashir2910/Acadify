@@ -48,10 +48,10 @@ export default function TeacherSelfAttendanceStats() {
 
   const rateBg =
     stats.attendanceRate >= 80
-      ? "bg-green-50"
+      ? "bg-green-500/10"
       : stats.attendanceRate >= 60
-      ? "bg-amber-50"
-      : "bg-red-50"
+      ? "bg-amber-500/10"
+      : "bg-red-500/10"
 
   return (
     <div className="space-y-3">
@@ -60,21 +60,21 @@ export default function TeacherSelfAttendanceStats() {
       </h2>
 
       <div className="grid grid-cols-3 gap-3">
-        <Card className="bg-green-50 border-0 shadow-none">
+        <Card className="bg-green-500/10 border-0 shadow-none">
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold text-green-700 dark:text-green-400">{stats.presentDays}</p>
             <p className="text-xs text-muted-foreground mt-1">Present</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-amber-50 border-0 shadow-none">
+        <Card className="bg-amber-500/10 border-0 shadow-none">
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{stats.lateDays}</p>
             <p className="text-xs text-muted-foreground mt-1">Late</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-red-50 border-0 shadow-none">
+        <Card className="bg-red-500/10 border-0 shadow-none">
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold text-red-700 dark:text-red-400">{stats.absentDays}</p>
             <p className="text-xs text-muted-foreground mt-1">Absent</p>

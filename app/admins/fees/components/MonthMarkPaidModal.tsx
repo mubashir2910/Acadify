@@ -304,7 +304,7 @@ export default function MonthMarkPaidModal({
                       <div className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
                         <div>Waived ₹{feesWaiverTotal.toFixed(2)}</div>
                         {feesReasons.map((reason, idx) => (
-                          <div key={idx} className="pl-3 text-emerald-700/80 dark:text-emerald-400/80">
+                          <div key={idx} className="pl-3 text-emerald-700 dark:text-emerald-400/80 dark:text-emerald-400/80">
                             • {reason}
                           </div>
                         ))}
@@ -318,7 +318,7 @@ export default function MonthMarkPaidModal({
               )}
 
               {hasLate && lateAlloc && (
-                <div className="rounded border border-amber-300 dark:border-amber-700 bg-amber-50/40 dark:bg-amber-500/10 p-3 flex items-start justify-between gap-3">
+                <div className="rounded border border-amber-300 dark:border-amber-700 bg-amber-500/10/40 dark:bg-amber-500/10 p-3 flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-amber-700 dark:text-amber-400">
                       Late Fee
@@ -327,7 +327,7 @@ export default function MonthMarkPaidModal({
                       <div className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
                         <div>Waived ₹{lateAlloc.waiverAmount.toFixed(2)}</div>
                         {lateReasons.map((reason, idx) => (
-                          <div key={idx} className="pl-3 text-emerald-700/80 dark:text-emerald-400/80">
+                          <div key={idx} className="pl-3 text-emerald-700 dark:text-emerald-400/80 dark:text-emerald-400/80">
                             • {reason}
                           </div>
                         ))}

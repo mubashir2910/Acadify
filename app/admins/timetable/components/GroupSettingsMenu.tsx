@@ -12,15 +12,15 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import type { TimetableGroupRow } from "@/schemas/timetable-group.schema"
 import { cn } from "@/lib/utils"
+import EditGroupModal from "./EditGroupModal"
 
 interface GroupSettingsMenuProps {
   group: TimetableGroupRow
@@ -33,46 +33,11 @@ export default function GroupSettingsMenu({
   onUpdated,
   triggerClassName,
 }: GroupSettingsMenuProps) {
-  const [renameOpen, setRenameOpen] = useState(false)
-  const [renameValue, setRenameValue] = useState(group.name)
-  const [renaming, setRenaming] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [renameError, setRenameError] = useState<string | null>(null)
-
-  async function handleRename(e: React.FormEvent) {
-    e.preventDefault()
-    setRenameError(null)
-    if (!renameValue.trim()) return setRenameError("Name is required")
-    setRenaming(true)
-    try {
-      const res = await fetch(`/api/timetable-groups/${group.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: renameValue.trim() }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        setRenameError(data.message ?? "Failed to rename")
-        return
-      }
-      toast.success("Group renamed")
-      setRenameOpen(false)
-      onUpdated()
-    } catch {
-      setRenameError("Something went wrong")
-    } finally {
-      setRenaming(false)
-    }
-  }
 
   async function handleDelete() {
-    if (
-      !confirm(
-        `Delete the "${group.name}" group? This is only allowed when it has no periods or assignments.`,
-      )
-    ) {
-      return
-    }
     setDeleting(true)
     try {
       const res = await fetch(`/api/timetable-groups/${group.id}`, { method: "DELETE" })
@@ -82,6 +47,7 @@ export default function GroupSettingsMenu({
         return
       }
       toast.success(`"${group.name}" deleted`)
+      setDeleteOpen(false)
       onUpdated()
     } catch {
       toast.error("Something went wrong")
@@ -106,17 +72,12 @@ export default function GroupSettingsMenu({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem
-            onClick={() => {
-              setRenameValue(group.name)
-              setRenameOpen(true)
-            }}
-          >
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <Pencil className="h-3.5 w-3.5 mr-2" />
-            Rename
+            Edit
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={handleDelete}
+            onClick={() => setDeleteOpen(true)}
             disabled={deleting}
             className="text-red-500 focus:text-red-500"
           >
@@ -126,41 +87,51 @@ export default function GroupSettingsMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <EditGroupModal
+        open={editOpen}
+        group={group}
+        onClose={() => setEditOpen(false)}
+        onSuccess={() => {
+          setEditOpen(false)
+          onUpdated()
+        }}
+      />
+
       <Dialog
-        open={renameOpen}
+        open={deleteOpen}
         onOpenChange={(o) => {
-          if (!o) setRenameOpen(false)
+          if (!o && !deleting) setDeleteOpen(false)
         }}
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Rename group</DialogTitle>
+            <DialogTitle>Delete &quot;{group.name}&quot;?</DialogTitle>
+            <DialogDescription>
+              This permanently removes {group.period_count} period
+              {group.period_count === 1 ? "" : "s"}, {group.entry_count} timetable assignment
+              {group.entry_count === 1 ? "" : "s"}, and any class logs attached. This cannot be
+              undone.
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleRename} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="rename-input">Name</Label>
-              <Input
-                id="rename-input"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                autoFocus
-              />
-            </div>
-            {renameError && <p className="text-sm text-red-500">{renameError}</p>}
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setRenameOpen(false)}
-                disabled={renaming}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" loading={renaming} loadingText="Saving…">
-                Save
-              </Button>
-            </DialogFooter>
-          </form>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDelete}
+              loading={deleting}
+              loadingText="Deleting…"
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

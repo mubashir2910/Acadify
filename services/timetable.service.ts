@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma"
 import { getAdminSchoolId } from "@/services/attendance.service"
 import { ensureTeacherForUser } from "@/services/teacher.service"
+import { getNowIST } from "@/lib/working-days"
 import type {
   PeriodRow,
   TimetableCell,
   TimetableGrid,
-  TimetableGridTeacherRow,
+  TimetableGridParticipantRow,
   StudentPeriodCell,
   StudentTimetableDay,
   TeacherTodayPeriod,
@@ -92,11 +93,37 @@ export async function getPeriodsForGroup(
   return periods.map(shapePeriod)
 }
 
+/**
+ * Reject if [start, end) overlaps any sibling period in the same group.
+ * Excludes the current period (passed as `excludeId`) so an in-place edit
+ * isn't blocked by itself.
+ */
+async function assertNoIntraGroupOverlap(
+  groupId: string,
+  start: string,
+  end: string,
+  excludeId?: string,
+): Promise<void> {
+  const siblings = await prisma.period.findMany({
+    where: {
+      group_id: groupId,
+      ...(excludeId ? { NOT: { id: excludeId } } : {}),
+    },
+    select: { id: true, start_time: true, end_time: true },
+  })
+  for (const s of siblings) {
+    if (timesOverlap(start, end, s.start_time, s.end_time)) {
+      throw new Error("PERIOD_TIME_OVERLAP")
+    }
+  }
+}
+
 export async function createPeriod(
   schoolId: string,
   input: CreatePeriodInput,
 ): Promise<PeriodRow> {
   await assertGroupOwnership(schoolId, input.group_id)
+  await assertNoIntraGroupOverlap(input.group_id, input.start_time, input.end_time)
   const created = await prisma.period.create({
     data: {
       school_id: schoolId,
@@ -120,6 +147,24 @@ export async function updatePeriod(
     where: { id: periodId, school_id: schoolId },
   })
   if (!existing) throw new Error("PERIOD_NOT_FOUND")
+
+  // Cross-validate start/end against the merged effective values so a single-
+  // field PATCH can't push the period into an impossible time range.
+  const effectiveStart = input.start_time ?? existing.start_time
+  const effectiveEnd = input.end_time ?? existing.end_time
+  if (effectiveEnd <= effectiveStart) throw new Error("END_BEFORE_START")
+
+  // Intra-group overlap check whenever times change.
+  if (input.start_time !== undefined || input.end_time !== undefined) {
+    if (existing.group_id) {
+      await assertNoIntraGroupOverlap(
+        existing.group_id,
+        effectiveStart,
+        effectiveEnd,
+        periodId,
+      )
+    }
+  }
 
   // Switching a busy period to a break is destructive — block it.
   if (input.is_break === true && !existing.is_break) {
@@ -262,6 +307,10 @@ function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string
 /**
  * Detects wall-clock overlaps for a teacher across OTHER groups. Returns warnings
  * (does not throw) — the calling UI surfaces them but allows the save to proceed.
+ *
+ * When called from inside a `prisma.$transaction`, pass the `txClient` so the
+ * read sees the entries written earlier in the same transaction (which would
+ * be invisible to the outer prisma client until commit).
  */
 export async function detectWallClockOverlap(
   schoolId: string,
@@ -272,8 +321,10 @@ export async function detectWallClockOverlap(
     end_time: string
     exclude_group_id: string
   },
+  txClient: typeof prisma | Parameters<Parameters<typeof prisma.$transaction>[0]>[0] = prisma,
 ): Promise<OverlapWarning[]> {
-  const otherEntries = await prisma.timetable.findMany({
+  const tx = txClient as typeof prisma
+  const otherEntries = await tx.timetable.findMany({
     where: {
       school_id: schoolId,
       teacher_id: params.teacher_id,
@@ -398,14 +449,19 @@ export async function batchSaveTimetable(
           },
         })
 
-        // Cross-group overlap (warning).
-        const warns = await detectWallClockOverlap(schoolId, {
-          teacher_id: teacherId,
-          day_of_week: c.input.day_of_week,
-          start_time: period.start_time,
-          end_time: period.end_time,
-          exclude_group_id: groupId,
-        })
+        // Cross-group overlap (warning). Pass the tx so the read sees the
+        // create we just made earlier in this same transaction.
+        const warns = await detectWallClockOverlap(
+          schoolId,
+          {
+            teacher_id: teacherId,
+            day_of_week: c.input.day_of_week,
+            start_time: period.start_time,
+            end_time: period.end_time,
+            exclude_group_id: groupId,
+          },
+          tx,
+        )
         warnings.push(...warns)
 
         count++
@@ -454,13 +510,17 @@ export async function batchSaveTimetable(
           },
         })
 
-        const warns = await detectWallClockOverlap(schoolId, {
-          teacher_id: nextTeacherId,
-          day_of_week: nextDay,
-          start_time: period.start_time,
-          end_time: period.end_time,
-          exclude_group_id: groupId,
-        })
+        const warns = await detectWallClockOverlap(
+          schoolId,
+          {
+            teacher_id: nextTeacherId,
+            day_of_week: nextDay,
+            start_time: period.start_time,
+            end_time: period.end_time,
+            exclude_group_id: groupId,
+          },
+          tx,
+        )
         warnings.push(...warns)
 
         count++
@@ -470,6 +530,10 @@ export async function batchSaveTimetable(
           where: { id: c.id, school_id: schoolId, group_id: groupId },
         })
         if (!existing) throw new Error("ENTRY_NOT_FOUND")
+        // Refuse to delete a slot that has class logs — deleting it would
+        // cascade-wipe historical teaching records (ClassLog onDelete: Cascade).
+        const logCount = await tx.classLog.count({ where: { timetable_id: c.id } })
+        if (logCount > 0) throw new Error("SLOT_HAS_LOGS")
         await tx.timetable.delete({ where: { id: c.id } })
         count++
       }
@@ -488,15 +552,28 @@ export async function getTimetableGrid(
 ): Promise<TimetableGrid> {
   const group = await assertGroupOwnership(schoolId, groupId)
 
-  const [periods, teachers, entries] = await Promise.all([
+  const [periods, teachers, admins, entries] = await Promise.all([
     prisma.period.findMany({
       where: { group_id: groupId },
       orderBy: { order: "asc" },
     }),
+    // Include INACTIVE teachers too — their existing assignments stay in the
+    // grid so admins can reassign or remove them; UI flags them with a badge.
     prisma.teacher.findMany({
-      where: { school_id: schoolId, status: "ACTIVE" },
-      select: { id: true, user: { select: { name: true } } },
+      where: { school_id: schoolId },
+      select: {
+        id: true,
+        user_id: true,
+        status: true,
+        user: { select: { name: true } },
+      },
       orderBy: { user: { name: "asc" } },
+    }),
+    // Admins in the school. Some may already have a Teacher row (auto-materialised
+    // when they were assigned a class previously) — those are filtered out below.
+    prisma.schoolUser.findMany({
+      where: { school_id: schoolId, role: "ADMIN", status: "ACTIVE" },
+      select: { user_id: true, user: { select: { name: true } } },
     }),
     prisma.timetable.findMany({
       where: { group_id: groupId },
@@ -505,36 +582,73 @@ export async function getTimetableGrid(
     }),
   ])
 
-  const teacherMap = new Map<string, TimetableGridTeacherRow>()
+  // Track which user_ids already exist as Teacher rows so admin rows don't double up.
+  const teacherUserIds = new Set(teachers.map((t) => t.user_id))
+  // Admin role lookup — admins who got a Teacher row via ensureTeacherForUser
+  // are still admins; this set tags them so the grid can show the badge.
+  const adminUserIds = new Set(admins.map((a) => a.user_id))
+
+  // ─── Build participant rows ────────────────────────────────────────────────
+  const teacherRowByTeacherId = new Map<string, TimetableGridParticipantRow>()
   for (const t of teachers) {
-    teacherMap.set(t.id, {
+    teacherRowByTeacherId.set(t.id, {
+      kind: "teacher",
       teacher_id: t.id,
-      teacher_name: t.user.name,
+      name: t.user.name,
+      is_active: t.status === "ACTIVE",
+      is_admin: adminUserIds.has(t.user_id),
       cells: {},
     })
   }
 
+  const adminRowByUserId = new Map<string, TimetableGridParticipantRow>()
+  for (const a of admins) {
+    if (teacherUserIds.has(a.user_id)) continue
+    adminRowByUserId.set(a.user_id, {
+      kind: "admin",
+      admin_user_id: a.user_id,
+      name: a.user.name,
+      cells: {},
+    })
+  }
+
+  // Fill in actual assignments — every entry has a Timetable.teacher_id so they
+  // always land on a teacher row (admins gain a Teacher row at save-time via
+  // ensureTeacherForUser, so once an admin has any assignment they appear under
+  // teacherRowByTeacherId, not adminRowByUserId).
   for (const entry of entries) {
-    let row = teacherMap.get(entry.teacher_id)
+    let row = teacherRowByTeacherId.get(entry.teacher_id)
     if (!row) {
-      // Materialize a row for a teacher who has entries but didn't appear in the
-      // ACTIVE teacher list (e.g., status changed). Keeps the grid accurate.
+      // Defensive: surviving entry whose teacher row didn't surface above.
+      // Treat as inactive so the UI flags them. We don't have user_id here
+      // (entry.teacher only includes user.name), so default is_admin to false —
+      // an admin with a surviving entry but no active Teacher row is a very
+      // narrow edge case and the missing badge is a cosmetic issue.
       row = {
+        kind: "teacher",
         teacher_id: entry.teacher_id,
-        teacher_name: entry.teacher.user.name,
+        name: entry.teacher.user.name,
+        is_active: false,
+        is_admin: false,
         cells: {},
       }
-      teacherMap.set(entry.teacher_id, row)
+      teacherRowByTeacherId.set(entry.teacher_id, row)
     }
     const key = `${entry.period_id}__${entry.day_of_week}`
     ;(row.cells as Record<string, TimetableCell | null>)[key] = shapeCell(entry)
   }
 
+  // Sort all participants by display name for a stable grid.
+  const rows = [
+    ...teacherRowByTeacherId.values(),
+    ...adminRowByUserId.values(),
+  ].sort((a, b) => a.name.localeCompare(b.name))
+
   return {
     group_id: group.id,
     group_name: group.name,
     periods: periods.map(shapePeriod),
-    rows: Array.from(teacherMap.values()),
+    rows,
   }
 }
 
@@ -647,7 +761,10 @@ function getTodayDayOfWeek(): DayOfWeek {
   const days: DayOfWeek[] = [
     "SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY",
   ]
-  return days[new Date().getDay()]
+  // getNowIST() returns a Date shifted by +5:30 so getUTC* reads the IST date
+  // parts. Using new Date().getDay() (UTC) returns the wrong day-of-week
+  // between 00:00 IST and 05:30 IST (still UTC's previous day).
+  return days[getNowIST().getUTCDay()]
 }
 
 export async function getStudentTodaySchedule(

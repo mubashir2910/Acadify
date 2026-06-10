@@ -258,16 +258,22 @@ export async function getClassAttendance(
 ): Promise<{ summary: AttendanceSummaryStats; students: StudentAttendanceRecord[] }> {
   const date = new Date(dateStr + "T00:00:00.000Z")
 
-  // Get active students in this class
-  const students = await prisma.student.findMany({
-    where: { school_id: schoolId, class: className, section, status: "ACTIVE" },
-    select: {
-      id: true,
-      roll_no: true,
-      user: { select: { name: true, profile_picture: true } },
-    },
-    orderBy: { roll_no: "asc" },
-  })
+  // Get active students in this class.
+  // roll_no is a String column (supports formats like "1A", "10B"), so the DB
+  // orderBy would sort lexicographically ("1","10","2"). Sort in memory with
+  // numeric-aware localeCompare to get natural order (1, 2, …, 10).
+  const students = (
+    await prisma.student.findMany({
+      where: { school_id: schoolId, class: className, section, status: "ACTIVE" },
+      select: {
+        id: true,
+        roll_no: true,
+        user: { select: { name: true, profile_picture: true } },
+      },
+    })
+  ).sort((a, b) =>
+    a.roll_no.localeCompare(b.roll_no, undefined, { numeric: true, sensitivity: "base" }),
+  )
 
   // Get attendance records for these students on this date
   const attendanceRecords = await prisma.attendance.findMany({

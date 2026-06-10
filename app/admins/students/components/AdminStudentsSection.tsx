@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useCallback, useEffect, useState, useMemo } from "react"
 import { AgGridReact } from "ag-grid-react"
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community"
 import type { ColDef } from "ag-grid-community"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { ProfilePicCell } from "@/components/ui/profile-pic-cell"
+import { DataErrorState } from "@/components/ui/data-error-state"
 import { toast } from "sonner"
 import { Search, KeyRound } from "lucide-react"
 import ResetPasswordModal from "@/app/admins/components/ResetPasswordModal"
@@ -72,20 +73,23 @@ export function AdminStudentsSection() {
   const [searchText, setSearchText] = useState("")
   const [resetTarget, setResetTarget] = useState<{ userId: string; name: string } | null>(null)
 
-  useEffect(() => {
-    async function fetchStudents() {
-      try {
-        const res = await fetch("/api/students")
-        if (!res.ok) throw new Error("Failed to fetch students")
-        setStudents(await res.json())
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch")
-      } finally {
-        setLoading(false)
-      }
+  const fetchStudents = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/students")
+      if (!res.ok) throw new Error("Failed to fetch students")
+      setStudents(await res.json())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch")
+    } finally {
+      setLoading(false)
     }
-    fetchStudents()
   }, [])
+
+  useEffect(() => {
+    fetchStudents()
+  }, [fetchStudents])
 
   const colDefs = useMemo<ColDef<StudentRow>[]>(
     () => [
@@ -164,7 +168,14 @@ export function AdminStudentsSection() {
   )
 
   if (loading) return <Skeleton className="h-64 w-full rounded-xl" />
-  if (error) return <p className="text-sm text-destructive">{error}</p>
+  if (error)
+    return (
+      <DataErrorState
+        title="Couldn't load students"
+        description="Something went wrong on our side."
+        onRetry={fetchStudents}
+      />
+    )
 
   if (students.length === 0) {
     return (

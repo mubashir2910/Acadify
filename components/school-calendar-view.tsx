@@ -119,10 +119,25 @@ export default function SchoolCalendarView() {
       {/* Calendar card */}
       <Card>
         <CardContent className="p-2 md:p-4">
+          {/* Selected day info */}
+          {selectedDate && selectedInfo && (
+            <div className="mb-3 flex flex-wrap items-center justify-center gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {format(new Date(selectedDate + "T00:00:00"), "EEEE, MMMM d, yyyy")}:
+              </span>
+              <Badge className={getBadgeColor(selectedInfo.type)}>
+                {selectedInfo.label}
+              </Badge>
+              {selectedInfo.reason && (
+                <span className="text-muted-foreground">— {selectedInfo.reason}</span>
+              )}
+            </div>
+          )}
+
           {/* Legend */}
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-4 text-xs">
+          <div className="mb-4 flex flex-wrap items-center justify-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-full bg-green-50 border border-green-200" />
+              <div className="h-3 w-3 rounded-full bg-green-500/10 border border-green-200" />
               <span>Working Day</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -155,29 +170,14 @@ export default function SchoolCalendarView() {
               holiday:
                 "[&_button]:bg-rose-50 [&_button]:text-rose-500",
               workingDay:
-                "[&_button]:bg-green-50 [&_button]:text-green-700",
+                "[&_button]:bg-green-500/10 [&_button]:text-green-700",
               halfDay:
-                "[&_button]:bg-amber-50 [&_button]:text-amber-700 [&_button]:ring-1 [&_button]:ring-amber-200",
+                "[&_button]:bg-amber-500/10 [&_button]:text-amber-700 [&_button]:ring-1 [&_button]:ring-amber-200",
               event:
                 "[&_button]:bg-blue-50 [&_button]:text-blue-700 [&_button]:ring-1 [&_button]:ring-blue-200",
             }}
             className={cn("w-full [--cell-size:--spacing(8)] min-[375px]:[--cell-size:--spacing(10)] md:[--cell-size:--spacing(14)]")}
           />
-
-          {/* Selected day info */}
-          {selectedDate && selectedInfo && (
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm">
-              <span className="text-muted-foreground">
-                {format(new Date(selectedDate + "T00:00:00"), "EEEE, MMMM d, yyyy")}:
-              </span>
-              <Badge className={getBadgeColor(selectedInfo.type)}>
-                {selectedInfo.label}
-              </Badge>
-              {selectedInfo.reason && (
-                <span className="text-muted-foreground">— {selectedInfo.reason}</span>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -192,10 +192,10 @@ export default function SchoolCalendarView() {
                   o.type === "HOLIDAY"
                     ? "border border-rose-300 text-rose-600 bg-rose-50"
                     : o.type === "HALF_DAY"
-                      ? "border border-amber-300 text-amber-700 dark:text-amber-400 bg-amber-50"
+                      ? "border border-amber-300 text-amber-700 dark:text-amber-400 bg-amber-500/10"
                       : o.type === "EVENT"
                         ? "border border-blue-300 text-blue-700 dark:text-blue-400 bg-blue-50"
-                        : "border border-green-300 text-green-700 dark:text-green-400 bg-green-50"
+                        : "border border-green-300 text-green-700 dark:text-green-400 bg-green-500/10"
                 return (
                   <div key={o.date} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pillClass}`}>
                     <span className="font-semibold">

@@ -42,34 +42,59 @@ function formatDate(dateStr: string) {
   })
 }
 
+function getTodayStr() {
+  return getNowIST().toISOString().split("T")[0]
+}
+
+function getDefaultFrom() {
+  const d = getNowIST()
+  d.setUTCDate(d.getUTCDate() - 7)
+  return d.toISOString().split("T")[0]
+}
+
 export function LogHistorySection() {
   const [logs, setLogs] = useState<ClassLogEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [date, setDate] = useState(() => getNowIST().toISOString().split("T")[0])
+  const [from, setFrom] = useState(getDefaultFrom)
+  const [to, setTo] = useState(getTodayStr)
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/class-log?missing=true&from=${date}&to=${date}`)
+    fetch(`/api/class-log?view=history&from=${from}&to=${to}`)
       .then((r) => r.json())
       .then((data) => setLogs(Array.isArray(data) ? data : []))
       .catch(() => setLogs([]))
       .finally(() => setLoading(false))
-  }, [date])
+  }, [from, to])
 
   const grouped = groupByDate(logs)
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <label htmlFor="history-date" className="font-medium">Date</label>
-        <input
-          id="history-date"
-          type="date"
-          value={date}
-          max={getNowIST().toISOString().split("T")[0]}
-          onChange={(e) => setDate(e.target.value)}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-        />
+      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <label htmlFor="history-from" className="font-medium">From</label>
+          <input
+            id="history-from"
+            type="date"
+            value={from}
+            max={to}
+            onChange={(e) => setFrom(e.target.value)}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="history-to" className="font-medium">To</label>
+          <input
+            id="history-to"
+            type="date"
+            value={to}
+            min={from}
+            max={getTodayStr()}
+            onChange={(e) => setTo(e.target.value)}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+          />
+        </div>
       </div>
 
       {loading ? (
@@ -79,7 +104,7 @@ export function LogHistorySection() {
       ) : grouped.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <BookOpen className="h-10 w-10 mb-2 opacity-40" />
-          <p className="text-sm">No logs found for this date</p>
+          <p className="text-sm">No logs found for this range</p>
         </div>
       ) : (
         <div className="space-y-6">

@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useCallback, useEffect, useState, useMemo } from "react"
 import { AgGridReact } from "ag-grid-react"
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community"
 import type { ColDef, ICellRendererParams } from "ag-grid-community"
 import { ListSkeleton } from "@/components/ui/skeletons"
+import { DataErrorState } from "@/components/ui/data-error-state"
 import { Cake, CalendarDays } from "lucide-react"
 import type {
   BirthdayEntry,
@@ -65,22 +66,25 @@ export function BirthdaysSection() {
     return BIRTHDAY_MESSAGES[dayOfYear % BIRTHDAY_MESSAGES.length]
   }, [])
 
-  useEffect(() => {
-    async function fetchBirthdays() {
-      try {
-        const res = await fetch("/api/birthdays")
-        if (!res.ok) throw new Error("Failed to fetch birthdays")
-        const data = await res.json()
-        setBirthdays(data.birthdays ?? [])
-        setUpcoming(data.upcoming ?? [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch")
-      } finally {
-        setLoading(false)
-      }
+  const fetchBirthdays = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/birthdays")
+      if (!res.ok) throw new Error("Failed to fetch birthdays")
+      const data = await res.json()
+      setBirthdays(data.birthdays ?? [])
+      setUpcoming(data.upcoming ?? [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch")
+    } finally {
+      setLoading(false)
     }
-    fetchBirthdays()
   }, [])
+
+  useEffect(() => {
+    fetchBirthdays()
+  }, [fetchBirthdays])
 
   const todayColDefs = useMemo<ColDef<BirthdayEntry>[]>(
     () => [
@@ -161,7 +165,14 @@ export function BirthdaysSection() {
   )
 
   if (loading) return <ListSkeleton items={5} />
-  if (error) return <p className="text-red-500">{error}</p>
+  if (error)
+    return (
+      <DataErrorState
+        title="Couldn't load birthdays"
+        description="Something went wrong on our side."
+        onRetry={fetchBirthdays}
+      />
+    )
 
   return (
     <div className="space-y-8">

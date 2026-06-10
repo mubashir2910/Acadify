@@ -15,7 +15,8 @@ export default function StudentSummaryCards({ stats }: StudentSummaryCardsProps)
       sublabel: `${stats.presentDays} days`,
       value: stats.presentDays,
       icon: CheckCircle,
-      bg: "bg-green-50",
+      bg: "bg-green-500/10",
+      borderColor: "border-l-green-500",
       iconColor: "text-green-600 dark:text-green-400",
       valueColor: "text-green-700 dark:text-green-400",
     },
@@ -24,7 +25,8 @@ export default function StudentSummaryCards({ stats }: StudentSummaryCardsProps)
       sublabel: `${stats.absentDays} days`,
       value: stats.absentDays,
       icon: XCircle,
-      bg: "bg-red-50",
+      bg: "bg-red-500/10",
+      borderColor: "border-l-red-500",
       iconColor: "text-red-600 dark:text-red-400",
       valueColor: "text-red-700 dark:text-red-400",
     },
@@ -33,7 +35,8 @@ export default function StudentSummaryCards({ stats }: StudentSummaryCardsProps)
       sublabel: `${stats.lateDays} days`,
       value: stats.lateDays,
       icon: Clock,
-      bg: "bg-amber-50",
+      bg: "bg-amber-500/10",
+      borderColor: "border-l-amber-500",
       iconColor: "text-amber-600 dark:text-amber-400",
       valueColor: "text-amber-700 dark:text-amber-400",
     },
@@ -43,7 +46,10 @@ export default function StudentSummaryCards({ stats }: StudentSummaryCardsProps)
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
         {cards.map((card) => (
-          <Card key={card.label} className={`${card.bg} border-0 shadow-none`}>
+          <Card
+            key={card.label}
+            className={`${card.bg} border-0 border-l-4 ${card.borderColor} rounded-l-none rounded-r-xl shadow-none`}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <card.icon className={`h-4 w-4 ${card.iconColor}`} />

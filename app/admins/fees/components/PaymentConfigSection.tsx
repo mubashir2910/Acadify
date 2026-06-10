@@ -449,7 +449,7 @@ function BankAccountsManager({
             <li
               key={b.id}
               className={`flex items-start justify-between gap-2 rounded-md border p-3 ${
-                b.is_active ? "border-emerald-300 bg-emerald-50/30" : "border-border bg-muted/20"
+                b.is_active ? "border-emerald-300 bg-emerald-500/10/30" : "border-border bg-muted/20"
               }`}
             >
               <div className="text-sm">
@@ -646,7 +646,7 @@ function UpiAccountsManager({
             <li
               key={u.id}
               className={`flex items-start justify-between gap-2 rounded-md border p-3 ${
-                u.is_active ? "border-emerald-300 bg-emerald-50/30" : "border-border bg-muted/20"
+                u.is_active ? "border-emerald-300 bg-emerald-500/10/30" : "border-border bg-muted/20"
               }`}
             >
               <div className="text-sm">
@@ -856,7 +856,7 @@ function QrCodesManager({
             <li
               key={q.id}
               className={`flex gap-3 rounded-md border p-3 ${
-                q.is_active ? "border-emerald-300 bg-emerald-50/30" : "border-border bg-muted/20"
+                q.is_active ? "border-emerald-300 bg-emerald-500/10/30" : "border-border bg-muted/20"
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

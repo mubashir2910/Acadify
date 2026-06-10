@@ -13,6 +13,7 @@ import RecentEnrollmentsTable, { type EnrollmentRow } from "./RecentEnrollmentsT
 import TeacherTodaySchedule from "@/app/teacher/components/TeacherTodaySchedule"
 import { Button } from "@/components/ui/button"
 import { StatCardSkeleton } from "@/components/ui/skeletons"
+import { DataErrorState } from "@/components/ui/data-error-state"
 import type { AttendanceSummaryStats, ClassAttendanceSummary } from "@/schemas/attendance.schema"
 import type { CreateStudentResult } from "@/schemas/student.schema"
 import type { CreateTeacherResult } from "@/schemas/teacher.schema"
@@ -37,6 +38,8 @@ export default function AdminDashboard() {
   const today = format(new Date(), "yyyy-MM-dd")
 
   const fetchAttendance = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
       const res = await fetch(`/api/attendance?date=${today}`)
       if (!res.ok) throw new Error("Failed to fetch")
@@ -111,7 +114,11 @@ export default function AdminDashboard() {
           <StatCardSkeleton />
         </div>
       ) : error ? (
-        <p className="text-sm text-red-500">{error}</p>
+        <DataErrorState
+          title="Couldn't load attendance data"
+          description="Something went wrong on our side."
+          onRetry={fetchAttendance}
+        />
       ) : attendanceData ? (
         <AdminQuickStats
           totalStudents={attendanceData.summary.totalStudents}

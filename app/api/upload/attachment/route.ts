@@ -2,15 +2,13 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { v2 as cloudinary } from "cloudinary"
 import { uploadImportLimiter, checkRateLimit } from "@/lib/rate-limit"
+import { MAX_ATTACHMENT_SIZE, ALLOWED_IMAGE_FORMATS, ALLOWED_DOC_FORMATS } from "@/lib/attachment"
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 })
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const ALLOWED_IMAGE_FORMATS = ["jpg", "png", "webp"]
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -34,9 +32,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "No file provided" }, { status: 400 })
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > MAX_ATTACHMENT_SIZE) {
       return NextResponse.json(
-        { message: "File must be under 5MB" },
+        { message: "File must be under 10MB" },
         { status: 400 }
       )
     }
@@ -68,18 +66,24 @@ export async function POST(req: Request) {
 
     // Validate actual file content via Cloudinary's server-side detection
     const isImage = result.resource_type === "image" && ALLOWED_IMAGE_FORMATS.includes(result.format)
-    const isPdf = result.resource_type === "raw" && result.format === "pdf"
+    const isDoc = result.resource_type === "raw" && ALLOWED_DOC_FORMATS.includes(result.format)
 
-    if (!isImage && !isPdf) {
+    if (!isImage && !isDoc) {
       await cloudinary.uploader.destroy(result.public_id, { resource_type: result.resource_type })
       return NextResponse.json(
-        { message: "Only JPEG, PNG, WebP images and PDFs are accepted" },
+        { message: "Only images, PDF and Office documents (Word/Excel/PowerPoint) are accepted" },
         { status: 400 }
       )
     }
 
-    const attachmentType = isImage ? "image" : "pdf"
-    return NextResponse.json({ url: result.secure_url, type: attachmentType })
+    // type buckets the format for icon/label purposes: image | pdf | doc
+    const attachmentType = isImage ? "image" : result.format === "pdf" ? "pdf" : "doc"
+    return NextResponse.json({
+      url: result.secure_url,
+      type: attachmentType,
+      name: file.name,
+      format: result.format,
+    })
   } catch (error) {
     console.error("[POST /api/upload/attachment]", error)
     return NextResponse.json(

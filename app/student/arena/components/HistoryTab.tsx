@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Clock, History as HistoryIcon, Trophy, ListChecks } from "lucide-react"
 import { QuizResultModal } from "./QuizResultModal"
 import { QuizDetailModal } from "./QuizDetailModal"
+import { ArenaSpinner } from "./ArenaSpinner"
 import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
 import { subjectGroupColor, subjectGroupIcon } from "@/lib/arena-visuals"
 
@@ -50,7 +51,7 @@ export function HistoryTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="animate-spin w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full" />
+        <ArenaSpinner size="md" tagline="Fetching your Battles" />
       </div>
     )
   }

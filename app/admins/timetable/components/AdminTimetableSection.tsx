@@ -1,14 +1,19 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Pencil, Save, Settings2, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import TimetableGridView from "@/components/timetable-grid-view"
+import TimetableGridView, {
+  type PendingCellInfo,
+  type ParticipantIdentity,
+} from "@/components/timetable-grid-view"
 import GroupSelector from "./GroupSelector"
 import AddGroupModal from "./AddGroupModal"
-import AssignCellModal from "./AssignCellModal"
+import AssignCellModal, {
+  type PendingDropMatcher,
+} from "./AssignCellModal"
 import ConfirmSaveModal from "./ConfirmSaveModal"
 import ManagePeriodsSheet from "./ManagePeriodsSheet"
 import type {
@@ -25,10 +30,17 @@ interface ModalState {
   open: boolean
   period: PeriodRow | null
   day: DayOfWeek | null
+  participant: ParticipantIdentity | null
   existingCell?: TimetableCell
+  pending?: PendingCellInfo
 }
 
-const EMPTY_MODAL: ModalState = { open: false, period: null, day: null }
+const EMPTY_MODAL: ModalState = {
+  open: false,
+  period: null,
+  day: null,
+  participant: null,
+}
 
 export default function AdminTimetableSection() {
   // ─── Groups ─────────────────────────────────────────────────────────────
@@ -58,57 +70,77 @@ export default function AdminTimetableSection() {
     [groups, selectedGroupId],
   )
 
+  // Track the most recent fetch so stale responses get discarded.
+  const groupFetchRef = useRef<AbortController | null>(null)
+  const groupsFetchRef = useRef<AbortController | null>(null)
+
   // ─── Data loaders ───────────────────────────────────────────────────────
   const fetchGroups = useCallback(async () => {
+    groupsFetchRef.current?.abort()
+    const controller = new AbortController()
+    groupsFetchRef.current = controller
     setLoadingGroups(true)
     setError(null)
     try {
-      const res = await fetch("/api/timetable-groups")
+      const res = await fetch("/api/timetable-groups", { signal: controller.signal })
       if (!res.ok) throw new Error()
       const data: TimetableGroupRow[] = await res.json()
+      if (controller.signal.aborted) return
       setGroups(data)
-      // Keep the current selection if still present, else default to first group.
+      // Keep current selection if still present, else default to first group.
       setSelectedGroupId((prev) => {
         if (prev && data.some((g) => g.id === prev)) return prev
         return data[0]?.id ?? null
       })
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return
       setError("Could not load timetable groups. Please refresh.")
     } finally {
-      setLoadingGroups(false)
+      if (!controller.signal.aborted) setLoadingGroups(false)
     }
   }, [])
 
   const fetchGroupData = useCallback(async (groupId: string) => {
+    groupFetchRef.current?.abort()
+    const controller = new AbortController()
+    groupFetchRef.current = controller
     setLoadingGrid(true)
     setError(null)
     try {
       const [pRes, gRes] = await Promise.all([
-        fetch(`/api/timetable/periods?groupId=${groupId}`),
-        fetch(`/api/timetable?groupId=${groupId}`),
+        fetch(`/api/timetable/periods?groupId=${groupId}`, { signal: controller.signal }),
+        fetch(`/api/timetable?groupId=${groupId}`, { signal: controller.signal }),
       ])
+      if (controller.signal.aborted) return
       if (!pRes.ok || !gRes.ok) throw new Error()
       const [pData, gData] = await Promise.all([pRes.json(), gRes.json()])
+      if (controller.signal.aborted) return
       setPeriods(pData)
       setGrid(gData)
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return
       setError("Could not load timetable data for this group.")
     } finally {
-      setLoadingGrid(false)
+      if (!controller.signal.aborted) setLoadingGrid(false)
     }
   }, [])
 
   useEffect(() => {
     fetchGroups()
+    return () => groupsFetchRef.current?.abort()
   }, [fetchGroups])
 
   useEffect(() => {
+    // Group changed → close any sheet bound to the previous group, drop stale
+    // grid until the new data arrives.
+    setManagePeriodsOpen(false)
     if (selectedGroupId) {
       fetchGroupData(selectedGroupId)
     } else {
       setPeriods([])
       setGrid(null)
     }
+    return () => groupFetchRef.current?.abort()
   }, [selectedGroupId, fetchGroupData])
 
   // ─── Edit mode handlers ─────────────────────────────────────────────────
@@ -126,15 +158,23 @@ export default function AdminTimetableSection() {
     setEditMode(false)
   }
 
-  function handleCellClick(period: PeriodRow, day: DayOfWeek, existingCell?: TimetableCell) {
+  function handleCellClick(
+    period: PeriodRow,
+    day: DayOfWeek,
+    participant: ParticipantIdentity,
+    existingCell?: TimetableCell,
+    pending?: PendingCellInfo,
+  ) {
     if (!editMode) return
-    setCellModal({ open: true, period, day, existingCell })
+    setCellModal({ open: true, period, day, participant, existingCell, pending })
   }
 
   /**
-   * When admin queues a CREATE/UPDATE/DELETE in the modal, we add it to the
-   * change queue. For UPDATEs and DELETEs on the same cell we collapse so the
-   * queue holds at most one entry per existing cell id.
+   * Queue mutations:
+   * - CREATE: append.
+   * - UPDATE: replace any existing UPDATE for the same cell id, also remove a
+   *   pending DELETE if the admin is now reassigning (undelete semantics).
+   * - DELETE: replace any UPDATE / pending DELETE for the same cell id.
    */
   function handleQueue(change: BatchChange) {
     setPendingChanges((prev) => {
@@ -147,6 +187,20 @@ export default function AdminTimetableSection() {
       )
       return [...filtered, change]
     })
+  }
+
+  function handleDropPending(matcher: PendingDropMatcher) {
+    setPendingChanges((prev) =>
+      prev.filter((c) => {
+        if (matcher.kind === "create") {
+          return !(c.action === "CREATE" && c.temp_id === matcher.tempId)
+        }
+        if (matcher.kind === "update") {
+          return !(c.action === "UPDATE" && c.id === matcher.id)
+        }
+        return !(c.action === "DELETE" && c.id === matcher.id)
+      }),
+    )
   }
 
   async function handleSave() {
@@ -209,7 +263,7 @@ export default function AdminTimetableSection() {
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
-      {/* Group selector (always visible) */}
+      {/* Group selector — the single entry point for adding/editing/deleting groups */}
       <GroupSelector
         groups={groups}
         selectedGroupId={selectedGroupId}
@@ -233,7 +287,7 @@ export default function AdminTimetableSection() {
             No timetable structures yet. Create your first group to get started — for example,
             &quot;Primary&quot; for classes 1–5.
           </p>
-          <Button onClick={() => setShowAddGroup(true)}>+ Add New Structure</Button>
+          <Button onClick={() => setShowAddGroup(true)}>+ Add Group</Button>
         </div>
       ) : !selectedGroup ? null : (
         <>
@@ -280,26 +334,15 @@ export default function AdminTimetableSection() {
                     </Button>
                   </>
                 ) : (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowAddGroup(true)}
-                      className="gap-1.5"
-                    >
-                      + Add New Structure
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={enterEditMode}
-                      className="gap-1.5"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit Timetable
-                    </Button>
-                  </>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={enterEditMode}
+                    className="gap-1.5"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit Timetable
+                  </Button>
                 )
               }
             />
@@ -317,18 +360,25 @@ export default function AdminTimetableSection() {
         }}
       />
 
-      {selectedGroup && cellModal.open && cellModal.period && cellModal.day && (
-        <AssignCellModal
-          open={cellModal.open}
-          groupId={selectedGroup.id}
-          period={cellModal.period}
-          dayOfWeek={cellModal.day}
-          existingCell={cellModal.existingCell}
-          groupClasses={selectedGroup.classes}
-          onQueue={handleQueue}
-          onClose={() => setCellModal(EMPTY_MODAL)}
-        />
-      )}
+      {selectedGroup &&
+        cellModal.open &&
+        cellModal.period &&
+        cellModal.day &&
+        cellModal.participant && (
+          <AssignCellModal
+            open={cellModal.open}
+            groupId={selectedGroup.id}
+            period={cellModal.period}
+            dayOfWeek={cellModal.day}
+            participant={cellModal.participant}
+            existingCell={cellModal.existingCell}
+            groupClasses={selectedGroup.classes}
+            pending={cellModal.pending}
+            onQueue={handleQueue}
+            onDropPending={handleDropPending}
+            onClose={() => setCellModal(EMPTY_MODAL)}
+          />
+        )}
 
       {selectedGroup && (
         <ManagePeriodsSheet

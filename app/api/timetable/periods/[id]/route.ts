@@ -26,10 +26,8 @@ export async function PATCH(
     const body = await request.json()
     const input = updatePeriodSchema.parse(body)
 
-    // end_time > start_time check when both provided
-    if (input.start_time && input.end_time && input.end_time <= input.start_time) {
-      return NextResponse.json({ message: "End time must be after start time" }, { status: 422 })
-    }
+    // start/end cross-validation now lives in the service (covers the
+    // single-field PATCH case) — see updatePeriod's END_BEFORE_START throw.
 
     const period = await updatePeriod(schoolId, id, input)
     return NextResponse.json(period)
@@ -41,6 +39,8 @@ export async function PATCH(
       const errorMap: Record<string, [string, number]> = {
         PERIOD_NOT_FOUND:       ["Period not found", 404],
         PERIOD_HAS_ASSIGNMENTS: ["Cannot modify period with existing timetable assignments", 409],
+        END_BEFORE_START:       ["End time must be after start time", 422],
+        PERIOD_TIME_OVERLAP:    ["This period's time range overlaps another period in the same group", 409],
       }
       const entry = errorMap[error.message]
       if (entry) return NextResponse.json({ message: entry[0] }, { status: entry[1] })

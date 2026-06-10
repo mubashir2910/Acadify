@@ -12,6 +12,7 @@ import TeacherSelfAttendanceStats from "./TeacherSelfAttendanceStats"
 import TeacherTodaySchedule from "./TeacherTodaySchedule"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DataErrorState } from "@/components/ui/data-error-state"
 import type { AttendanceSummaryStats } from "@/schemas/attendance.schema"
 
 type TeacherDashboardData =
@@ -27,6 +28,8 @@ export default function TeacherDashboard() {
   const today = format(new Date(), "yyyy-MM-dd")
 
   const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
       const res = await fetch(`/api/attendance?date=${today}`)
       if (!res.ok) throw new Error("Failed to fetch")
@@ -58,7 +61,11 @@ export default function TeacherDashboard() {
           </div>
         </div>
       ) : error ? (
-        <p className="text-sm text-red-500">{error}</p>
+        <DataErrorState
+          title="Couldn't load dashboard data"
+          description="Something went wrong on our side."
+          onRetry={fetchData}
+        />
       ) : data ? (
         <>
           {data.assigned ? (

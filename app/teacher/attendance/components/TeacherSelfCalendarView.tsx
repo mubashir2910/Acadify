@@ -175,6 +175,24 @@ export default function TeacherSelfCalendarView() {
   return (
     <Card>
       <CardContent className="p-4">
+        {selectedDayDate && (
+          <div className="mb-3 flex items-center justify-center gap-2 text-sm">
+            <span className="text-muted-foreground">
+              {format(new Date(selectedDayDate + "T00:00:00"), "MMMM d, yyyy")}:
+            </span>
+            {renderSelectedDayInfo()}
+          </div>
+        )}
+
+        <div className="mb-4 flex flex-wrap items-center justify-center gap-4 text-xs">
+          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-green-200" /><span>Present</span></div>
+          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-red-200" /><span>Absent</span></div>
+          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-amber-200" /><span>Late</span></div>
+          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-muted" /><span>Holiday</span></div>
+          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-amber-100 ring-1 ring-amber-300" /><span>Half Day</span></div>
+          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-blue-100 ring-1 ring-blue-300" /><span>Event</span></div>
+        </div>
+
         <Calendar
           mode="single"
           month={currentMonth}
@@ -208,24 +226,6 @@ export default function TeacherSelfCalendarView() {
           }}
           className={cn("w-full [--cell-size:--spacing(10)] md:[--cell-size:--spacing(11)]")}
         />
-
-        {selectedDayDate && (
-          <div className="mt-3 flex items-center justify-center gap-2 text-sm">
-            <span className="text-muted-foreground">
-              {format(new Date(selectedDayDate + "T00:00:00"), "MMMM d, yyyy")}:
-            </span>
-            {renderSelectedDayInfo()}
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-green-200" /><span>Present</span></div>
-          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-red-200" /><span>Absent</span></div>
-          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-amber-200" /><span>Late</span></div>
-          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-muted" /><span>Holiday</span></div>
-          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-amber-100 ring-1 ring-amber-300" /><span>Half Day</span></div>
-          <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-blue-100 ring-1 ring-blue-300" /><span>Event</span></div>
-        </div>
       </CardContent>
     </Card>
   )

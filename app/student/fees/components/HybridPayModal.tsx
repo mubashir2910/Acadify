@@ -284,7 +284,7 @@ export default function HybridPayModal({
               <Loader2 className="h-4 w-4 animate-spin" /> Fetching latest payment details…
             </div>
           ) : noPaymentMethodConfigured ? (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-700 dark:text-amber-400">
+            <div className="rounded-md border border-amber-300 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
               The school hasn&apos;t configured any payment methods yet. Please reach out to the office.
             </div>
           ) : (

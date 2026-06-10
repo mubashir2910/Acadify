@@ -36,7 +36,10 @@ export const ALL_DAYS: DayOfWeek[] = [
 
 const timeStringSchema = z
   .string()
-  .regex(/^\d{2}:\d{2}$/, "Time must be in HH:mm format (e.g. 08:00)")
+  .regex(
+    /^([01]\d|2[0-3]):[0-5]\d$/,
+    "Time must be in HH:mm format (24-hour, e.g. 08:00)",
+  )
 
 // ─── Period Schemas ───────────────────────────────────────────────────────────
 
@@ -95,9 +98,9 @@ export const assignTimetableSchema = z
     day_of_week: dayOfWeekEnum,
     teacher_id: z.string().uuid("Invalid teacher").optional(),
     admin_user_id: z.string().uuid("Invalid admin user").optional(),
-    subject: z.string().min(1, "Subject is required").max(100, "Subject too long"),
-    class: z.string().min(1, "Class is required"),
-    section: z.string().min(1, "Section is required"),
+    subject: z.string().trim().min(1, "Subject is required").max(100, "Subject too long"),
+    class: z.string().trim().min(1, "Class is required"),
+    section: z.string().trim().min(1, "Section is required"),
   })
   .superRefine(timetableTargetRefine)
 
@@ -110,9 +113,9 @@ export const updateTimetableSchema = z
     day_of_week: dayOfWeekEnum.optional(),
     teacher_id: z.string().uuid().optional(),
     admin_user_id: z.string().uuid().optional(),
-    subject: z.string().min(1).max(100).optional(),
-    class: z.string().min(1).optional(),
-    section: z.string().min(1).optional(),
+    subject: z.string().trim().min(1).max(100).optional(),
+    class: z.string().trim().min(1).optional(),
+    section: z.string().trim().min(1).optional(),
   })
   .superRefine((data, ctx) => {
     // Only enforce mutual-exclusivity if any assignee field was provided.
@@ -136,9 +139,9 @@ const batchCreatePayload = z.object({
   day_of_week: dayOfWeekEnum,
   teacher_id: z.string().uuid().optional(),
   admin_user_id: z.string().uuid().optional(),
-  subject: z.string().min(1).max(100),
-  class: z.string().min(1),
-  section: z.string().min(1),
+  subject: z.string().trim().min(1).max(100),
+  class: z.string().trim().min(1),
+  section: z.string().trim().min(1),
 })
 
 const batchUpdatePayload = batchCreatePayload.partial()
@@ -163,7 +166,12 @@ export const batchChangeSchema = z.discriminatedUnion("action", [
 
 export const batchSaveSchema = z.object({
   group_id: z.string().uuid("Invalid timetable group"),
-  changes: z.array(batchChangeSchema).min(1, "No changes to save"),
+  // 200 covers realistic admin sessions (40 cells × 5 days = 200) without leaving
+  // headroom for runaway batches that would hold the DB transaction open too long.
+  changes: z
+    .array(batchChangeSchema)
+    .min(1, "No changes to save")
+    .max(200, "Too many changes in one batch — split into smaller saves"),
 })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -199,7 +207,39 @@ export interface TimetableCell {
   section: string
 }
 
-// Grid row: one teacher, their assignments keyed by period_id__day
+// Grid row: one participant (teacher OR admin), assignments keyed by period_id__day.
+// Admins without a Teacher row yet appear as virtual rows so they can be
+// assigned without leaving the grid — the backend materialises a Teacher row
+// on save via ensureTeacherForUser.
+export interface TimetableGridTeacherRowBase {
+  name: string
+  cells: Record<string, TimetableCell | null>
+}
+
+export interface TimetableGridTeacherRowTeacher extends TimetableGridTeacherRowBase {
+  kind: "teacher"
+  teacher_id: string
+  /** Whether the Teacher row is currently ACTIVE. Inactive teachers stay in the
+   * grid because their existing assignments do; the UI tags them with a badge
+   * and prevents new assignments. */
+  is_active: boolean
+  /** True when the underlying SchoolUser holds the ADMIN role. Admins who were
+   * assigned teaching duties get a Teacher row materialised, but they're still
+   * admins — the grid renders the "Admin" badge based on this flag, not on
+   * which Map they came from. */
+  is_admin: boolean
+}
+
+export interface TimetableGridTeacherRowAdmin extends TimetableGridTeacherRowBase {
+  kind: "admin"
+  admin_user_id: string
+}
+
+export type TimetableGridParticipantRow =
+  | TimetableGridTeacherRowTeacher
+  | TimetableGridTeacherRowAdmin
+
+/** @deprecated unused — kept only so older imports still resolve until removed in v3. */
 export interface TimetableGridTeacherRow {
   teacher_id: string
   teacher_name: string
@@ -210,7 +250,7 @@ export interface TimetableGrid {
   group_id: string
   group_name: string
   periods: PeriodRow[]
-  rows: TimetableGridTeacherRow[]
+  rows: TimetableGridParticipantRow[]
 }
 
 // Student view

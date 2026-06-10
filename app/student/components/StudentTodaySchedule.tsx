@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DataErrorState } from "@/components/ui/data-error-state"
 import { CalendarClock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { StudentPeriodCell } from "@/schemas/timetable.schema"
@@ -12,7 +13,9 @@ export default function StudentTodaySchedule() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  useEffect(() => {
+  const fetchPeriods = useCallback(() => {
+    setLoading(true)
+    setError(false)
     fetch("/api/timetable/today")
       .then((res) => {
         if (!res.ok) throw new Error()
@@ -22,6 +25,10 @@ export default function StudentTodaySchedule() {
       .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    fetchPeriods()
+  }, [fetchPeriods])
 
   if (loading) {
     return (
@@ -33,7 +40,13 @@ export default function StudentTodaySchedule() {
   }
 
   if (error) {
-    return <p className="text-sm text-muted-foreground">Could not load today&apos;s classes.</p>
+    return (
+      <DataErrorState
+        variant="compact"
+        title="Couldn't load today's classes"
+        onRetry={fetchPeriods}
+      />
+    )
   }
 
   return (

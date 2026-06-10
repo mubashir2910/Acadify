@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { NotificationItem } from "@/schemas/notifications.schema"
 import { formatDistanceToNow } from "date-fns"
+import { Paperclip } from "lucide-react"
 import { audienceLabel } from "./utils"
 
 interface NotificationCardProps {
@@ -51,6 +52,9 @@ export function NotificationCard({ notification, onClick }: NotificationCardProp
           <span className="text-[11px] text-muted-foreground">
             {notification.created_by_name ?? "Deleted User"} · {relativeTime}
           </span>
+          {notification.attachment_url && (
+            <Paperclip className="h-3 w-3 text-muted-foreground" aria-label="Has attachment" />
+          )}
         </div>
       </CardContent>
     </Card>

@@ -65,6 +65,12 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === "GROUP_NOT_FOUND") {
       return NextResponse.json({ message: "Timetable group not found" }, { status: 404 })
     }
+    if (error instanceof Error && error.message === "PERIOD_TIME_OVERLAP") {
+      return NextResponse.json(
+        { message: "This period's time range overlaps another period in the same group" },
+        { status: 409 },
+      )
+    }
     console.error("[POST /api/timetable/periods]", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
