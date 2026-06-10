@@ -11,6 +11,7 @@ import {
   BLOOD_GROUPS,
 } from "@/schemas/profile.schema"
 import { getDashboardPath } from "@/lib/auth-redirect"
+import { getTodayISTString } from "@/lib/working-days"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -131,8 +132,10 @@ export function TeacherCompleteProfileForm({ userName }: Props) {
               <Input
                 id="date_of_birth"
                 type="date"
+                max={getTodayISTString()}
                 {...register("date_of_birth")}
               />
+              <FieldError message={errors.date_of_birth?.message} />
             </div>
           </div>
         </div>

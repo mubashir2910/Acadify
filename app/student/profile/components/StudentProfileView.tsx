@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { FieldError } from "@/components/ui/field-error"
 import { ProfilePictureUploader } from "@/components/forms/profile-picture-uploader"
 import { maskAadhaar } from "@/lib/aadhaar"
+import { getTodayISTString } from "@/lib/working-days"
 
 interface StudentProfile {
   id: string
@@ -280,8 +281,10 @@ export function StudentProfileView() {
                 <Input
                   id="date_of_birth"
                   type="date"
+                  max={getTodayISTString()}
                   {...register("date_of_birth")}
                 />
+                <FieldError message={errors.date_of_birth?.message} />
               </div>
             </div>
             <div className="space-y-1.5">
