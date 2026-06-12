@@ -6,6 +6,48 @@ import { logFeeAction } from "@/services/fee-audit.service";
 
 const TRIAL_DAYS = 60
 
+export interface UserBranding {
+    schoolName: string
+    logoUrl: string | null
+}
+
+/**
+ * Resolves the branding (name + logo) of the school the user belongs to.
+ *
+ * Used by the dashboard shell to co-brand the sidebar/header. Returns null for
+ * SUPER_ADMIN (no single school) or on any lookup failure — the caller then
+ * falls back to the default Acadify wordmark, so this can never break rendering.
+ */
+export async function getBrandingForUser(
+    userId: string,
+    role: string,
+): Promise<UserBranding | null> {
+    // Super admins manage every school, so there is no single school to brand with.
+    if (role === "SUPER_ADMIN") return null
+
+    try {
+        if (role === "STUDENT") {
+            const student = await prisma.student.findFirst({
+                where: { user_id: userId, status: "ACTIVE" },
+                select: { school: { select: { schoolName: true, logo_url: true } } },
+            })
+            if (!student) return null
+            return { schoolName: student.school.schoolName, logoUrl: student.school.logo_url }
+        }
+
+        // ADMIN or TEACHER are linked to their school via SchoolUser.
+        const schoolUser = await prisma.schoolUser.findFirst({
+            where: { user_id: userId, status: "ACTIVE" },
+            select: { school: { select: { schoolName: true, logo_url: true } } },
+        })
+        if (!schoolUser) return null
+        return { schoolName: schoolUser.school.schoolName, logoUrl: schoolUser.school.logo_url }
+    } catch {
+        // Branding is non-critical: never let a failed lookup crash the dashboard.
+        return null
+    }
+}
+
 export async function createSchool(data: CreateSchoolApiInput) {
     const trialEndsAt = new Date()
     trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS)

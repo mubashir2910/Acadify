@@ -57,11 +57,12 @@ export const HeroHeader = () => {
                                         <Link
                                             href={item.href}
                                             className={cn(
-                                                'block duration-150',
+                                                // Animated underline grows left→full on hover (quick, professional accent)
+                                                'relative block duration-150 after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:transition-all after:duration-200 hover:after:w-full',
                                                 // Light text while sitting over the dark hero video; revert to muted in the scrolled pill
                                                 isScrolled
-                                                    ? 'text-muted-foreground hover:text-accent-foreground'
-                                                    : 'text-white/80 hover:text-white'
+                                                    ? 'text-muted-foreground hover:text-accent-foreground after:bg-blue-600'
+                                                    : 'text-white/80 hover:text-white after:bg-blue-400'
                                             )}>
                                             <span>{item.name}</span>
                                         </Link>
@@ -77,7 +78,7 @@ export const HeroHeader = () => {
                                         <li key={index}>
                                             <Link
                                                 href={item.href}
-                                                className="text-muted-foreground hover:text-accent-foreground block duration-150">
+                                                className="text-muted-foreground hover:text-accent-foreground relative block duration-150 after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:bg-blue-600 after:transition-all after:duration-200 hover:after:w-full">
                                                 <span>{item.name}</span>
                                             </Link>
                                         </li>

@@ -1,7 +1,7 @@
 "use client"
 
-import Image from "next/image"
 import { Logo } from '@/components/logo'
+import type { UserBranding } from "@/services/school.service"
 import { PanelRightClose } from "lucide-react"
 import {
   Sidebar,
@@ -19,6 +19,8 @@ interface AppSidebarProps {
     role: string
     profilePicture?: string | null
   }
+  // School branding (null for super admin / on lookup failure → Acadify wordmark).
+  branding?: UserBranding | null
 }
 
 function SidebarMobileClose() {
@@ -34,7 +36,7 @@ function SidebarMobileClose() {
   )
 }
 
-export function AppSidebar({ basePath, user }: AppSidebarProps) {
+export function AppSidebar({ basePath, user, branding }: AppSidebarProps) {
   return (
     <Sidebar
       collapsible="icon"
@@ -42,20 +44,11 @@ export function AppSidebar({ basePath, user }: AppSidebarProps) {
     >
       <SidebarHeader className="pb-2 pt-3 px-3">
         <div className="flex items-center justify-between">
-          {/* <div className="flex items-center gap-2.5 pl-1">
-            <Image
-              src="/acadify.png"
-              alt="Acadify"
-              width={36}
-              height={36}
-              className="h-9 w-9 shrink-0"
-              priority
-            />
-            <span className="text-[15px] font-semibold group-data-[collapsible=icon]:hidden">
-              Acadify
-            </span>
-          </div> */}
-          <Logo />
+          <Logo
+            logoUrl={branding?.logoUrl}
+            label={branding?.schoolName}
+            textClassName="group-data-[collapsible=icon]:hidden"
+          />
           <SidebarMobileClose />
         </div>
       </SidebarHeader>
@@ -63,6 +56,13 @@ export function AppSidebar({ basePath, user }: AppSidebarProps) {
       <SidebarContent className="px-3">
         <SidebarNav basePath={basePath} role={user.role} />
       </SidebarContent>
+
+      {/* Co-brand footer: keep the SaaS identity when a school logo takes the header. */}
+      {branding && (
+        <div className="px-3 pb-1 text-[11px] font-medium text-muted-foreground group-data-[collapsible=icon]:hidden">
+          Powered by Acadify
+        </div>
+      )}
 
       <SidebarUser user={user} basePath={basePath} />
     </Sidebar>

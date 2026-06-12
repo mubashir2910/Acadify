@@ -30,9 +30,12 @@ const transitionVariants = {
 export default function HeroSection() {
     return (
         <>
+            {/* Preload the hero poster so it paints as the LCP element ASAP (low LCP / Speed Index) */}
+            <link rel="preload" as="image" href="/hero-poster.jpg" fetchPriority="high" />
+
             <HeroHeader />
             <main className="overflow-hidden">
-                <section className="relative min-h-svh w-full overflow-hidden">
+                <section className="relative isolate min-h-svh w-full overflow-hidden">
                     {/* Full-screen looping background video (sits at -z-20 with a dark base) */}
                     <HeroVideoBackground />
 
@@ -48,7 +51,15 @@ export default function HeroSection() {
                         className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-b from-transparent to-[var(--color-background)]"
                     />
 
-                    <div className="relative z-10 mx-auto flex min-h-svh max-w-7xl flex-col items-center justify-center px-6 pt-16 md:pt-20 -mt-12 md:-mt-16">
+                    {/* Mobile-only readability scrim: darkens the upper third where the
+                        heading now sits, so white text stays legible over the sky/clouds
+                        and clear of the ACADIFY building logo that appears later in the clip */}
+                    <div
+                        aria-hidden
+                        className="md:hidden pointer-events-none absolute inset-x-0 top-0 -z-10 h-[80%] bg-gradient-to-b from-black/55 via-black/55 to-transparent"
+                    />
+
+                    <div className="relative z-10 mx-auto flex min-h-svh max-w-7xl flex-col items-center justify-end px-6 pb-[43vh] md:justify-center md:pb-0 md:pt-20 md:-mt-16">
                         <div className="w-full text-center">
                             {/* <AnimatedGroup variants={transitionVariants}>
                                 <Link
@@ -88,7 +99,7 @@ export default function HeroSection() {
                                 speedSegment={1}
                                 delay={0.2}
                                 as="p"
-                                className="mx-auto mt-8 max-w-2xl text-balance text-lg text-white/85 drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)] md:text-xl">
+                                className="mt-28 inline-block w-fit whitespace-nowrap rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs text-white drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)] backdrop-blur-md min-[360px]:text-[13px] md:mt-8 md:px-5 md:text-lg">
                                 The AI operating system for modern schools.
                             </TextEffect>
 

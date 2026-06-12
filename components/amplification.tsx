@@ -1,73 +1,83 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
 import FeaturesBook from '@/components/features-book'
 
-const words = ['Attendance', 'Fees', 'Results', 'Communication', 'Class Log', 'ACADIFY']
-
+/**
+ * The "#features" section.
+ *
+ * A two-column layout: an intro column on the left and the interactive
+ * Acadify Playbook (the feature book) on the right. On smaller screens the
+ * intro stacks above the book. The detailed feature comparison lives in the
+ * section above this one (ComparisonSection), so this section is the visual
+ * product tour / brand moment rather than another text list.
+ */
 export default function Amplification() {
-    const [currentIndex, setCurrentIndex] = useState(0)
-
-    useEffect(() => {
-        const duration = words[currentIndex] === 'ACADIFY' ? 4000 : 1500
-        const timeout = setTimeout(() => {
-            setCurrentIndex((prev) => (prev + 1) % words.length)
-        }, duration)
-        return () => clearTimeout(timeout)
-    }, [currentIndex])
-
     return (
-        <section id="features" className="bg-gray-100 py-16 border-y border-gray-200 mt-16">
-            <div className="mx-auto mt-12 max-w-7xl px-6">
-                <div className="text-center">
-                    {/* Main Heading */}
-                    <h1 className="text-4xl font-bold">
-                        Running a school shouldn&apos;t feel like running{' '}
-                        <span className="italic text-red-600">
-                            five different systems.
-                        </span>
-                    </h1>
+        <section
+            id="features"
+            className="relative overflow-hidden border-y border-gray-200 bg-gray-100 py-20 md:py-28"
+        >
+            {/* Soft radial lighting behind the book — minimal, no banding. */}
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_50%_at_72%_38%,rgba(11,42,76,0.07),transparent_70%)]"
+            />
 
+            <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-[0.82fr_1.18fr] lg:gap-8">
+                {/* Intro column */}
+                <div className="text-center lg:text-left">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary/70">
+                        The Feature Tour
+                    </span>
 
+                    <h2 className="mt-4 font-[family-name:var(--font-libre-baskerville)] text-4xl leading-[1.1] text-gray-900 md:text-5xl">
+                        The Acadify
+                        <br className="hidden sm:block" /> Playbook
+                    </h2>
 
-                    {/* Hook Line */}
-                    <div className="mt-10">
-                        <h2 className="text-xl font-bold text-gray-900 md:text-4xl">
-                            The{' '}
-                            <AnimatePresence mode="wait">
-                                <motion.span
-                                    key={words[currentIndex]}
-                                    initial={{ y: 16, opacity: 0 }}
-                                    animate={{ y: 0, opacity: 1 }}
-                                    exit={{ y: -16, opacity: 0 }}
-                                    transition={{
-                                        duration: 0.4,
-                                        ease: 'easeInOut',
-                                    }}
-                                    className="inline-block rounded-lg bg-primary px-3 py-1 text-white"
-                                >
-                                    {words[currentIndex]}
-                                </motion.span>
-                            </AnimatePresence>{' '}
-                            System
-                        </h2>
-                        <p className="mt-4 text-md lg:text-2xl text-zinc-500 font-medium">
-                            Everything under one roof.
-                        </p>
-
-                    </div>
-
-                    {/* Features Book — flip through every feature, one page at a time */}
-                    <div className="mt-16">
-                        <FeaturesBook />
-                    </div>
-
-                    {/* Closing Line */}
-                    <p className="mt-14 text-4xl font-bold text-gray-500">
-                        One ecosystem.{' '}
-                        <span className="italic text-primary">Zero chaos.</span>
+                    <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-gray-500 lg:mx-0">
+                        Explore the complete ecosystem that helps schools learn,
+                        manage and grow — together. Every feature, one page at a
+                        time.
                     </p>
+
+                    {/* Handwritten "click to open" cue pointing at the book. */}
+                    <div className="mt-8 flex items-center justify-center gap-3 lg:justify-start">
+                        <span className="font-[family-name:var(--font-libre-baskerville)] text-lg italic text-primary/80">
+                            Click to open the playbook
+                        </span>
+                        {/* Desktop: points right, toward the book beside it. */}
+                        <svg
+                            aria-hidden
+                            viewBox="0 0 80 40"
+                            className="hidden h-8 w-20 text-primary/60 lg:block"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <path d="M2 10C25 30 50 30 74 20" />
+                            <path d="M64 13l12 7-12 7" />
+                        </svg>
+                        {/* Mobile: points down, toward the book stacked below. */}
+                        <svg
+                            aria-hidden
+                            viewBox="0 0 64 40"
+                            className="h-9 w-14 rotate-90 text-primary/60 lg:hidden"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <path d="M2 8c18 2 34 10 44 24" />
+                            <path d="M36 30l11 3 2-12" />
+                        </svg>
+                    </div>
+                </div>
+
+                {/* The book */}
+                <div className="flex justify-center lg:justify-end">
+                    <FeaturesBook />
                 </div>
             </div>
         </section>

@@ -1,51 +1,34 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 
 type HeroVideoBackgroundProps = {
     /** Path to the looping background video (served from /public). */
     src?: string
-    /** Optional first-frame poster shown until the video paints / when playback is skipped. */
+    /** First-frame poster shown instantly (becomes the LCP element) and while playback is deferred/skipped. */
     poster?: string
     className?: string
 }
 
 /**
- * Full-bleed, autoplaying, muted, looping background video for the landing hero.
+ * Full-bleed, muted, looping background video for the landing hero.
  *
- * Behaviour:
- * - Sits behind the hero content (`-z-20`) with a dark base colour so there is no
- *   white flash before the video paints.
- * - Fades in once the first frame is ready to avoid a hard pop-in.
+ * Performance strategy (keeps FCP / LCP / TBT / Speed Index low):
+ * - A lightweight poster (the video's first frame) paints immediately so it — not
+ *   the heavy clip — is the LCP element. No white/dark flash before paint.
+ * - The clip uses `preload="none"` and only starts downloading once the browser is
+ *   idle, so the ~1.2 MB video never competes with critical CSS/JS or the poster.
+ * - Because the poster IS the first frame, the swap to live playback is seamless.
  * - Respects `prefers-reduced-motion` and the Save-Data hint: in those cases the
- *   video is not played and the poster / first frame is shown instead.
+ *   clip is never downloaded and the still poster is shown instead.
  */
-
-// export function HeroVideoBackground({ className }: { className?: string }) {
-//     return (
-//         <div
-//             aria-hidden="true"
-//             className={cn(
-//                 'absolute inset-0 -z-20 overflow-hidden bg-neutral-950',
-//                 className
-//             )}>
-//             <img
-//                 src="/image.png"
-//                 alt=""
-//                 className="absolute inset-0 h-full w-full object-cover"
-//             />
-//         </div>
-//     )
-// }
-
 export function HeroVideoBackground({
-    src = '/pc3.mp4',
-    poster,
+    src = '/pc3-opt.mp4',
+    poster = '/hero-poster.jpg',
     className,
 }: HeroVideoBackgroundProps) {
     const videoRef = useRef<HTMLVideoElement>(null)
-    const [isReady, setIsReady] = useState(false)
 
     useEffect(() => {
         const video = videoRef.current
@@ -63,20 +46,42 @@ export function HeroVideoBackground({
         ).connection
         const saveData = connection?.saveData === true
 
-        // Reveal on the next frame, unconditionally — never depend on a media
-        // event firing to become visible (it can be missed → stuck transparent).
-        // Kick off playback only AFTER the element is visible, otherwise Chrome
-        // may refuse to autoplay a fully-transparent (opacity:0) element.
-        const raf = requestAnimationFrame(() => {
-            setIsReady(true)
-            if (!prefersReducedMotion && !saveData) {
-                // Some browsers reject programmatic autoplay; swallow the
-                // rejection so the first frame still shows as a fallback.
-                video.play().catch(() => {})
-            }
-        })
+        // Honour reduced-motion / data-saver: keep the still poster, never fetch the clip.
+        if (prefersReducedMotion || saveData) return
 
-        return () => cancelAnimationFrame(raf)
+        // Defer the download + playback until the browser is idle so the clip never
+        // competes with the LCP poster paint or critical CSS/JS (lower LCP / TBT / SI).
+        let cancelled = false
+        const startPlayback = () => {
+            if (cancelled) return
+            video.preload = 'auto'
+            // play() also kicks off the network load for a preload="none" element.
+            // Some browsers reject programmatic autoplay; swallow it so the poster
+            // remains as a graceful fallback.
+            video.play().catch(() => {})
+        }
+
+        const idle = window as Window & {
+            requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+            cancelIdleCallback?: (id: number) => void
+        }
+
+        let idleId: number | undefined
+        let timeoutId: number | undefined
+        if (typeof idle.requestIdleCallback === 'function') {
+            idleId = idle.requestIdleCallback(startPlayback, { timeout: 2000 })
+        } else {
+            // Fallback for browsers without requestIdleCallback (e.g. Safari).
+            timeoutId = window.setTimeout(startPlayback, 600)
+        }
+
+        return () => {
+            cancelled = true
+            if (idleId !== undefined && typeof idle.cancelIdleCallback === 'function') {
+                idle.cancelIdleCallback(idleId)
+            }
+            if (timeoutId !== undefined) window.clearTimeout(timeoutId)
+        }
     }, [])
 
     return (
@@ -90,21 +95,43 @@ export function HeroVideoBackground({
                 ref={videoRef}
                 aria-hidden="true"
                 tabIndex={-1}
-                autoPlay
                 muted
                 loop
                 playsInline
-                preload="auto"
+                preload="none"
                 poster={poster}
-                // Extra safety nets so the layer can never stay invisible.
-                onCanPlay={() => setIsReady(true)}
-                onError={() => setIsReady(true)}
-                className={cn(
-                    'absolute inset-0 h-full w-full object-cover transition-opacity duration-700',
-                    isReady ? 'opacity-100' : 'opacity-0'
-                )}>
+                className="absolute inset-0 h-full w-full object-cover">
                 <source src={src} type="video/mp4" />
             </video>
         </div>
     )
 }
+
+// import Image from 'next/image'
+
+// export function HeroVideoBackground({
+//     src = '/image3.png',
+//     className,
+// }: {
+//     src?: string
+//     className?: string
+// }) {
+//     return (
+//         <div
+//             aria-hidden="true"
+//             className={cn(
+//                 'absolute inset-0 -z-20 overflow-hidden bg-neutral-950',
+//                 className
+//             )}
+//         >
+//             <Image
+//                 src={src}
+//                 alt=""
+//                 fill
+//                 priority
+//                 aria-hidden="true"
+//                 className="object-cover"
+//             />
+//         </div>
+//     )
+// }
