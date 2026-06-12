@@ -9,11 +9,16 @@ import PeriodFormModal from "./PeriodFormModal"
 import type { PeriodRow } from "@/schemas/timetable.schema"
 
 interface PeriodStructureManagerProps {
+  groupId: string
   periods: PeriodRow[]
   onRefresh: () => void
 }
 
-export default function PeriodStructureManager({ periods, onRefresh }: PeriodStructureManagerProps) {
+export default function PeriodStructureManager({
+  groupId,
+  periods,
+  onRefresh,
+}: PeriodStructureManagerProps) {
   const [showCreate, setShowCreate] = useState(false)
   const [editPeriod, setEditPeriod] = useState<PeriodRow | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -57,7 +62,7 @@ export default function PeriodStructureManager({ periods, onRefresh }: PeriodStr
       const res = await fetch("/api/timetable/periods/reorder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periods: updated }),
+        body: JSON.stringify({ group_id: groupId, periods: updated }),
       })
       if (!res.ok) {
         const data = await res.json()
@@ -78,7 +83,7 @@ export default function PeriodStructureManager({ periods, onRefresh }: PeriodStr
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
           Period Structure ({periods.length} periods)
         </h3>
         <Button size="sm" onClick={() => setShowCreate(true)} className="gap-1.5">
@@ -88,7 +93,7 @@ export default function PeriodStructureManager({ periods, onRefresh }: PeriodStr
       </div>
 
       {sorted.length === 0 ? (
-        <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center text-muted-foreground text-sm">
+        <div className="border-2 border-dashed border-border rounded-xl p-8 text-center text-muted-foreground text-sm">
           No periods yet. Add your first period to get started.
         </div>
       ) : (
@@ -96,21 +101,21 @@ export default function PeriodStructureManager({ periods, onRefresh }: PeriodStr
           {sorted.map((period, idx) => (
             <div
               key={period.id}
-              className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
+              className="flex items-center gap-3 bg-card border border-border rounded-lg px-3 py-2.5"
             >
               {/* Reorder buttons */}
               <div className="flex flex-col gap-0.5">
                 <button
                   onClick={() => moveOrder(period, "up")}
                   disabled={idx === 0 || reordering}
-                  className="text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:cursor-not-allowed"
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
                 >
                   <ArrowUp className="h-3 w-3" />
                 </button>
                 <button
                   onClick={() => moveOrder(period, "down")}
                   disabled={idx === sorted.length - 1 || reordering}
-                  className="text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:cursor-not-allowed"
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
                 >
                   <ArrowDown className="h-3 w-3" />
                 </button>
@@ -120,9 +125,9 @@ export default function PeriodStructureManager({ periods, onRefresh }: PeriodStr
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-800">{period.label}</span>
+                  <span className="text-sm font-medium text-foreground">{period.label}</span>
                   {period.is_break && (
-                    <Badge variant="outline" className="text-amber-600 border-amber-300 text-[10px] py-0">
+                    <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700 text-[10px] py-0">
                       Break
                     </Badge>
                   )}
@@ -136,7 +141,7 @@ export default function PeriodStructureManager({ periods, onRefresh }: PeriodStr
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-7 w-7 text-slate-500 hover:text-slate-700"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
                   onClick={() => setEditPeriod(period)}
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -144,8 +149,8 @@ export default function PeriodStructureManager({ periods, onRefresh }: PeriodStr
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-7 w-7 text-red-400 hover:text-red-600"
-                  disabled={deletingId === period.id}
+                  className="h-7 w-7 text-destructive/70 hover:text-destructive"
+                  loading={deletingId === period.id}
                   onClick={() => handleDelete(period)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -159,6 +164,7 @@ export default function PeriodStructureManager({ periods, onRefresh }: PeriodStr
       {showCreate && (
         <PeriodFormModal
           mode="create"
+          groupId={groupId}
           lastPeriodEndTime={sorted[sorted.length - 1]?.end_time}
           defaultOrder={nextOrder}
           onClose={() => setShowCreate(false)}

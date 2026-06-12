@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { ensureTeacherForUser } from "@/services/teacher.service"
 
 // ─── Get admin's school ID from their user ID ──────────────────────────────
 
@@ -34,6 +35,9 @@ export async function getClassTeacherAssignments(schoolId: string) {
 }
 
 // ─── Get available (unassigned) teachers for this school ────────────────────
+// Excludes "admin-Teacher" rows (auto-attached when an admin gets teaching duties).
+// Those admin users appear separately via getAvailableAdmins so the picker UI
+// can label them distinctly.
 
 export async function getAvailableTeachers(schoolId: string) {
   return prisma.teacher.findMany({
@@ -41,6 +45,7 @@ export async function getAvailableTeachers(schoolId: string) {
       school_id: schoolId,
       status: "ACTIVE",
       classTeacher: null,
+      user: { role: "TEACHER" },
     },
     select: {
       id: true,
@@ -49,6 +54,46 @@ export async function getAvailableTeachers(schoolId: string) {
     },
     orderBy: { user: { name: "asc" } },
   })
+}
+
+// ─── Get admins who can be assigned as class teachers ───────────────────────
+// An admin is "available" if they don't already have a Teacher row attached to
+// a ClassTeacher. (They may or may not already have a Teacher row from a prior
+// timetable assignment — that's fine.)
+
+export async function getAvailableAdmins(schoolId: string) {
+  const adminUsers = await prisma.schoolUser.findMany({
+    where: {
+      school_id: schoolId,
+      role: "ADMIN",
+      status: "ACTIVE",
+      user: { is_active: true, role: "ADMIN" },
+    },
+    select: {
+      user: { select: { id: true, name: true } },
+    },
+    orderBy: { user: { name: "asc" } },
+  })
+
+  if (adminUsers.length === 0) return []
+
+  // Exclude admins who already have a ClassTeacher assignment.
+  const taken = await prisma.teacher.findMany({
+    where: {
+      school_id: schoolId,
+      user_id: { in: adminUsers.map((a) => a.user.id) },
+      classTeacher: { isNot: null },
+    },
+    select: { user_id: true },
+  })
+  const takenSet = new Set(taken.map((t) => t.user_id))
+
+  return adminUsers
+    .filter((a) => !takenSet.has(a.user.id))
+    .map((a) => ({
+      userId: a.user.id,
+      name: a.user.name,
+    }))
 }
 
 // ─── Get available (unassigned) class-sections for this school ──────────────
@@ -95,13 +140,27 @@ export async function getAssignedClassSections(schoolId: string) {
 }
 
 // ─── Assign a class teacher ─────────────────────────────────────────────────
+// Accepts EITHER a regular teacher id OR an admin user id. For admins, a
+// Teacher row is auto-attached first so the FK can point somewhere.
+
+export type AssignClassTeacherTarget =
+  | { kind: "teacher"; teacherId: string }
+  | { kind: "admin"; userId: string }
 
 export async function assignClassTeacher(
   schoolId: string,
-  teacherId: string,
+  target: AssignClassTeacherTarget,
   className: string,
   section: string
 ) {
+  // For admins, materialise the Teacher row first (outside the assignment tx
+  // so a later rollback doesn't orphan-create a Teacher row — the helper is
+  // idempotent, so a retry is harmless).
+  const teacherId =
+    target.kind === "teacher"
+      ? target.teacherId
+      : (await ensureTeacherForUser(schoolId, target.userId)).teacherId
+
   // All checks + insert run inside a transaction so concurrent requests can't
   // both pass the duplicate check and race to create the same assignment.
   return prisma.$transaction(async (tx) => {
@@ -146,8 +205,13 @@ export async function changeClassTeacher(
   schoolId: string,
   className: string,
   section: string,
-  newTeacherId: string
+  target: AssignClassTeacherTarget,
 ) {
+  const newTeacherId =
+    target.kind === "teacher"
+      ? target.teacherId
+      : (await ensureTeacherForUser(schoolId, target.userId)).teacherId
+
   // All checks + update run inside a transaction so concurrent requests can't
   // both pass the duplicate check and race to assign the same teacher twice.
   return prisma.$transaction(async (tx) => {

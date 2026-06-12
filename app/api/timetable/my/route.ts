@@ -6,8 +6,14 @@ import { getTeacherTimetable } from "@/services/timetable.service"
 export async function GET() {
   try {
     const session = await auth()
-    if (!session?.user?.id || session.user.role !== "TEACHER") {
+    if (!session?.user?.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+    // Admins who have been assigned teaching duties (via ensureTeacherForUser)
+    // can use this endpoint to view their own routine — getTeacherTimetable
+    // resolves the Teacher row by user_id regardless of role.
+    if (session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 })
     }
 
     const result = await getTeacherTimetable(session.user.id)

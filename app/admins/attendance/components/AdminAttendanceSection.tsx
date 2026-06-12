@@ -9,17 +9,21 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { CalendarIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { getMostRecentWorkingDay } from "@/lib/working-days"
 import AttendanceSummaryCards from "./AttendanceSummaryCards"
 import ClassFilter from "./ClassFilter"
 import ClassSummaryTable from "./ClassSummaryTable"
 import ClassStudentTable from "./ClassStudentTable"
+import AdminStudentHistoryView from "./AdminStudentHistoryView"
 import type {
   AttendanceSummaryStats,
   ClassAttendanceSummary,
   StudentAttendanceRecord,
 } from "@/schemas/attendance.schema"
 import type { CalendarDayOverride, DayType } from "@/schemas/calendar.schema"
+
+type TabType = "mark" | "history"
 
 interface SchoolData {
   date: string
@@ -37,6 +41,7 @@ interface ClassDetailData {
 }
 
 export default function AdminAttendanceSection() {
+  const [activeTab, setActiveTab] = useState<TabType>("mark")
   const [selectedDate, setSelectedDate] = useState<Date>(() => getMostRecentWorkingDay())
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [displayMonth, setDisplayMonth] = useState<Date>(() => getMostRecentWorkingDay())
@@ -138,18 +143,51 @@ export default function AdminAttendanceSection() {
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Main content */}
       <div className="flex-1 space-y-6 min-w-0">
-        {/* Summary cards */}
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-xl" />
-            ))}
+        {/* View tabs */}
+        <div className="flex items-center justify-end">
+          <div className="flex rounded-lg border bg-muted p-0.5">
+            <button
+              onClick={() => setActiveTab("mark")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                activeTab === "mark"
+                  ? "bg-background shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              By Date
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                activeTab === "history"
+                  ? "bg-background shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              History
+            </button>
           </div>
-        ) : summary ? (
-          <AttendanceSummaryCards summary={summary} />
-        ) : null}
+        </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {/* HISTORY view — per-student totals (Working Days, Present, Absent, Late, Rate) */}
+        {activeTab === "history" ? (
+          <AdminStudentHistoryView classSections={classSections} />
+        ) : (
+          <>
+            {/* Summary cards */}
+            {loading ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-24 rounded-xl" />
+                ))}
+              </div>
+            ) : summary ? (
+              <AttendanceSummaryCards summary={summary} />
+            ) : null}
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
         {/* Class filter — mobile: dropdown + calendar button; desktop: pills only */}
         <div className="flex items-center gap-2 lg:hidden">
@@ -209,10 +247,17 @@ export default function AdminAttendanceSection() {
             }}
           />
         ) : null}
+          </>
+        )}
       </div>
 
-      {/* Calendar sidebar — desktop only */}
-      <div className="hidden lg:block lg:w-auto shrink-0">
+      {/* Calendar sidebar — desktop only, hidden in History mode */}
+      <div
+        className={cn(
+          "hidden lg:block lg:w-auto shrink-0",
+          activeTab === "history" && "lg:hidden",
+        )}
+      >
         <Card className="sticky top-4">
           <CardContent className="p-3">
             <AttendanceCalendar

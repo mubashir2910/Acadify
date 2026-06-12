@@ -199,15 +199,14 @@ export default function GiveAttendanceAccessModal({ onClose, onSuccess }: GiveAt
               <Button variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                    Granting...
-                  </>
-                ) : (
-                  "Grant Access"
-                )}
+              <Button
+                size="sm"
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                loading={submitting}
+                loadingText="Granting..."
+              >
+                Grant Access
               </Button>
             </div>
           </div>

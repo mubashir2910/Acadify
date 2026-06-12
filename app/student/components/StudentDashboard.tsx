@@ -6,6 +6,7 @@ import { DashboardGreeting } from "@/components/dashboard-greeting"
 import StudentAttendanceSummary from "./StudentAttendanceSummary"
 import StudentTodaySchedule from "./StudentTodaySchedule"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DataErrorState } from "@/components/ui/data-error-state"
 import type { StudentAttendanceStats } from "@/schemas/attendance.schema"
 
 export default function StudentDashboard() {
@@ -15,6 +16,8 @@ export default function StudentDashboard() {
   const [error, setError] = useState<string | null>(null)
 
   const fetchStats = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
       const res = await fetch("/api/attendance/summary")
       if (!res.ok) throw new Error("Failed to fetch attendance summary")
@@ -41,14 +44,18 @@ export default function StudentDashboard() {
       {loading ? (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-3">
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-20 rounded-xl" />
+            <Skeleton className="h-20 rounded-xl" />
+            <Skeleton className="h-20 rounded-xl" />
           </div>
-          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-14 rounded-xl" />
         </div>
       ) : error ? (
-        <p className="text-sm text-red-500">{error}</p>
+        <DataErrorState
+          title="Couldn't load attendance data"
+          description="Something went wrong on our side."
+          onRetry={fetchStats}
+        />
       ) : stats ? (
         <StudentAttendanceSummary stats={stats} />
       ) : null}

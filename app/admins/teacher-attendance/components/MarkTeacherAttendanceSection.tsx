@@ -16,7 +16,6 @@ import type { CalendarDayOverride, DayType } from "@/schemas/calendar.schema"
 export default function MarkTeacherAttendanceSection() {
   const [selectedDate, setSelectedDate] = useState<Date>(() => getMostRecentWorkingDay())
   const [displayMonth, setDisplayMonth] = useState<Date>(() => getMostRecentWorkingDay())
-  const [calendarOpen, setCalendarOpen] = useState(false)
   const [teachers, setTeachers] = useState<TeacherAttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -67,91 +66,64 @@ export default function MarkTeacherAttendanceSection() {
 
   const isSubmitted = teachers.some((t) => t.status !== null)
 
-  const calendarSidebar = (
-    <AttendanceCalendar
-      selectedDate={selectedDate}
-      onDateChange={(date) => { setSelectedDate(date); setCalendarOpen(false) }}
-      dayOverrides={dayOverrides}
-      displayMonth={displayMonth}
-      onMonthChange={setDisplayMonth}
-    />
-  )
-
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      <div className="flex-1 space-y-4 min-w-0">
-        {/* Mobile: date button */}
-        <div className="flex items-center justify-between lg:hidden">
-          <div className="flex items-center gap-2">
-            {isSubmitted && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
-                <Info className="h-3 w-3" />
-                {isToday ? "Submitted — editing" : "Submitted"}
-              </span>
-            )}
-          </div>
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="shrink-0">
-                <CalendarIcon className="h-4 w-4" />
-                {format(selectedDate, "MMM d")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-3" align="end">
-              {calendarSidebar}
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                {format(selectedDate, "EEEE, MMMM d, yyyy")}
-              </p>
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* Desktop: submitted badge */}
-        <div className="hidden lg:flex items-center gap-2">
+    <div className="space-y-4">
+      {/* Header: submitted badge (left) + compact date picker (right) */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
           {isSubmitted && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-700 dark:text-green-400">
               <Info className="h-3 w-3" />
               {isToday ? "Submitted — editing" : "Submitted"}
             </span>
           )}
         </div>
 
-        {/* View-only banner */}
-        {!isWithinEditWindow && (
-          <div className={cn(
-            "flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"
-          )}>
-            <Eye className="h-4 w-4 shrink-0" />
-            Viewing past attendance (editing for past weeks available through Teacher Overview page)
-          </div>
-        )}
-
-        {loading ? (
-          <div className="space-y-2">
-            {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
-          </div>
-        ) : error ? (
-          <p className="text-sm text-destructive">{error}</p>
-        ) : (
-          <TeacherAttendanceForm
-            teachers={teachers}
-            date={dateStr}
-            isSubmitted={isSubmitted}
-            onSubmitSuccess={fetchTeachers}
-            readOnly={!isWithinEditWindow}
-          />
-        )}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <CalendarIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">{format(selectedDate, "MMM d, yyyy")}</span>
+              <span className="sm:hidden">{format(selectedDate, "MMM d")}</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <AttendanceCalendar
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              dayOverrides={dayOverrides}
+              displayMonth={displayMonth}
+              onMonthChange={setDisplayMonth}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
-      {/* Desktop calendar sidebar */}
-      <div className="hidden lg:block lg:w-auto shrink-0">
-        <div className="sticky top-4 rounded-xl border bg-card p-3">
-          {calendarSidebar}
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            {format(selectedDate, "EEEE, MMMM d, yyyy")}
-          </p>
+      {/* View-only banner for past weeks */}
+      {!isWithinEditWindow && (
+        <div className={cn(
+          "flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:text-blue-400"
+        )}>
+          <Eye className="h-4 w-4 shrink-0" />
+          Viewing past attendance (editing for past weeks available through Staff Insights page)
         </div>
-      </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
+        </div>
+      ) : error ? (
+        <p className="text-sm text-destructive">{error}</p>
+      ) : (
+        <TeacherAttendanceForm
+          teachers={teachers}
+          date={dateStr}
+          isSubmitted={isSubmitted}
+          onSubmitSuccess={fetchTeachers}
+          readOnly={!isWithinEditWindow}
+        />
+      )}
     </div>
   )
 }

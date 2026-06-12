@@ -1,7 +1,7 @@
 "use client"
 
-import Image from "next/image"
 import { Logo } from '@/components/logo'
+import type { UserBranding } from "@/services/school.service"
 import { PanelRightClose } from "lucide-react"
 import {
   Sidebar,
@@ -17,7 +17,10 @@ interface AppSidebarProps {
   user: {
     name: string
     role: string
+    profilePicture?: string | null
   }
+  // School branding (null for super admin / on lookup failure → Acadify wordmark).
+  branding?: UserBranding | null
 }
 
 function SidebarMobileClose() {
@@ -25,7 +28,7 @@ function SidebarMobileClose() {
   return (
     <button
       onClick={() => setOpenMobile(false)}
-      className="md:hidden flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+      className="md:hidden flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
       aria-label="Close sidebar"
     >
       <PanelRightClose className="h-6 w-6" />
@@ -33,28 +36,19 @@ function SidebarMobileClose() {
   )
 }
 
-export function AppSidebar({ basePath, user }: AppSidebarProps) {
+export function AppSidebar({ basePath, user, branding }: AppSidebarProps) {
   return (
     <Sidebar
       collapsible="icon"
-      className="bg-white/75 backdrop-blur-2xl border-r border-white/40 shadow-[2px_0_20px_rgba(0,0,0,0.06)]"
+      className="bg-sidebar/75 backdrop-blur-2xl border-r border-sidebar-border shadow-[2px_0_20px_rgba(0,0,0,0.06)] dark:shadow-[2px_0_20px_rgba(0,0,0,0.3)]"
     >
       <SidebarHeader className="pb-2 pt-3 px-3">
         <div className="flex items-center justify-between">
-          {/* <div className="flex items-center gap-2.5 pl-1">
-            <Image
-              src="/acadify.png"
-              alt="Acadify"
-              width={36}
-              height={36}
-              className="h-9 w-9 shrink-0"
-              priority
-            />
-            <span className="text-[15px] font-semibold group-data-[collapsible=icon]:hidden">
-              Acadify
-            </span>
-          </div> */}
-          <Logo />
+          <Logo
+            logoUrl={branding?.logoUrl}
+            label={branding?.schoolName}
+            textClassName="group-data-[collapsible=icon]:hidden"
+          />
           <SidebarMobileClose />
         </div>
       </SidebarHeader>
@@ -62,6 +56,13 @@ export function AppSidebar({ basePath, user }: AppSidebarProps) {
       <SidebarContent className="px-3">
         <SidebarNav basePath={basePath} role={user.role} />
       </SidebarContent>
+
+      {/* Co-brand footer: keep the SaaS identity when a school logo takes the header. */}
+      {branding && (
+        <div className="px-3 pb-1 text-[11px] font-medium text-muted-foreground group-data-[collapsible=icon]:hidden">
+          Powered by Acadify
+        </div>
+      )}
 
       <SidebarUser user={user} basePath={basePath} />
     </Sidebar>

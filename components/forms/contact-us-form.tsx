@@ -59,9 +59,9 @@ export function ContactUsForm() {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100">
-          <CheckCircle2 className="size-8 text-emerald-600" />
+          <CheckCircle2 className="size-8 text-emerald-600 dark:text-emerald-400" />
         </div>
-        <h3 className="mt-4 text-xl font-semibold text-gray-900">Thank You!</h3>
+        <h3 className="mt-4 text-xl font-semibold text-foreground">Thank You!</h3>
         <p className="mt-2 text-muted-foreground">
           Your message has been sent. Redirecting to main page&hellip;
         </p>

@@ -109,7 +109,7 @@ export function TeacherClassView() {
   return (
     <div className="space-y-5">
       {/* Assigned class info */}
-      <div className="rounded-lg border bg-slate-50 p-4">
+      <div className="rounded-lg border bg-muted/50 p-4">
         <p className="text-sm text-muted-foreground mb-1">Assigned Class</p>
         <p className="text-lg font-semibold">
           Class {data.class} — Section {data.section}

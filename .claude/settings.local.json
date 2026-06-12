@@ -27,7 +27,30 @@
       "Bash(npx prisma db execute --file prisma/migrations/manual_add_role/migration.sql --schema prisma/schema.prisma)",
       "Bash(npx prisma db execute --file prisma/migrations/manual_add_role/migration.sql)",
       "Bash(ls -la /e/Projects/acadify/.env*)",
-      "Bash(npx shadcn@latest add dropdown-menu)"
+      "Bash(npx shadcn@latest add dropdown-menu)",
+      "Bash(git stash *)",
+      "Read(//tmp/**)",
+      "Bash(git apply *)",
+      "Bash(git checkout *)",
+      "Bash(xargs -a /tmp/all-stash-files.txt -d '\\\\n' git checkout stash@{0} --)",
+      "Bash(npm run *)",
+      "Bash(node --stack-size=16000 ./node_modules/typescript/lib/tsc.js --noEmit --incremental false)",
+      "Bash(npx tsx *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"GET /api/timetable-groups: %{http_code}\\\\n\" http://localhost:3000/api/timetable-groups)",
+      "Bash(curl -s -o /dev/null -w \"GET /api/timetable?groupId=missing: %{http_code}\\\\n\" \"http://localhost:3000/api/timetable?groupId=11111111-2222-3333-4444-555555555555\")",
+      "Bash(curl -s -o /dev/null -w \"GET /api/timetable \\(no groupId\\): %{http_code}\\\\n\" \"http://localhost:3000/api/timetable\")",
+      "Bash(curl -s http://localhost:3000/api/timetable-groups -L --max-redirs 0 -o /dev/null -w \"Status: %{http_code} Location: %header{location}\\\\n\")",
+      "Bash(grep -E '\\\\.\\(ts|tsx|prisma\\)$')",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=8192\" npx tsc --noEmit)",
+      "Bash(powershell -Command \"Get-Content app/globals.css -Tail 4\")",
+      "WebSearch",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --hide-scrollbars --no-first-run --force-device-scale-factor=1 --user-data-dir=/tmp/acadify-chrome-profile2 --virtual-time-budget=4500 --window-size=1440,900 --screenshot=/tmp/acadify-screens/desktop_fix.png http://localhost:3000)",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --hide-scrollbars --no-first-run --force-device-scale-factor=1 --user-data-dir=/tmp/acadify-chrome-profile2 --virtual-time-budget=4500 --window-size=390,844 --screenshot=/tmp/acadify-screens/mobile_fix.png http://localhost:3000)",
+      "Bash(node -e 'const fs=require\\(\"fs\"\\);const b=fs.readFileSync\\(\"/tmp/acadify-screens/mobile_fix.png\"\\);console.log\\(\"PNG mobile_fix:\", b.readUInt32BE\\(16\\)+\"x\"+b.readUInt32BE\\(20\\)\\);')",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --no-first-run --hide-scrollbars --force-device-scale-factor=1 --remote-debugging-port=9223 --user-data-dir=/tmp/cdp-profile2 --window-size=390,844 http://localhost:3000)",
+      "Bash(curl -s http://localhost:9223/json/version)",
+      "Bash(break)"
     ]
   }
 }

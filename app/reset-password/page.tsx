@@ -13,7 +13,7 @@ export default function ResetPasswordPage() {
         </div>
 
         {/* Reset password card */}
-        <div className="rounded-2xl bg-white border border-slate-100 shadow-sm px-8 py-10 md:px-10 md:py-12">
+        <div className="rounded-2xl bg-card border border-border shadow-sm px-8 py-10 md:px-10 md:py-12">
           <ResetPasswordForm />
         </div>
       </div>

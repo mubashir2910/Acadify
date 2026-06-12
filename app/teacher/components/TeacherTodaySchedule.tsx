@@ -1,8 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DataErrorState } from "@/components/ui/data-error-state"
 import { CalendarClock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { TeacherTodayPeriod } from "@/schemas/timetable.schema"
@@ -16,7 +18,9 @@ export default function TeacherTodaySchedule({ title }: TeacherTodayScheduleProp
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  useEffect(() => {
+  const fetchPeriods = useCallback(() => {
+    setLoading(true)
+    setError(false)
     fetch("/api/timetable/today")
       .then((res) => {
         if (!res.ok) throw new Error()
@@ -26,6 +30,10 @@ export default function TeacherTodaySchedule({ title }: TeacherTodayScheduleProp
       .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    fetchPeriods()
+  }, [fetchPeriods])
 
   if (loading) {
     return (
@@ -37,56 +45,63 @@ export default function TeacherTodaySchedule({ title }: TeacherTodayScheduleProp
   }
 
   if (error) {
-    return <p className="text-sm text-muted-foreground">Could not load today&apos;s schedule.</p>
+    return (
+      <DataErrorState
+        variant="compact"
+        title="Couldn't load today's schedule"
+        onRetry={fetchPeriods}
+      />
+    )
   }
 
   return (
-    <Card className="border border-slate-200 shadow-none rounded-xl overflow-hidden">
-      <CardHeader className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-        <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-          <CalendarClock className="h-4 w-4 text-slate-500" />
+    <Card className="border border-border shadow-none rounded-xl overflow-hidden">
+      <CardHeader className="px-4 py-3 bg-muted/50 border-b border-border">
+        <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <CalendarClock className="h-4 w-4 text-muted-foreground" />
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         {periods.length === 0 ? (
           <p className="text-sm text-muted-foreground px-4 py-6 text-center">
-            No periods configured yet.
+            No classes today.
           </p>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-border">
             {periods.map((period, idx) => (
               <div
                 key={idx}
                 className={cn(
                   "flex items-center gap-3 px-4 py-2.5",
-                  period.isBreak ? "bg-amber-50/60" : idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                  idx % 2 === 0 ? "bg-card" : "bg-muted/50/40",
                 )}
               >
                 {/* Time */}
-                <span className="text-[11px] text-slate-400 font-medium w-[88px] shrink-0">
+                <span className="text-[11px] text-muted-foreground font-medium w-[88px] shrink-0">
                   {period.startTime} – {period.endTime}
                 </span>
 
-                {/* Period label + subject */}
+                {/* Subject + period label + group */}
                 <div className="flex-1 min-w-0">
-                  <span className="text-xs font-medium text-slate-700">{period.label}</span>
-                  {!period.isBreak && period.subject && (
-                    <span className="text-xs text-slate-500 ml-1.5">· {period.subject}</span>
-                  )}
-                  {period.isBreak && (
-                    <span className="text-[10px] text-amber-600 font-medium ml-1.5">BREAK</span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-semibold text-foreground">
+                      {period.subject ?? "—"}
+                    </span>
+                    {period.groupName && (
+                      <Badge variant="outline" className="text-[9px] py-0 px-1.5">
+                        {period.groupName}
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">{period.label}</span>
                 </div>
 
                 {/* Class badge */}
-                {!period.isBreak && period.class && period.section && (
-                  <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md shrink-0">
+                {period.class && period.section && (
+                  <span className="text-[11px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-md shrink-0">
                     {period.class}–{period.section}
                   </span>
-                )}
-                {!period.isBreak && !period.subject && (
-                  <span className="text-xs text-slate-300">—</span>
                 )}
               </div>
             ))}

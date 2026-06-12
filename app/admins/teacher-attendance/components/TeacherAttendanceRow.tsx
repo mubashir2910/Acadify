@@ -25,12 +25,12 @@ export default function TeacherAttendanceRow({
   onStatusChange,
 }: TeacherAttendanceRowProps) {
   return (
-    <div className="flex items-center justify-between rounded-xl bg-white border p-3 gap-3">
+    <div className="flex items-center justify-between rounded-xl bg-card border p-3 gap-3">
       <div className="flex items-center gap-3 min-w-0">
         {profilePicture ? (
           <img src={profilePicture} alt={name} className="h-9 w-9 rounded-full object-cover shrink-0" />
         ) : (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
             {getInitials(name)}
           </div>
         )}
@@ -47,8 +47,8 @@ export default function TeacherAttendanceRow({
           disabled={!onStatusChange}
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-full transition-colors",
-            status === "PRESENT" ? "bg-green-600 text-white shadow-sm" : "bg-slate-100 text-slate-500",
-            onStatusChange && status !== "PRESENT" && "hover:bg-green-50 hover:text-green-600",
+            status === "PRESENT" ? "bg-green-600 text-white shadow-sm" : "bg-muted text-muted-foreground",
+            onStatusChange && status !== "PRESENT" && "hover:bg-green-500/10 hover:text-green-600",
             !onStatusChange && "cursor-default opacity-70"
           )}
           aria-label="Present"
@@ -61,8 +61,8 @@ export default function TeacherAttendanceRow({
           disabled={!onStatusChange}
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-full transition-colors",
-            status === "ABSENT" ? "bg-red-600 text-white shadow-sm" : "bg-slate-100 text-slate-500",
-            onStatusChange && status !== "ABSENT" && "hover:bg-red-50 hover:text-red-600",
+            status === "ABSENT" ? "bg-red-600 text-white shadow-sm" : "bg-muted text-muted-foreground",
+            onStatusChange && status !== "ABSENT" && "hover:bg-red-500/10 hover:text-red-600",
             !onStatusChange && "cursor-default opacity-70"
           )}
           aria-label="Absent"
@@ -75,8 +75,8 @@ export default function TeacherAttendanceRow({
           disabled={!onStatusChange}
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-full transition-colors",
-            status === "LATE" ? "bg-amber-500 text-white shadow-sm" : "bg-slate-100 text-slate-500",
-            onStatusChange && status !== "LATE" && "hover:bg-amber-50 hover:text-amber-600",
+            status === "LATE" ? "bg-amber-500 text-white shadow-sm" : "bg-muted text-muted-foreground",
+            onStatusChange && status !== "LATE" && "hover:bg-amber-500/10 hover:text-amber-600",
             !onStatusChange && "cursor-default opacity-70"
           )}
           aria-label="Late"

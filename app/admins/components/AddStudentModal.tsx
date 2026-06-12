@@ -226,8 +226,12 @@ export default function AddStudentModal({ open, onOpenChange, onSuccess }: AddSt
 
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Cancel</Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? "Creating..." : "Create Student"}
+                  <Button
+                    type="submit"
+                    loading={submitting}
+                    loadingText="Creating..."
+                  >
+                    Create Student
                   </Button>
                 </DialogFooter>
               </form>
@@ -236,7 +240,7 @@ export default function AddStudentModal({ open, onOpenChange, onSuccess }: AddSt
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-green-700">
+              <DialogTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
                 <CheckCircle className="h-5 w-5" />
                 Student Created Successfully
               </DialogTitle>
@@ -247,34 +251,34 @@ export default function AddStudentModal({ open, onOpenChange, onSuccess }: AddSt
                   Share these credentials with the student. The password will not be shown again.
                 </p>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
                     <div>
                       <p className="text-xs text-muted-foreground">Student ID (Login Username)</p>
-                      <p className="font-mono font-semibold text-slate-900">{successData.username}</p>
+                      <p className="font-mono font-semibold text-foreground">{successData.username}</p>
                     </div>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => copyToClipboard(successData.username, "id")}
                     >
-                      {copiedField === "id" ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                      {copiedField === "id" ? <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
                     </Button>
                   </div>
-                  <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
                     <div>
                       <p className="text-xs text-muted-foreground">Temporary Password</p>
-                      <p className="font-mono font-semibold text-slate-900">{successData.temporaryPassword}</p>
+                      <p className="font-mono font-semibold text-foreground">{successData.temporaryPassword}</p>
                     </div>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => copyToClipboard(successData.temporaryPassword, "pass")}
                     >
-                      {copiedField === "pass" ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                      {copiedField === "pass" ? <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
                     </Button>
                   </div>
                 </div>
-                <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-3">
+                <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-lg p-3">
                   The student will be required to reset their password on first login.
                 </p>
                 <div className="text-sm text-muted-foreground">

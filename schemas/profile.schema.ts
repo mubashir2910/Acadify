@@ -1,10 +1,20 @@
 import { z } from "zod"
+import { getTodayISTString } from "@/lib/working-days"
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"] as const
 export { BLOOD_GROUPS }
 
+// A date of birth can never be in the future. Compares the YYYY-MM-DD prefix
+// against IST "today" (today itself is allowed). Empty/optional values pass.
+const FUTURE_DOB_MESSAGE = "Date of birth cannot be in the future"
+const isNotFutureDate = (val?: string | null) => !val || val.slice(0, 10) <= getTodayISTString()
+
 // Date of birth is sent as ISO string from the form; transformed to Date on the server
-const optionalDateField = z.string().optional().nullable()
+const optionalDateField = z
+  .string()
+  .optional()
+  .nullable()
+  .refine(isNotFutureDate, FUTURE_DOB_MESSAGE)
 
 // Shared aadhaar validation (exactly 12 digits)
 const aadhaarField = z
@@ -39,7 +49,10 @@ export type TeacherProfileCompleteInput = z.infer<typeof teacherProfileCompleteS
 
 // ─── Admin: profile completion ──────────────────────────────────────────────
 export const adminProfileCompleteSchema = z.object({
-  date_of_birth: z.string().min(1, "Date of birth is required"),
+  date_of_birth: z
+    .string()
+    .min(1, "Date of birth is required")
+    .refine(isNotFutureDate, FUTURE_DOB_MESSAGE),
   phone: z.string().min(7, "Phone number is required"),
   email: z.string().email("Enter a valid email address"),
   // Optional fields

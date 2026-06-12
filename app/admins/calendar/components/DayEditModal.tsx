@@ -124,10 +124,10 @@ export default function DayEditModal({
   const statusColor = dateInfo.label.includes("Holiday")
     ? "bg-rose-100 text-rose-600"
     : dateInfo.label.includes("Half")
-      ? "bg-amber-100 text-amber-700"
+      ? "bg-amber-100 text-amber-700 dark:text-amber-400"
       : dateInfo.label.includes("Event")
-        ? "bg-blue-100 text-blue-700"
-        : "bg-green-100 text-green-700"
+        ? "bg-blue-100 text-blue-700 dark:text-blue-400"
+        : "bg-green-100 text-green-700 dark:text-green-400"
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -191,8 +191,13 @@ export default function DayEditModal({
 
           {/* Action buttons */}
           <div className="flex flex-col gap-2">
-            <Button onClick={handleSave} disabled={saving || !selectedType}>
-              {saving ? "Saving..." : "Save"}
+            <Button
+              onClick={handleSave}
+              disabled={!selectedType}
+              loading={saving}
+              loadingText="Saving..."
+            >
+              Save
             </Button>
 
             {dateInfo.isOverride && (

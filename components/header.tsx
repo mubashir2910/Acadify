@@ -37,7 +37,8 @@ export const HeroHeader = () => {
                                 aria-label="home"
                                 className="flex items-center space-x-2">
 
-                                <Logo /> 
+                                {/* Over the dark hero video (top of page) the wordmark needs to be white */}
+                                <Logo textClassName={cn(!isScrolled && 'text-white')} />
                             </Link>
 
                             <button
@@ -55,7 +56,14 @@ export const HeroHeader = () => {
                                     <li key={index}>
                                         <Link
                                             href={item.href}
-                                            className="text-muted-foreground hover:text-accent-foreground block duration-150">
+                                            className={cn(
+                                                // Animated underline grows left→full on hover (quick, professional accent)
+                                                'relative block duration-150 after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:transition-all after:duration-200 hover:after:w-full',
+                                                // Light text while sitting over the dark hero video; revert to muted in the scrolled pill
+                                                isScrolled
+                                                    ? 'text-muted-foreground hover:text-accent-foreground after:bg-blue-600'
+                                                    : 'text-white/80 hover:text-white after:bg-blue-400'
+                                            )}>
                                             <span>{item.name}</span>
                                         </Link>
                                     </li>
@@ -70,7 +78,7 @@ export const HeroHeader = () => {
                                         <li key={index}>
                                             <Link
                                                 href={item.href}
-                                                className="text-muted-foreground hover:text-accent-foreground block duration-150">
+                                                className="text-muted-foreground hover:text-accent-foreground relative block duration-150 after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:bg-blue-600 after:transition-all after:duration-200 hover:after:w-full">
                                                 <span>{item.name}</span>
                                             </Link>
                                         </li>
@@ -82,7 +90,7 @@ export const HeroHeader = () => {
                                     asChild
                                     size="sm">
                                     <Link href="/login">
-                                        <span>Get Started</span>
+                                        <span>Login</span>
                                     </Link>
                                 </Button>
                             </div>

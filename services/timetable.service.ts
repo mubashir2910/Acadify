@@ -1,19 +1,25 @@
 import { prisma } from "@/lib/prisma"
 import { getAdminSchoolId } from "@/services/attendance.service"
+import { ensureTeacherForUser } from "@/services/teacher.service"
+import { getNowIST } from "@/lib/working-days"
 import type {
   PeriodRow,
   TimetableCell,
   TimetableGrid,
-  TimetableGridTeacherRow,
+  TimetableGridParticipantRow,
   StudentPeriodCell,
   StudentTimetableDay,
   TeacherTodayPeriod,
+  TeacherRoutineEntry,
   CreatePeriodInput,
   UpdatePeriodInput,
   ReorderPeriodsInput,
   AssignTimetableInput,
   UpdateTimetableInput,
   DayOfWeek,
+  BatchChange,
+  OverlapWarning,
+  BatchSaveResult,
 } from "@/schemas/timetable.schema"
 import { ALL_DAYS } from "@/schemas/timetable.schema"
 
@@ -41,6 +47,7 @@ function shapePeriod(p: {
 
 function shapeCell(t: {
   id: string
+  group_id: string | null
   period_id: string
   day_of_week: string
   teacher_id: string
@@ -51,6 +58,7 @@ function shapeCell(t: {
 }): TimetableCell {
   return {
     id: t.id,
+    group_id: t.group_id ?? "",
     period_id: t.period_id,
     day_of_week: t.day_of_week as DayOfWeek,
     teacher_id: t.teacher_id,
@@ -61,23 +69,65 @@ function shapeCell(t: {
   }
 }
 
-// ─── Period Management ────────────────────────────────────────────────────────
+/** Verify a group belongs to the admin's school. Throws GROUP_NOT_FOUND otherwise. */
+async function assertGroupOwnership(schoolId: string, groupId: string) {
+  const group = await prisma.timetableGroup.findFirst({
+    where: { id: groupId, school_id: schoolId },
+    select: { id: true, name: true },
+  })
+  if (!group) throw new Error("GROUP_NOT_FOUND")
+  return group
+}
 
-export async function getPeriodsForSchool(schoolId: string): Promise<PeriodRow[]> {
+// ─── Period Management (group-scoped) ─────────────────────────────────────────
+
+export async function getPeriodsForGroup(
+  schoolId: string,
+  groupId: string,
+): Promise<PeriodRow[]> {
+  await assertGroupOwnership(schoolId, groupId)
   const periods = await prisma.period.findMany({
-    where: { school_id: schoolId },
+    where: { group_id: groupId },
     orderBy: { order: "asc" },
   })
   return periods.map(shapePeriod)
 }
 
+/**
+ * Reject if [start, end) overlaps any sibling period in the same group.
+ * Excludes the current period (passed as `excludeId`) so an in-place edit
+ * isn't blocked by itself.
+ */
+async function assertNoIntraGroupOverlap(
+  groupId: string,
+  start: string,
+  end: string,
+  excludeId?: string,
+): Promise<void> {
+  const siblings = await prisma.period.findMany({
+    where: {
+      group_id: groupId,
+      ...(excludeId ? { NOT: { id: excludeId } } : {}),
+    },
+    select: { id: true, start_time: true, end_time: true },
+  })
+  for (const s of siblings) {
+    if (timesOverlap(start, end, s.start_time, s.end_time)) {
+      throw new Error("PERIOD_TIME_OVERLAP")
+    }
+  }
+}
+
 export async function createPeriod(
   schoolId: string,
-  input: CreatePeriodInput
+  input: CreatePeriodInput,
 ): Promise<PeriodRow> {
+  await assertGroupOwnership(schoolId, input.group_id)
+  await assertNoIntraGroupOverlap(input.group_id, input.start_time, input.end_time)
   const created = await prisma.period.create({
     data: {
       school_id: schoolId,
+      group_id: input.group_id,
       label: input.label,
       start_time: input.start_time,
       end_time: input.end_time,
@@ -91,15 +141,32 @@ export async function createPeriod(
 export async function updatePeriod(
   schoolId: string,
   periodId: string,
-  input: UpdatePeriodInput
+  input: UpdatePeriodInput,
 ): Promise<PeriodRow> {
-  // Verify ownership
   const existing = await prisma.period.findFirst({
     where: { id: periodId, school_id: schoolId },
   })
   if (!existing) throw new Error("PERIOD_NOT_FOUND")
 
-  // If switching to is_break=true, check if assignments exist
+  // Cross-validate start/end against the merged effective values so a single-
+  // field PATCH can't push the period into an impossible time range.
+  const effectiveStart = input.start_time ?? existing.start_time
+  const effectiveEnd = input.end_time ?? existing.end_time
+  if (effectiveEnd <= effectiveStart) throw new Error("END_BEFORE_START")
+
+  // Intra-group overlap check whenever times change.
+  if (input.start_time !== undefined || input.end_time !== undefined) {
+    if (existing.group_id) {
+      await assertNoIntraGroupOverlap(
+        existing.group_id,
+        effectiveStart,
+        effectiveEnd,
+        periodId,
+      )
+    }
+  }
+
+  // Switching a busy period to a break is destructive — block it.
   if (input.is_break === true && !existing.is_break) {
     const assignmentCount = await prisma.timetable.count({
       where: { period_id: periodId },
@@ -136,17 +203,17 @@ export async function deletePeriod(schoolId: string, periodId: string): Promise<
 
 export async function reorderPeriods(
   schoolId: string,
-  input: ReorderPeriodsInput
+  input: ReorderPeriodsInput,
 ): Promise<void> {
-  // Verify all period ids belong to this school
+  await assertGroupOwnership(schoolId, input.group_id)
+
   const ids = input.periods.map((p) => p.id)
   const count = await prisma.period.count({
-    where: { id: { in: ids }, school_id: schoolId },
+    where: { id: { in: ids }, school_id: schoolId, group_id: input.group_id },
   })
   if (count !== ids.length) throw new Error("PERIOD_NOT_FOUND")
 
-  // Two-pass: first set to large negative temp values to avoid any collisions,
-  // then set to final values
+  // Two-pass: temp negative orders first to dodge any (group_id, order) clashes.
   await prisma.$transaction(async (tx) => {
     for (const p of input.periods) {
       await tx.period.update({
@@ -163,26 +230,52 @@ export async function reorderPeriods(
   })
 }
 
-// ─── Timetable Entry Management ───────────────────────────────────────────────
+// ─── Conflict Detection ──────────────────────────────────────────────────────
+
+interface ConflictCheckInput {
+  group_id: string
+  period_id: string
+  day_of_week: DayOfWeek
+  teacher_id: string
+  class: string
+  section: string
+}
 
 async function checkConflicts(
   schoolId: string,
-  input: AssignTimetableInput,
-  excludeId?: string
+  input: ConflictCheckInput,
+  excludeId?: string,
+  txClient: typeof prisma | Parameters<Parameters<typeof prisma.$transaction>[0]>[0] = prisma,
 ): Promise<void> {
-  const period = await prisma.period.findFirst({
-    where: { id: input.period_id, school_id: schoolId },
+  const tx = txClient as typeof prisma
+
+  const period = await tx.period.findFirst({
+    where: { id: input.period_id, group_id: input.group_id },
   })
   if (!period) throw new Error("PERIOD_NOT_FOUND")
   if (period.is_break) throw new Error("BREAK_PERIOD_NOT_ASSIGNABLE")
 
-  const teacherExists = await prisma.teacher.findFirst({
+  const teacherExists = await tx.teacher.findFirst({
     where: { id: input.teacher_id, school_id: schoolId, status: "ACTIVE" },
   })
   if (!teacherExists) throw new Error("TEACHER_NOT_FOUND")
 
-  // Teacher double-booking check
-  const teacherConflict = await prisma.timetable.findFirst({
+  // The class must belong to this group.
+  const classLink = await tx.timetableGroupClass.findUnique({
+    where: {
+      school_id_class_section: {
+        school_id: schoolId,
+        class: input.class,
+        section: input.section,
+      },
+    },
+  })
+  if (!classLink || classLink.group_id !== input.group_id) {
+    throw new Error("CLASS_NOT_IN_GROUP")
+  }
+
+  // Teacher double-booked in this slot.
+  const teacherConflict = await tx.timetable.findFirst({
     where: {
       school_id: schoolId,
       period_id: input.period_id,
@@ -193,8 +286,8 @@ async function checkConflicts(
   })
   if (teacherConflict) throw new Error("TEACHER_CONFLICT")
 
-  // Class-section conflict check
-  const classConflict = await prisma.timetable.findFirst({
+  // Class already has a different teacher in this slot.
+  const classConflict = await tx.timetable.findFirst({
     where: {
       school_id: schoolId,
       period_id: input.period_id,
@@ -207,158 +300,420 @@ async function checkConflicts(
   if (classConflict) throw new Error("CLASS_CONFLICT")
 }
 
-export async function assignTimetableEntry(
-  schoolId: string,
-  input: AssignTimetableInput
-): Promise<TimetableCell> {
-  await checkConflicts(schoolId, input)
+function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  return aStart < bEnd && bStart < aEnd
+}
 
-  const entry = await prisma.timetable.create({
-    data: {
+/**
+ * Detects wall-clock overlaps for a teacher across OTHER groups. Returns warnings
+ * (does not throw) — the calling UI surfaces them but allows the save to proceed.
+ *
+ * When called from inside a `prisma.$transaction`, pass the `txClient` so the
+ * read sees the entries written earlier in the same transaction (which would
+ * be invisible to the outer prisma client until commit).
+ */
+export async function detectWallClockOverlap(
+  schoolId: string,
+  params: {
+    teacher_id: string
+    day_of_week: DayOfWeek
+    start_time: string
+    end_time: string
+    exclude_group_id: string
+  },
+  txClient: typeof prisma | Parameters<Parameters<typeof prisma.$transaction>[0]>[0] = prisma,
+): Promise<OverlapWarning[]> {
+  const tx = txClient as typeof prisma
+  const otherEntries = await tx.timetable.findMany({
+    where: {
       school_id: schoolId,
-      period_id: input.period_id,
-      day_of_week: input.day_of_week,
-      teacher_id: input.teacher_id,
-      subject: input.subject,
-      class: input.class,
-      section: input.section,
+      teacher_id: params.teacher_id,
+      day_of_week: params.day_of_week,
+      NOT: { group_id: params.exclude_group_id },
     },
-    include: { teacher: { include: { user: { select: { name: true } } } } },
+    include: {
+      period: { select: { label: true, start_time: true, end_time: true } },
+      group: { select: { name: true } },
+      teacher: { select: { user: { select: { name: true } } } },
+    },
   })
-  return shapeCell(entry)
+
+  return otherEntries
+    .filter((e) =>
+      e.period
+        ? timesOverlap(params.start_time, params.end_time, e.period.start_time, e.period.end_time)
+        : false,
+    )
+    .map((e) => ({
+      teacher_id: params.teacher_id,
+      teacher_name: e.teacher.user.name,
+      day_of_week: params.day_of_week,
+      existing_group_name: e.group?.name ?? "Unknown",
+      existing_period_label: e.period.label,
+      existing_start_time: e.period.start_time,
+      existing_end_time: e.period.end_time,
+      conflicting_start_time: params.start_time,
+      conflicting_end_time: params.end_time,
+    }))
 }
 
-export async function updateTimetableEntry(
+// ─── Assignee resolution ─────────────────────────────────────────────────────
+
+async function resolveAssigneeTeacherId(
   schoolId: string,
-  input: UpdateTimetableInput
-): Promise<TimetableCell> {
-  const existing = await prisma.timetable.findFirst({
-    where: { id: input.id, school_id: schoolId },
-  })
-  if (!existing) throw new Error("ENTRY_NOT_FOUND")
-
-  // Build the full resolved input for conflict checking
-  const resolved: AssignTimetableInput = {
-    period_id: input.period_id ?? existing.period_id,
-    day_of_week: (input.day_of_week ?? existing.day_of_week) as DayOfWeek,
-    teacher_id: input.teacher_id ?? existing.teacher_id,
-    subject: input.subject ?? existing.subject,
-    class: input.class ?? existing.class,
-    section: input.section ?? existing.section,
+  input: { teacher_id?: string; admin_user_id?: string },
+): Promise<string> {
+  if (input.teacher_id) return input.teacher_id
+  if (input.admin_user_id) {
+    const { teacherId } = await ensureTeacherForUser(schoolId, input.admin_user_id)
+    return teacherId
   }
-  await checkConflicts(schoolId, resolved, input.id)
-
-  const updated = await prisma.timetable.update({
-    where: { id: input.id },
-    data: {
-      ...(input.period_id !== undefined && { period_id: input.period_id }),
-      ...(input.day_of_week !== undefined && { day_of_week: input.day_of_week }),
-      ...(input.teacher_id !== undefined && { teacher_id: input.teacher_id }),
-      ...(input.subject !== undefined && { subject: input.subject }),
-      ...(input.class !== undefined && { class: input.class }),
-      ...(input.section !== undefined && { section: input.section }),
-    },
-    include: { teacher: { include: { user: { select: { name: true } } } } },
-  })
-  return shapeCell(updated)
+  throw new Error("ASSIGNEE_REQUIRED")
 }
 
-export async function deleteTimetableEntry(schoolId: string, id: string): Promise<void> {
-  const existing = await prisma.timetable.findFirst({
-    where: { id, school_id: schoolId },
+// ─── Batch Save (the new primary write path) ─────────────────────────────────
+
+export async function batchSaveTimetable(
+  schoolId: string,
+  groupId: string,
+  changes: BatchChange[],
+): Promise<BatchSaveResult> {
+  await assertGroupOwnership(schoolId, groupId)
+
+  // Pre-resolve assignees outside the transaction so ensureTeacherForUser's
+  // own write doesn't tie up the txn (and it's idempotent anyway).
+  const resolvedCreates: Map<number, string> = new Map()
+  const resolvedUpdates: Map<number, string> = new Map()
+  for (let i = 0; i < changes.length; i++) {
+    const c = changes[i]
+    if (c.action === "CREATE") {
+      resolvedCreates.set(
+        i,
+        await resolveAssigneeTeacherId(schoolId, {
+          teacher_id: c.input.teacher_id,
+          admin_user_id: c.input.admin_user_id,
+        }),
+      )
+    } else if (c.action === "UPDATE") {
+      if (c.input.teacher_id !== undefined || c.input.admin_user_id !== undefined) {
+        resolvedUpdates.set(
+          i,
+          await resolveAssigneeTeacherId(schoolId, {
+            teacher_id: c.input.teacher_id,
+            admin_user_id: c.input.admin_user_id,
+          }),
+        )
+      }
+    }
+  }
+
+  // Collect warnings before the transaction; they're advisory only.
+  const warnings: OverlapWarning[] = []
+
+  const committed = await prisma.$transaction(async (tx) => {
+    let count = 0
+    for (let i = 0; i < changes.length; i++) {
+      const c = changes[i]
+      if (c.action === "CREATE") {
+        const teacherId = resolvedCreates.get(i)!
+        const period = await tx.period.findFirst({
+          where: { id: c.input.period_id, group_id: groupId },
+          select: { start_time: true, end_time: true },
+        })
+        if (!period) throw new Error("PERIOD_NOT_FOUND")
+
+        await checkConflicts(
+          schoolId,
+          {
+            group_id: groupId,
+            period_id: c.input.period_id,
+            day_of_week: c.input.day_of_week,
+            teacher_id: teacherId,
+            class: c.input.class,
+            section: c.input.section,
+          },
+          undefined,
+          tx,
+        )
+
+        await tx.timetable.create({
+          data: {
+            school_id: schoolId,
+            group_id: groupId,
+            period_id: c.input.period_id,
+            day_of_week: c.input.day_of_week,
+            teacher_id: teacherId,
+            subject: c.input.subject,
+            class: c.input.class,
+            section: c.input.section,
+          },
+        })
+
+        // Cross-group overlap (warning). Pass the tx so the read sees the
+        // create we just made earlier in this same transaction.
+        const warns = await detectWallClockOverlap(
+          schoolId,
+          {
+            teacher_id: teacherId,
+            day_of_week: c.input.day_of_week,
+            start_time: period.start_time,
+            end_time: period.end_time,
+            exclude_group_id: groupId,
+          },
+          tx,
+        )
+        warnings.push(...warns)
+
+        count++
+      } else if (c.action === "UPDATE") {
+        const existing = await tx.timetable.findFirst({
+          where: { id: c.id, school_id: schoolId, group_id: groupId },
+        })
+        if (!existing) throw new Error("ENTRY_NOT_FOUND")
+
+        const nextTeacherId =
+          resolvedUpdates.get(i) ?? existing.teacher_id
+        const nextPeriodId = c.input.period_id ?? existing.period_id
+        const nextDay = (c.input.day_of_week ?? existing.day_of_week) as DayOfWeek
+        const nextClass = c.input.class ?? existing.class
+        const nextSection = c.input.section ?? existing.section
+
+        const period = await tx.period.findFirst({
+          where: { id: nextPeriodId, group_id: groupId },
+          select: { start_time: true, end_time: true },
+        })
+        if (!period) throw new Error("PERIOD_NOT_FOUND")
+
+        await checkConflicts(
+          schoolId,
+          {
+            group_id: groupId,
+            period_id: nextPeriodId,
+            day_of_week: nextDay,
+            teacher_id: nextTeacherId,
+            class: nextClass,
+            section: nextSection,
+          },
+          c.id,
+          tx,
+        )
+
+        await tx.timetable.update({
+          where: { id: c.id },
+          data: {
+            ...(c.input.period_id !== undefined && { period_id: nextPeriodId }),
+            ...(c.input.day_of_week !== undefined && { day_of_week: nextDay }),
+            ...(nextTeacherId !== existing.teacher_id && { teacher_id: nextTeacherId }),
+            ...(c.input.subject !== undefined && { subject: c.input.subject }),
+            ...(c.input.class !== undefined && { class: nextClass }),
+            ...(c.input.section !== undefined && { section: nextSection }),
+          },
+        })
+
+        const warns = await detectWallClockOverlap(
+          schoolId,
+          {
+            teacher_id: nextTeacherId,
+            day_of_week: nextDay,
+            start_time: period.start_time,
+            end_time: period.end_time,
+            exclude_group_id: groupId,
+          },
+          tx,
+        )
+        warnings.push(...warns)
+
+        count++
+      } else {
+        // DELETE
+        const existing = await tx.timetable.findFirst({
+          where: { id: c.id, school_id: schoolId, group_id: groupId },
+        })
+        if (!existing) throw new Error("ENTRY_NOT_FOUND")
+        // Refuse to delete a slot that has class logs — deleting it would
+        // cascade-wipe historical teaching records (ClassLog onDelete: Cascade).
+        const logCount = await tx.classLog.count({ where: { timetable_id: c.id } })
+        if (logCount > 0) throw new Error("SLOT_HAS_LOGS")
+        await tx.timetable.delete({ where: { id: c.id } })
+        count++
+      }
+    }
+    return count
   })
-  if (!existing) throw new Error("ENTRY_NOT_FOUND")
-  await prisma.timetable.delete({ where: { id } })
+
+  return { committed, warnings }
 }
 
 // ─── Grid Queries ─────────────────────────────────────────────────────────────
 
-export async function getTimetableGrid(schoolId: string): Promise<TimetableGrid> {
-  const [periods, teachers, entries] = await Promise.all([
+export async function getTimetableGrid(
+  schoolId: string,
+  groupId: string,
+): Promise<TimetableGrid> {
+  const group = await assertGroupOwnership(schoolId, groupId)
+
+  const [periods, teachers, admins, entries] = await Promise.all([
     prisma.period.findMany({
-      where: { school_id: schoolId },
+      where: { group_id: groupId },
       orderBy: { order: "asc" },
     }),
-    // Fetch ALL active teachers so rows appear even before any assignments exist
+    // Include INACTIVE teachers too — their existing assignments stay in the
+    // grid so admins can reassign or remove them; UI flags them with a badge.
     prisma.teacher.findMany({
-      where: { school_id: schoolId, status: "ACTIVE" },
-      select: { id: true, user: { select: { name: true } } },
+      where: { school_id: schoolId },
+      select: {
+        id: true,
+        user_id: true,
+        status: true,
+        user: { select: { name: true } },
+      },
       orderBy: { user: { name: "asc" } },
     }),
+    // Admins in the school. Some may already have a Teacher row (auto-materialised
+    // when they were assigned a class previously) — those are filtered out below.
+    prisma.schoolUser.findMany({
+      where: { school_id: schoolId, role: "ADMIN", status: "ACTIVE" },
+      select: { user_id: true, user: { select: { name: true } } },
+    }),
     prisma.timetable.findMany({
-      where: { school_id: schoolId },
+      where: { group_id: groupId },
       include: { teacher: { include: { user: { select: { name: true } } } } },
       orderBy: [{ day_of_week: "asc" }, { period: { order: "asc" } }],
     }),
   ])
 
-  // Initialize a row for every active teacher with all cells null
-  const teacherMap = new Map<string, TimetableGridTeacherRow>()
-  for (const teacher of teachers) {
-    teacherMap.set(teacher.id, {
-      teacher_id: teacher.id,
-      teacher_name: teacher.user.name,
+  // Track which user_ids already exist as Teacher rows so admin rows don't double up.
+  const teacherUserIds = new Set(teachers.map((t) => t.user_id))
+  // Admin role lookup — admins who got a Teacher row via ensureTeacherForUser
+  // are still admins; this set tags them so the grid can show the badge.
+  const adminUserIds = new Set(admins.map((a) => a.user_id))
+
+  // ─── Build participant rows ────────────────────────────────────────────────
+  const teacherRowByTeacherId = new Map<string, TimetableGridParticipantRow>()
+  for (const t of teachers) {
+    teacherRowByTeacherId.set(t.id, {
+      kind: "teacher",
+      teacher_id: t.id,
+      name: t.user.name,
+      is_active: t.status === "ACTIVE",
+      is_admin: adminUserIds.has(t.user_id),
       cells: {},
     })
   }
 
-  // Fill in actual assignments using composite key: "period_id__day_of_week"
-  for (const entry of entries) {
-    const row = teacherMap.get(entry.teacher_id)
-    if (row) {
-      const key = `${entry.period_id}__${entry.day_of_week}`
-      ;(row.cells as Record<string, TimetableCell | null>)[key] = shapeCell(entry)
-    }
+  const adminRowByUserId = new Map<string, TimetableGridParticipantRow>()
+  for (const a of admins) {
+    if (teacherUserIds.has(a.user_id)) continue
+    adminRowByUserId.set(a.user_id, {
+      kind: "admin",
+      admin_user_id: a.user_id,
+      name: a.user.name,
+      cells: {},
+    })
   }
 
-  const rows = Array.from(teacherMap.values())
+  // Fill in actual assignments — every entry has a Timetable.teacher_id so they
+  // always land on a teacher row (admins gain a Teacher row at save-time via
+  // ensureTeacherForUser, so once an admin has any assignment they appear under
+  // teacherRowByTeacherId, not adminRowByUserId).
+  for (const entry of entries) {
+    let row = teacherRowByTeacherId.get(entry.teacher_id)
+    if (!row) {
+      // Defensive: surviving entry whose teacher row didn't surface above.
+      // Treat as inactive so the UI flags them. We don't have user_id here
+      // (entry.teacher only includes user.name), so default is_admin to false —
+      // an admin with a surviving entry but no active Teacher row is a very
+      // narrow edge case and the missing badge is a cosmetic issue.
+      row = {
+        kind: "teacher",
+        teacher_id: entry.teacher_id,
+        name: entry.teacher.user.name,
+        is_active: false,
+        is_admin: false,
+        cells: {},
+      }
+      teacherRowByTeacherId.set(entry.teacher_id, row)
+    }
+    const key = `${entry.period_id}__${entry.day_of_week}`
+    ;(row.cells as Record<string, TimetableCell | null>)[key] = shapeCell(entry)
+  }
 
-  return { periods: periods.map(shapePeriod), rows }
+  // Sort all participants by display name for a stable grid.
+  const rows = [
+    ...teacherRowByTeacherId.values(),
+    ...adminRowByUserId.values(),
+  ].sort((a, b) => a.name.localeCompare(b.name))
+
+  return {
+    group_id: group.id,
+    group_name: group.name,
+    periods: periods.map(shapePeriod),
+    rows,
+  }
 }
 
-export async function getTeacherTimetable(teacherUserId: string): Promise<{
-  periods: PeriodRow[]
-  entries: TimetableCell[]
-}> {
+// ─── Teacher / Student Routine Queries ───────────────────────────────────────
+
+export async function getTeacherTimetable(
+  teacherUserId: string,
+): Promise<{ entries: TeacherRoutineEntry[] }> {
   const teacher = await prisma.teacher.findFirst({
     where: { user_id: teacherUserId, status: "ACTIVE" },
     select: { id: true, school_id: true },
   })
-  if (!teacher) return { periods: [], entries: [] }
+  if (!teacher) return { entries: [] }
 
-  const [periods, entries] = await Promise.all([
-    prisma.period.findMany({
-      where: { school_id: teacher.school_id },
-      orderBy: { order: "asc" },
-    }),
-    prisma.timetable.findMany({
-      where: { teacher_id: teacher.id },
-      include: { teacher: { include: { user: { select: { name: true } } } } },
-      orderBy: { day_of_week: "asc" },
-    }),
-  ])
+  const entries = await prisma.timetable.findMany({
+    where: { teacher_id: teacher.id },
+    include: {
+      teacher: { include: { user: { select: { name: true } } } },
+      period: { select: { label: true, start_time: true, end_time: true, order: true } },
+      group: { select: { name: true } },
+    },
+  })
 
   return {
-    periods: periods.map(shapePeriod),
-    entries: entries.map(shapeCell),
+    entries: entries.map((e) => ({
+      ...shapeCell(e),
+      group_name: e.group?.name ?? "Default",
+      period_label: e.period.label,
+      period_start_time: e.period.start_time,
+      period_end_time: e.period.end_time,
+      period_order: e.period.order,
+    })),
   }
 }
 
-export async function getStudentTimetable(studentUserId: string): Promise<StudentTimetableDay[]> {
+export async function getStudentTimetable(
+  studentUserId: string,
+): Promise<StudentTimetableDay[]> {
   const student = await prisma.student.findFirst({
     where: { user_id: studentUserId, status: "ACTIVE" },
     select: { school_id: true, class: true, section: true },
   })
   if (!student) return []
 
+  // Resolve the student's group via their class+section.
+  const link = await prisma.timetableGroupClass.findUnique({
+    where: {
+      school_id_class_section: {
+        school_id: student.school_id,
+        class: student.class,
+        section: student.section,
+      },
+    },
+    select: { group_id: true },
+  })
+  if (!link) return []
+
   const [periods, entries] = await Promise.all([
     prisma.period.findMany({
-      where: { school_id: student.school_id },
+      where: { group_id: link.group_id },
       orderBy: { order: "asc" },
     }),
     prisma.timetable.findMany({
       where: {
-        school_id: student.school_id,
+        group_id: link.group_id,
         class: student.class,
         section: student.section,
       },
@@ -366,7 +721,6 @@ export async function getStudentTimetable(studentUserId: string): Promise<Studen
     }),
   ])
 
-  // Build a lookup: day → period_id → entry
   const lookup = new Map<string, Map<string, (typeof entries)[0]>>()
   for (const entry of entries) {
     if (!lookup.has(entry.day_of_week)) {
@@ -407,25 +761,42 @@ function getTodayDayOfWeek(): DayOfWeek {
   const days: DayOfWeek[] = [
     "SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY",
   ]
-  return days[new Date().getDay()]
+  // getNowIST() returns a Date shifted by +5:30 so getUTC* reads the IST date
+  // parts. Using new Date().getDay() (UTC) returns the wrong day-of-week
+  // between 00:00 IST and 05:30 IST (still UTC's previous day).
+  return days[getNowIST().getUTCDay()]
 }
 
-export async function getStudentTodaySchedule(studentUserId: string): Promise<StudentPeriodCell[]> {
+export async function getStudentTodaySchedule(
+  studentUserId: string,
+): Promise<StudentPeriodCell[]> {
   const student = await prisma.student.findFirst({
     where: { user_id: studentUserId, status: "ACTIVE" },
     select: { school_id: true, class: true, section: true },
   })
   if (!student) return []
 
+  const link = await prisma.timetableGroupClass.findUnique({
+    where: {
+      school_id_class_section: {
+        school_id: student.school_id,
+        class: student.class,
+        section: student.section,
+      },
+    },
+    select: { group_id: true },
+  })
+  if (!link) return []
+
   const today = getTodayDayOfWeek()
   const [periods, entries] = await Promise.all([
     prisma.period.findMany({
-      where: { school_id: student.school_id },
+      where: { group_id: link.group_id },
       orderBy: { order: "asc" },
     }),
     prisma.timetable.findMany({
       where: {
-        school_id: student.school_id,
+        group_id: link.group_id,
         class: student.class,
         section: student.section,
         day_of_week: today,
@@ -449,7 +820,9 @@ export async function getStudentTodaySchedule(studentUserId: string): Promise<St
   })
 }
 
-export async function getTeacherTodaySchedule(teacherUserId: string): Promise<TeacherTodayPeriod[]> {
+export async function getTeacherTodaySchedule(
+  teacherUserId: string,
+): Promise<TeacherTodayPeriod[]> {
   const teacher = await prisma.teacher.findFirst({
     where: { user_id: teacherUserId, status: "ACTIVE" },
     select: { id: true, school_id: true },
@@ -457,27 +830,29 @@ export async function getTeacherTodaySchedule(teacherUserId: string): Promise<Te
   if (!teacher) return []
 
   const today = getTodayDayOfWeek()
-  const [periods, entries] = await Promise.all([
-    prisma.period.findMany({
-      where: { school_id: teacher.school_id },
-      orderBy: { order: "asc" },
-    }),
-    prisma.timetable.findMany({
-      where: { teacher_id: teacher.id, day_of_week: today },
-    }),
-  ])
 
-  const entryMap = new Map(entries.map((e) => [e.period_id, e]))
-  return periods.map((p) => {
-    const entry = entryMap.get(p.id)
-    return {
-      label: p.label,
-      startTime: p.start_time,
-      endTime: p.end_time,
-      isBreak: p.is_break,
-      subject: entry?.subject ?? null,
-      class: entry?.class ?? null,
-      section: entry?.section ?? null,
-    }
+  // Multi-group: fetch all entries for the day, join period for time + ordering.
+  const entries = await prisma.timetable.findMany({
+    where: { teacher_id: teacher.id, day_of_week: today },
+    include: {
+      period: { select: { label: true, start_time: true, end_time: true, is_break: true } },
+      group: { select: { name: true } },
+    },
   })
+
+  // Sort entries by wall-clock start time across groups.
+  const sorted = [...entries].sort((a, b) =>
+    a.period.start_time.localeCompare(b.period.start_time),
+  )
+
+  return sorted.map((e) => ({
+    label: e.period.label,
+    startTime: e.period.start_time,
+    endTime: e.period.end_time,
+    isBreak: e.period.is_break,
+    subject: e.subject,
+    class: e.class,
+    section: e.section,
+    groupName: e.group?.name ?? null,
+  }))
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { markAsRead } from "@/services/notifications.service"
+import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 const ERROR_MAP: Record<string, number> = {
   NOTIFICATION_NOT_FOUND: 404,
@@ -21,6 +22,9 @@ export async function PATCH(
     if (!["ADMIN", "TEACHER", "STUDENT"].includes(role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
+
+    const limited = await checkRateLimit(writeLimiter, `write:${userId}`)
+    if (limited) return limited
 
     const { id } = await params
     await markAsRead(id, userId, role)

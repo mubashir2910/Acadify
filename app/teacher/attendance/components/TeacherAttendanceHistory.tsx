@@ -16,7 +16,15 @@ interface HistoryData {
   stats?: ClassStudentStat[]
 }
 
-export default function TeacherAttendanceHistory() {
+interface TeacherAttendanceHistoryProps {
+  // When true, append ?scope=class so admins reusing this view get the
+  // class-teacher branch instead of the school-wide admin branch.
+  forceClassScope?: boolean
+}
+
+export default function TeacherAttendanceHistory({
+  forceClassScope = false,
+}: TeacherAttendanceHistoryProps = {}) {
   const [data, setData] = useState<HistoryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +33,10 @@ export default function TeacherAttendanceHistory() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/attendance/summary")
+      const url = forceClassScope
+        ? "/api/attendance/summary?scope=class"
+        : "/api/attendance/summary"
+      const res = await fetch(url)
       if (!res.ok) throw new Error("Failed to fetch")
       setData(await res.json())
     } catch {
@@ -33,7 +44,7 @@ export default function TeacherAttendanceHistory() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [forceClassScope])
 
   useEffect(() => {
     fetchHistory()
@@ -57,7 +68,7 @@ export default function TeacherAttendanceHistory() {
           }
           return (
             <div className="flex items-center justify-center h-full">
-              <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-xs font-medium">
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium">
                 {name.charAt(0).toUpperCase()}
               </div>
             </div>
@@ -79,11 +90,19 @@ export default function TeacherAttendanceHistory() {
         minWidth: 140,
       },
       {
+        headerName: "Working Days",
+        field: "totalWorkingDays",
+        width: 120,
+        cellRenderer: (params: { value: number }) => (
+          <span className="font-medium text-foreground">{params.value}</span>
+        ),
+      },
+      {
         headerName: "Present",
         field: "totalPresent",
         width: 90,
         cellRenderer: (params: { value: number }) => (
-          <span className="text-green-700 font-medium">{params.value}</span>
+          <span className="text-green-700 dark:text-green-400 font-medium">{params.value}</span>
         ),
       },
       {
@@ -91,7 +110,7 @@ export default function TeacherAttendanceHistory() {
         field: "totalAbsent",
         width: 90,
         cellRenderer: (params: { value: number }) => (
-          <span className="text-red-600 font-medium">{params.value}</span>
+          <span className="text-red-600 dark:text-red-400 font-medium">{params.value}</span>
         ),
       },
       {
@@ -99,7 +118,7 @@ export default function TeacherAttendanceHistory() {
         field: "totalLate",
         width: 70,
         cellRenderer: (params: { value: number }) => (
-          <span className="text-amber-600 font-medium">{params.value}</span>
+          <span className="text-amber-600 dark:text-amber-400 font-medium">{params.value}</span>
         ),
       },
       {

@@ -11,6 +11,7 @@ import {
   BLOOD_GROUPS,
 } from "@/schemas/profile.schema"
 import { getDashboardPath } from "@/lib/auth-redirect"
+import { getTodayISTString } from "@/lib/working-days"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -69,7 +70,7 @@ export function AdminCompleteProfileForm({ userName }: Props) {
   const bloodGroup = watch("blood_group")
 
   return (
-    <div className="bg-white rounded-xl border shadow-sm p-6">
+    <div className="bg-card rounded-xl border shadow-sm p-6">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Profile Picture */}
         <ProfilePictureUploader
@@ -79,7 +80,7 @@ export function AdminCompleteProfileForm({ userName }: Props) {
 
         {/* Required Information */}
         <div>
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+          <h3 className="text-sm font-semibold text-foreground mb-3">
             Required Information
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -88,6 +89,7 @@ export function AdminCompleteProfileForm({ userName }: Props) {
               <Input
                 id="date_of_birth"
                 type="date"
+                max={getTodayISTString()}
                 {...register("date_of_birth")}
               />
               <FieldError message={errors.date_of_birth?.message} />
@@ -117,7 +119,7 @@ export function AdminCompleteProfileForm({ userName }: Props) {
 
         {/* Optional Information */}
         <div>
-          <h3 className="text-sm font-semibold text-slate-700 mb-1">
+          <h3 className="text-sm font-semibold text-foreground mb-1">
             Optional Information
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
@@ -153,8 +155,13 @@ export function AdminCompleteProfileForm({ userName }: Props) {
           <p className="text-sm text-destructive text-center">{serverError}</p>
         )}
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : "Complete Profile"}
+        <Button
+          type="submit"
+          className="w-full"
+          loading={isSubmitting}
+          loadingText="Saving..."
+        >
+          Complete Profile
         </Button>
       </form>
     </div>

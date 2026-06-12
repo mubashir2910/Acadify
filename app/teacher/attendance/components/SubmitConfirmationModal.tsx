@@ -42,24 +42,24 @@ export default function SubmitConfirmationModal({
         </DialogHeader>
 
         {/* Summary */}
-        <div className="rounded-xl bg-slate-50 p-4 space-y-3">
+        <div className="rounded-xl bg-muted/50 p-4 space-y-3">
           <SummaryRow
-            icon={<CheckCircle className="h-4 w-4 text-green-600" />}
+            icon={<CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />}
             label="Present"
             value={counts.present}
-            color="text-green-600"
+            color="text-green-600 dark:text-green-400"
           />
           <SummaryRow
-            icon={<XCircle className="h-4 w-4 text-red-600" />}
+            icon={<XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />}
             label="Absent"
             value={counts.absent}
-            color="text-red-600"
+            color="text-red-600 dark:text-red-400"
           />
           <SummaryRow
-            icon={<Clock className="h-4 w-4 text-amber-500" />}
+            icon={<Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />}
             label="Late"
             value={counts.late}
-            color="text-amber-600"
+            color="text-amber-600 dark:text-amber-400"
           />
           <hr />
           <SummaryRow label="Total Students" value={total} bold />
@@ -89,9 +89,10 @@ export default function SubmitConfirmationModal({
           <Button
             className="flex-1 bg-green-700 hover:bg-green-800 text-white"
             onClick={onConfirm}
-            disabled={submitting}
+            loading={submitting}
+            loadingText="Submitting..."
           >
-            {submitting ? "Submitting..." : isEditing ? "Update" : "Submit"}
+            {isEditing ? "Update" : "Submit"}
           </Button>
         </div>
       </DialogContent>

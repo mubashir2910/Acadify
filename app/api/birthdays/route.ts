@@ -2,7 +2,10 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { getAdminSchoolId, getStudentSchoolId } from "@/services/attendance.service"
 import { getTeacherSchoolId } from "@/services/calendar.service"
-import { getTodaysBirthdays } from "@/services/birthday.service"
+import {
+  getTodaysBirthdays,
+  getUpcomingWeekBirthdays,
+} from "@/services/birthday.service"
 
 async function resolveSchoolId(
   userId: string,
@@ -30,9 +33,12 @@ export async function GET() {
       return NextResponse.json({ message: "School not found" }, { status: 404 })
     }
 
-    const birthdays = await getTodaysBirthdays(schoolId)
+    const [birthdays, upcoming] = await Promise.all([
+      getTodaysBirthdays(schoolId),
+      getUpcomingWeekBirthdays(schoolId),
+    ])
 
-    return NextResponse.json({ birthdays })
+    return NextResponse.json({ birthdays, upcoming })
   } catch (error) {
     console.error("GET /api/birthdays error:", error)
     return NextResponse.json(

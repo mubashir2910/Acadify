@@ -11,7 +11,9 @@ export async function GET() {
 
     const { id: userId, role } = session.user
 
-    if (role === "TEACHER") {
+    if (role === "TEACHER" || role === "ADMIN") {
+      // Same service for both — for an admin without a Teacher row (no
+      // teaching duties), getTeacherTodaySchedule returns [].
       const schedule = await getTeacherTodaySchedule(userId)
       return NextResponse.json(schedule)
     }

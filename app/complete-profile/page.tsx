@@ -21,7 +21,7 @@ export default async function CompleteProfilePage() {
   }
 
   return (
-    <div className="min-h-svh flex items-center justify-center p-6 bg-slate-50">
+    <div className="min-h-svh flex items-center justify-center p-6 bg-muted/50">
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="text-center mb-8">
@@ -30,7 +30,7 @@ export default async function CompleteProfilePage() {
               A
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-foreground">
             Complete Your Profile
           </h1>
           <p className="text-sm text-muted-foreground mt-1">

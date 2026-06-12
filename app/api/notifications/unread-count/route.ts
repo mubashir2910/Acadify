@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { getUnreadCount } from "@/services/notifications.service"
+import { expensiveReadLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 export async function GET() {
   try {
@@ -13,6 +14,9 @@ export async function GET() {
     if (!["ADMIN", "TEACHER", "STUDENT"].includes(role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
+
+    const limited = await checkRateLimit(expensiveReadLimiter, `read:${userId}`)
+    if (limited) return limited
 
     const count = await getUnreadCount(userId, role)
     return NextResponse.json({ count })

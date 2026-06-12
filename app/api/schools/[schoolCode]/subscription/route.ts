@@ -29,7 +29,13 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
   try {
     const input = updateSubscriptionSchema.parse(body)
-    await updateSubscription(schoolCode, input.status, input.subscription_ends_at)
+    await updateSubscription(
+      schoolCode,
+      input.status,
+      input.subscription_ends_at,
+      session.user.id,
+      input.reason ?? null,
+    )
     return NextResponse.json({ success: true })
   } catch (error) {
     if (error instanceof ZodError) {

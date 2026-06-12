@@ -56,12 +56,12 @@ export default function SchoolsTable({ schools }: SchoolsTableProps) {
         cellRenderer: ({ value }: { value?: string }) => {
           if (!value) return null
           const styles: Record<string, string> = {
-            TRIAL: "bg-yellow-100 text-yellow-800",
-            ACTIVE: "bg-green-100 text-green-800",
-            SUSPENDED: "bg-red-100 text-red-800",
-            CANCELLED: "bg-gray-100 text-gray-600",
+            TRIAL: "bg-yellow-100 text-yellow-700 dark:text-yellow-400",
+            ACTIVE: "bg-green-100 text-green-700 dark:text-green-400",
+            SUSPENDED: "bg-red-100 text-red-700 dark:text-red-400",
+            CANCELLED: "bg-muted text-muted-foreground",
           }
-          const style = styles[value] ?? "bg-gray-100 text-gray-600"
+          const style = styles[value] ?? "bg-muted text-muted-foreground"
           return (
             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${style}`}>
               {value}

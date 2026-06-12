@@ -4,6 +4,7 @@ export const updateSubscriptionSchema = z
   .object({
     status: z.enum(["ACTIVE", "SUSPENDED", "CANCELLED"]),
     subscription_ends_at: z.string().optional().nullable(),
+    reason: z.string().max(500).optional().nullable(),
   })
   .refine(
     (data) => {

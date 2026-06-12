@@ -36,7 +36,7 @@ export default function SchoolCard({ school, onImportClick, onImportTeachersClic
         <Button
           variant="ghost"
           size="icon-sm"
-          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+          className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
           onClick={() => onDeleteClick(school)}
         >
           <Trash2 />
@@ -66,15 +66,15 @@ export default function SchoolCard({ school, onImportClick, onImportTeachersClic
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  TRIAL: "bg-yellow-100 text-yellow-800",
-  ACTIVE: "bg-green-100 text-green-800",
-  SUSPENDED: "bg-red-100 text-red-800",
-  CANCELLED: "bg-gray-100 text-gray-600",
+  TRIAL: "bg-yellow-100 text-yellow-700 dark:text-yellow-400",
+  ACTIVE: "bg-green-100 text-green-700 dark:text-green-400",
+  SUSPENDED: "bg-red-100 text-red-700 dark:text-red-400",
+  CANCELLED: "bg-muted text-muted-foreground",
 }
 
 function SubscriptionBadge({ status }: { status?: string }) {
   if (!status) return null
-  const style = STATUS_STYLES[status] ?? "bg-gray-100 text-gray-600"
+  const style = STATUS_STYLES[status] ?? "bg-muted text-muted-foreground"
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${style}`}>
       {status}

@@ -50,9 +50,15 @@ async function resolveSchoolId(userId: string, role: string): Promise<string> {
  * to the given user based on their role, class, and section.
  *
  * NOTE: created_by is nullable (SetNull on creator deletion). Notifications from
- * deleted creators (created_by: null) are excluded from inboxes via NOT, which
- * is acceptable since they cannot be attributed to anyone.
+ * a since-deleted creator (created_by: null) SHOULD still appear in inboxes (the
+ * UI renders them as "Deleted User"). We express the "everything except my own"
+ * filter explicitly as `created_by IS NULL OR created_by <> me` rather than a bare
+ * `NOT`, because Prisma's NOT-on-scalar null handling is ambiguous.
  */
+const notOwnNotification = (userId: string): Prisma.NotificationWhereInput => ({
+  OR: [{ created_by: null }, { created_by: { not: userId } }],
+})
+
 async function buildVisibilityWhere(
   userId: string,
   role: string
@@ -66,7 +72,7 @@ async function buildVisibilityWhere(
     // Exclude own notifications — those belong in "Created by Me", not Inbox
     return {
       school_id: schoolUser.school_id,
-      NOT: { created_by: userId },
+      ...notOwnNotification(userId),
     }
   }
 
@@ -84,7 +90,7 @@ async function buildVisibilityWhere(
       // notifications targeted at teachers.
       target_audience: { in: ["ALL", "TEACHER"] },
       // Exclude own notifications — those belong in "Created by Me", not Inbox
-      NOT: { created_by: userId },
+      ...notOwnNotification(userId),
     }
   }
 
@@ -114,8 +120,15 @@ export async function createNotification(
   role: string,
   input: CreateNotificationInput
 ): Promise<{ id: string }> {
+  // Class/section targeting only affects STUDENT visibility. Teacher visibility
+  // ignores class/section, so a TEACHER-audience notification must not carry
+  // misleading targeting — drop it.
+  const isTeacherAudience = input.target_audience === "TEACHER"
+  const targetClass = isTeacherAudience ? null : input.target_class
+  const targetSection = isTeacherAudience ? null : input.target_section
+
   // section without class is invalid targeting
-  if (input.target_section !== null && input.target_class === null) {
+  if (targetSection !== null && targetClass === null) {
     fail("SECTION_WITHOUT_CLASS")
   }
 
@@ -125,11 +138,15 @@ export async function createNotification(
     data: {
       school_id: schoolId,
       created_by: userId,
-      title: input.title.trim(),
-      message: input.message.trim(),
+      // title/message are already trimmed by the Zod schema
+      title: input.title,
+      message: input.message,
       target_audience: input.target_audience,
-      target_class: input.target_class,
-      target_section: input.target_section,
+      target_class: targetClass,
+      target_section: targetSection,
+      attachment_url: input.attachmentUrl ?? null,
+      attachment_type: input.attachmentType ?? null,
+      attachment_name: input.attachmentName ?? null,
     },
     select: { id: true },
   })
@@ -159,6 +176,9 @@ export async function getNotificationsForUser(
         target_audience: true,
         target_class: true,
         target_section: true,
+        attachment_url: true,
+        attachment_type: true,
+        attachment_name: true,
         created_at: true,
         created_by: true,
         // creator is nullable — creator?.name falls back to "Deleted User"
@@ -183,6 +203,9 @@ export async function getNotificationsForUser(
     created_by_name: n.creator?.name ?? null,
     created_by_id: n.created_by,
     is_read: n.reads.length > 0,
+    attachment_url: n.attachment_url,
+    attachment_type: n.attachment_type,
+    attachment_name: n.attachment_name,
   }))
 
   return { notifications: items, total, page, limit }
@@ -212,6 +235,9 @@ export async function getNotificationsCreatedByUser(
         target_audience: true,
         target_class: true,
         target_section: true,
+        attachment_url: true,
+        attachment_type: true,
+        attachment_name: true,
         created_at: true,
         created_by: true,
         creator: { select: { name: true } },
@@ -232,6 +258,9 @@ export async function getNotificationsCreatedByUser(
     created_by_id: n.created_by,
     // Creator is always considered to have seen their own notification
     is_read: true,
+    attachment_url: n.attachment_url,
+    attachment_type: n.attachment_type,
+    attachment_name: n.attachment_name,
   }))
 
   return { notifications: items, total, page, limit }
