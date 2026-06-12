@@ -85,6 +85,57 @@ export const expensiveReadLimiter = createLimiter({
 })
 
 /**
+ * Quiz attempt limiter — start attempt, submit, and answer saves.
+ * 120 requests per 60-second window per user.
+ * Allows frequent auto-saves while blocking bots.
+ */
+export const quizAttemptLimiter = createLimiter({
+  redis: redis!,
+  limiter: Ratelimit.slidingWindow(120, "60 s"),
+  prefix: "rl:quiz-attempt",
+})
+
+/**
+ * Fees write limiter — transaction recording, verification, ledger generation.
+ * 10 requests per 60-second window per user.
+ */
+export const feeWriteLimiter = createLimiter({
+  redis: redis!,
+  limiter: Ratelimit.slidingWindow(10, "60 s"),
+  prefix: "rl:fee-write",
+})
+
+/**
+ * Fees upload limiter — payment proof uploads (Cloudinary + Prisma).
+ * 5 requests per 15-minute window per user.
+ */
+export const feeUploadLimiter = createLimiter({
+  redis: redis!,
+  limiter: Ratelimit.fixedWindow(5, "15 m"),
+  prefix: "rl:fee-upload",
+})
+
+/**
+ * Fees verify limiter — admin approving/rejecting pending transactions.
+ * 30 requests per 60-second window per user.
+ */
+export const feeVerifyLimiter = createLimiter({
+  redis: redis!,
+  limiter: Ratelimit.slidingWindow(30, "60 s"),
+  prefix: "rl:fee-verify",
+})
+
+/**
+ * Fees export limiter — CSV exports (potentially large queries).
+ * 5 requests per 60-second window per user.
+ */
+export const feeExportLimiter = createLimiter({
+  redis: redis!,
+  limiter: Ratelimit.slidingWindow(5, "60 s"),
+  prefix: "rl:fee-export",
+})
+
+/**
  * Extracts the real client IP from the request headers.
  * On Vercel, x-forwarded-for is always set and the first entry is the original client IP.
  */

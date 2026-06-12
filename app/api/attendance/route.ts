@@ -14,11 +14,20 @@ import {
 import { prisma } from "@/lib/prisma"
 import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
 
-// POST — Teacher submits/updates attendance
+// POST — Teacher (or admin acting as class teacher) submits/updates attendance
 export async function POST(request: Request) {
   try {
     const session = await auth()
-    if (!session?.user?.id || session.user.role !== "TEACHER") {
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+    // Accept either TEACHER or an ADMIN whose teaching duties auto-attached a
+    // Teacher row. Real authorisation is the Teacher lookup below + the class-
+    // teacher check inside submitAttendance.
+    if (
+      session.user.role !== "TEACHER" &&
+      session.user.role !== "ADMIN"
+    ) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
@@ -28,13 +37,16 @@ export async function POST(request: Request) {
     const body = await request.json()
     const data = submitAttendanceSchema.parse(body)
 
-    // Get teacher's school
+    // Get teacher's school — works for regular teachers AND admin teachers
     const teacher = await prisma.teacher.findFirst({
       where: { user_id: session.user.id },
       select: { school_id: true },
     })
     if (!teacher) {
-      return NextResponse.json({ message: "Teacher not found" }, { status: 404 })
+      return NextResponse.json(
+        { message: "You are not assigned as a class teacher" },
+        { status: 403 },
+      )
     }
 
     const result = await submitAttendance(
@@ -86,6 +98,7 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
+    const scope = searchParams.get("scope") // "class" forces teacher-style view
     const query = attendanceQuerySchema.parse({
       date: searchParams.get("date") ?? "",
       class: searchParams.get("class") ?? undefined,
@@ -94,8 +107,15 @@ export async function GET(request: Request) {
 
     const role = session.user.role
 
-    // ADMIN: school-wide summary or specific class detail
+    // ADMIN: school-wide summary or specific class detail — unless they're
+    // viewing as a class teacher (?scope=class), in which case route through
+    // the teacher branch (it resolves their Teacher row → assigned class).
     if (role === "ADMIN") {
+      if (scope === "class") {
+        const result = await getTeacherClassAttendance(session.user.id, query.date)
+        return NextResponse.json(result)
+      }
+
       const schoolId = await getAdminSchoolId(session.user.id)
       if (!schoolId) {
         return NextResponse.json({ message: "School not found" }, { status: 404 })

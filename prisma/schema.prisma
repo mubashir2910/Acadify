@@ -1,15 +1,855 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id                          String                      @id @default(uuid()) @db.Uuid
+  name                        String
+  username                    String                      @unique
+  email                       String?                     @unique
+  phone                       String?
+  role                        Role                        @default(STUDENT)
+  password_hash               String
+  must_reset_password         Boolean                     @default(true)
+  is_profile_complete         Boolean                     @default(false)
+  is_active                   Boolean                     @default(true)
+  last_login_at               DateTime?
+  date_of_birth               DateTime?
+  blood_group                 String?
+  aadhaar_number              String?                     @unique
+  address                     String?
+  profile_picture             String?
+  created_at                  DateTime                    @default(now())
+  updated_at                  DateTime                    @updatedAt
+  attendancesEdited           Attendance[]                @relation("AttendanceLastEditedBy")
+  attendancesSubmitted        Attendance[]                @relation("AttendanceSubmittedBy")
+  attendanceAccessesGranted   AttendanceAccess[]          @relation("AttendanceAccessGrantedBy")
+  feeAuditLogs                FeeAuditLog[]               @relation("FeeAuditActor")
+  feeStructuresCreated        FeeStructure[]              @relation("FeeStructureCreatedBy")
+  feeTransactionsRecorded     FeeTransaction[]            @relation("FeeTransactionRecordedBy")
+  feeTransactionsVerified     FeeTransaction[]            @relation("FeeTransactionVerifiedBy")
+  notificationsCreated        Notification[]              @relation("NotificationCreatedBy")
+  notificationReads           NotificationRead[]          @relation("NotificationReadBy")
+  quizzesCreated              Quiz[]                      @relation("QuizCreator")
+  quizAttempts                QuizAttempt[]               @relation("QuizAttemptStudent")
+  calendarEntries             SchoolCalendar[]            @relation("CalendarCreatedBy")
+  schoolUsers                 SchoolUser[]
+  students                    Student[]
+  feeWaiversGranted           StudentFeeWaiver[]          @relation("FeeWaiverGrantedBy")
+  feeWaiversRevoked           StudentFeeWaiver[]          @relation("FeeWaiverRevokedBy")
+  teachers                    Teacher[]
+  teacherAttendancesEdited    TeacherAttendance[]         @relation("TeacherAttendanceLastEditedBy")
+  teacherAttendancesSubmitted TeacherAttendance[]         @relation("TeacherAttendanceSubmittedBy")
+  subscriptionChanges         SchoolSubscriptionHistory[] @relation("SubscriptionChangedBy")
+}
+
+model School {
+  id                   String                      @id @default(uuid()) @db.Uuid
+  schoolCode           String                      @unique
+  schoolName           String
+  subscription_status  SubscriptionStatus          @default(TRIAL)
+  status               SchoolStatus                @default(ACTIVE)
+  trial_ends_at        DateTime?
+  subscription_ends_at DateTime?
+  max_students         Int?
+  session_started_on   DateTime?                   @db.Date
+  created_at           DateTime                    @default(now())
+  updated_at           DateTime                    @updatedAt
+  currency             String                      @default("INR")
+  logo_url             String?
+  motto                String?
+  brand_color          String                      @default("#000000")
+  attendances          Attendance[]
+  attendanceAccesses   AttendanceAccess[]
+  bank_accounts        SchoolBankAccount[]
+  classLogs            ClassLog[]
+  classTeachers        ClassTeacher[]
+  fee_audit_logs       FeeAuditLog[]
+  fee_structures       FeeStructure[]
+  fee_transactions     FeeTransaction[]
+  monthly_late_fees    StudentMonthlyLateFee[]
+  notifications        Notification[]
+  periods              Period[]
+  qr_codes             SchoolQrCode[]
+  quizzes              Quiz[]
+  receipt_counters     SchoolReceiptCounter[]
+  calendarEntries      SchoolCalendar[]
+  payment_config       SchoolPaymentConfig?
+  schoolUsers          SchoolUser[]
+  sessions             Session[]
+  students             Student[]
+  fee_ledgers          StudentFeeLedger[]
+  fee_waivers          StudentFeeWaiver[]
+  subscription_history SchoolSubscriptionHistory[]
+  teachers             Teacher[]
+  teacherAttendances   TeacherAttendance[]
+  timetables           Timetable[]
+  timetableGroups      TimetableGroup[]
+  timetableGroupClasses TimetableGroupClass[]
+  upi_accounts         SchoolUpiAccount[]
+}
+
+model SchoolUser {
+  id         String       @id @default(uuid()) @db.Uuid
+  school_id  String       @db.Uuid
+  user_id    String       @db.Uuid
+  role       Role
+  status     SchoolStatus @default(ACTIVE)
+  joined_at  DateTime     @default(now())
+  left_at    DateTime?
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt
+  school     School       @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [user_id], references: [id])
+
+  @@unique([school_id, user_id])
+  @@index([user_id, role])
+}
+
+model Student {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  school_id              String                  @db.Uuid
+  user_id                String                  @db.Uuid
+  admission_no           String?
+  class                  String
+  section                String
+  roll_no                String
+  admission_date         DateTime?
+  stream                 String?
+  guardian_name          String
+  guardian_phone         String
+  house_name             String?
+  father_name            String?
+  mother_name            String?
+  status                 RecordStatus            @default(ACTIVE)
+  created_at             DateTime                @default(now())
+  updated_at             DateTime                @updatedAt
+  attendances            Attendance[]
+  fee_transactions       FeeTransaction[]
+  school                 School                  @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  user                   User                    @relation(fields: [user_id], references: [id])
+  fee_ledgers            StudentFeeLedger[]
+  fee_waivers            StudentFeeWaiver[]
+  studentMonthlyLateFees StudentMonthlyLateFee[]
+
+  @@unique([school_id, admission_no])
+  @@unique([school_id, class, section, roll_no])
+  @@index([school_id, status])
+  @@index([user_id])
+}
+
+model Teacher {
+  id                 String              @id @default(uuid()) @db.Uuid
+  school_id          String              @db.Uuid
+  user_id            String              @db.Uuid
+  employee_id        String
+  joining_date       DateTime?
+  status             SchoolStatus        @default(ACTIVE)
+  created_at         DateTime            @default(now())
+  updated_at         DateTime            @updatedAt
+  attendanceAccesses AttendanceAccess[]
+  classLogs          ClassLog[]
+  classTeacher       ClassTeacher?
+  school             School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  user               User                @relation(fields: [user_id], references: [id])
+  teacherAttendances TeacherAttendance[]
+  timetables         Timetable[]
+
+  @@unique([school_id, employee_id])
+  @@index([school_id])
+  @@index([user_id])
+}
+
+model ClassTeacher {
+  id          String   @id @default(uuid()) @db.Uuid
+  school_id   String   @db.Uuid
+  teacher_id  String   @unique @db.Uuid
+  class       String
+  section     String
+  assigned_at DateTime @default(now())
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher     Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@unique([school_id, class, section])
+}
+
+model AttendanceAccess {
+  id         String   @id @default(uuid()) @db.Uuid
+  school_id  String   @db.Uuid
+  teacher_id String   @db.Uuid
+  class      String
+  section    String
+  start_date DateTime @db.Date
+  end_date   DateTime @db.Date
+  granted_by String   @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  grantedBy  User     @relation("AttendanceAccessGrantedBy", fields: [granted_by], references: [id])
+  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher    Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id, class, section])
+  @@index([teacher_id])
+}
+
+model Attendance {
+  id             String           @id @default(uuid()) @db.Uuid
+  school_id      String           @db.Uuid
+  student_id     String           @db.Uuid
+  date           DateTime         @db.Date
+  status         AttendanceStatus
+  submitted_by   String           @db.Uuid
+  submitted_at   DateTime         @default(now())
+  last_edited_by String?          @db.Uuid
+  last_edited_at DateTime?
+  created_at     DateTime         @default(now())
+  updated_at     DateTime         @updatedAt
+  lastEditedBy   User?            @relation("AttendanceLastEditedBy", fields: [last_edited_by], references: [id])
+  school         School           @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student        Student          @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  submittedBy    User             @relation("AttendanceSubmittedBy", fields: [submitted_by], references: [id])
+
+  @@unique([school_id, student_id, date])
+  @@index([school_id, date])
+  @@index([student_id, date])
+}
+
+model TeacherAttendance {
+  id             String           @id @default(uuid()) @db.Uuid
+  school_id      String           @db.Uuid
+  teacher_id     String           @db.Uuid
+  date           DateTime         @db.Date
+  status         AttendanceStatus
+  submitted_by   String           @db.Uuid
+  submitted_at   DateTime         @default(now())
+  last_edited_by String?          @db.Uuid
+  last_edited_at DateTime?
+  created_at     DateTime         @default(now())
+  updated_at     DateTime         @updatedAt
+  lastEditedBy   User?            @relation("TeacherAttendanceLastEditedBy", fields: [last_edited_by], references: [id])
+  school         School           @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  submittedBy    User             @relation("TeacherAttendanceSubmittedBy", fields: [submitted_by], references: [id])
+  teacher        Teacher          @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@unique([school_id, teacher_id, date])
+  @@index([school_id, date])
+  @@index([teacher_id, date])
+}
+
+model SchoolCalendar {
+  id         String   @id @default(uuid()) @db.Uuid
+  school_id  String   @db.Uuid
+  date       DateTime @db.Date
+  type       DayType
+  reason     String?
+  created_by String   @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  createdBy  User     @relation("CalendarCreatedBy", fields: [created_by], references: [id])
+  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@unique([school_id, date])
+  @@index([school_id, date])
+}
+
+model Notification {
+  id              String               @id @default(uuid()) @db.Uuid
+  school_id       String               @db.Uuid
+  created_by      String?              @db.Uuid
+  title           String
+  message         String
+  target_audience NotificationAudience @default(ALL)
+  target_class    String?
+  target_section  String?
+  attachment_url  String?
+  attachment_type String?
+  attachment_name String?
+  created_at      DateTime             @default(now())
+  updated_at      DateTime             @updatedAt
+  creator         User?                @relation("NotificationCreatedBy", fields: [created_by], references: [id])
+  school          School               @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  reads           NotificationRead[]
+
+  @@index([school_id, created_at(sort: Desc)])
+}
+
+model NotificationRead {
+  id              String       @id @default(uuid()) @db.Uuid
+  notification_id String       @db.Uuid
+  user_id         String       @db.Uuid
+  read_at         DateTime     @default(now())
+  notification    Notification @relation(fields: [notification_id], references: [id], onDelete: Cascade)
+  user            User         @relation("NotificationReadBy", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([notification_id, user_id])
+  @@index([user_id])
+}
+
+model TimetableGroup {
+  id         String                @id @default(uuid()) @db.Uuid
+  school_id  String                @db.Uuid
+  name       String
+  created_at DateTime              @default(now())
+  updated_at DateTime              @updatedAt
+  school     School                @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  classes    TimetableGroupClass[]
+  periods    Period[]
+  timetables Timetable[]
+
+  @@unique([school_id, name])
+  @@index([school_id])
+}
+
+model TimetableGroupClass {
+  id         String         @id @default(uuid()) @db.Uuid
+  group_id   String         @db.Uuid
+  school_id  String         @db.Uuid
+  class      String
+  section    String
+  created_at DateTime       @default(now())
+  group      TimetableGroup @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  school     School         @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@unique([school_id, class, section])
+  @@index([group_id])
+}
+
+model Period {
+  id         String          @id @default(uuid()) @db.Uuid
+  school_id  String          @db.Uuid
+  group_id   String?         @db.Uuid
+  label      String
+  start_time String
+  end_time   String
+  is_break   Boolean         @default(false)
+  order      Int
+  created_at DateTime        @default(now())
+  updated_at DateTime        @updatedAt
+  school     School          @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  group      TimetableGroup? @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  timetables Timetable[]
+
+  @@index([school_id, order])
+  @@index([group_id, order])
+}
+
+model Timetable {
+  id          String          @id @default(uuid()) @db.Uuid
+  school_id   String          @db.Uuid
+  group_id    String?         @db.Uuid
+  period_id   String          @db.Uuid
+  day_of_week DayOfWeek
+  teacher_id  String          @db.Uuid
+  subject     String
+  class       String
+  section     String
+  created_at  DateTime        @default(now())
+  updated_at  DateTime        @updatedAt
+  classLogs   ClassLog[]
+  period      Period          @relation(fields: [period_id], references: [id], onDelete: Cascade)
+  school      School          @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  group       TimetableGroup? @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  teacher     Teacher         @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@unique([school_id, period_id, day_of_week, teacher_id])
+  @@unique([school_id, period_id, day_of_week, class, section])
+  @@index([school_id, day_of_week])
+  @@index([group_id, day_of_week])
+  @@index([teacher_id])
+}
+
+model ClassLog {
+  id              String    @id @default(uuid()) @db.Uuid
+  school_id       String    @db.Uuid
+  timetable_id    String    @db.Uuid
+  teacher_id      String    @db.Uuid
+  date            DateTime  @db.Date
+  class           String
+  section         String
+  subject         String
+  period_label    String
+  topic           String
+  description     String?
+  attachment_url  String?
+  attachment_type String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  school          School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher         Teacher   @relation(fields: [teacher_id], references: [id])
+  timetable       Timetable @relation(fields: [timetable_id], references: [id], onDelete: Cascade)
+
+  @@unique([timetable_id, date])
+  @@index([school_id, class, section, date])
+  @@index([school_id, date])
+  @@index([teacher_id])
+}
+
+model FeeAuditLog {
+  id             String         @id @default(uuid()) @db.Uuid
+  school_id      String         @db.Uuid
+  actor_user_id  String         @db.Uuid
+  action         FeeAuditAction
+  entity_type    String
+  entity_id      String
+  previous_value Json?
+  new_value      Json?
+  reason         String?
+  created_at     DateTime       @default(now())
+  actor          User           @relation("FeeAuditActor", fields: [actor_user_id], references: [id])
+  school         School         @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@index([entity_type, entity_id])
+  @@index([school_id, created_at(sort: Desc)])
+}
+
+model FeeHead {
+  id               String                @id @default(uuid()) @db.Uuid
+  structure_id     String                @db.Uuid
+  name             String
+  category         FeeCategory
+  frequency        FeeFrequency
+  amount           Decimal               @db.Decimal(10, 2)
+  due_day_of_month Int?
+  due_month        Int?
+  is_optional      Boolean               @default(false)
+  sort_order       Int                   @default(0)
+  created_at       DateTime              @default(now())
+  updated_at       DateTime              @updatedAt
+  applied_months   FeeHeadAppliedMonth[]
+  structure        FeeStructure          @relation(fields: [structure_id], references: [id], onDelete: Cascade)
+  ledgers          StudentFeeLedger[]
+  waivers          StudentFeeWaiver[]
+
+  @@index([structure_id])
+}
+
+model FeeHeadAppliedMonth {
+  fee_head_id  String   @db.Uuid
+  period_year  Int
+  period_month Int
+  due_day      Int?
+  created_at   DateTime @default(now())
+  fee_head     FeeHead  @relation(fields: [fee_head_id], references: [id], onDelete: Cascade)
+
+  @@id([fee_head_id, period_year, period_month])
+  @@index([fee_head_id])
+}
+
+model FeePaymentAllocation {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  transaction_id        String                 @db.Uuid
+  ledger_id             String?                @db.Uuid
+  monthly_late_fee_id   String?                @db.Uuid
+  amount_applied        Decimal                @db.Decimal(10, 2)
+  // Snapshots so receipt PDFs and audit reports keep rendering correctly
+  // even if the referenced ledger / late-fee row is later detached or
+  // deleted. Populated at allocation-create time.
+  head_name_snapshot    String?
+  period_label_snapshot String?
+  created_at            DateTime               @default(now())
+  ledger                StudentFeeLedger?      @relation(fields: [ledger_id], references: [id], onDelete: SetNull)
+  monthly_late_fee      StudentMonthlyLateFee? @relation("MonthlyLateFeeAllocation", fields: [monthly_late_fee_id], references: [id], onDelete: SetNull)
+  transaction           FeeTransaction         @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+
+  // NOTE: the prior `@@unique([transaction_id, ledger_id])` and
+  // `@@unique([transaction_id, monthly_late_fee_id])` were ineffective
+  // against duplicate allocations because Postgres treats NULLs as
+  // distinct in unique constraints. They are replaced by partial unique
+  // indexes (defined in
+  // `prisma/migrations/manual_fees_allocation_constraints/migration.sql`)
+  // that filter on `IS NOT NULL`, plus a CHECK constraint forcing
+  // exactly-one-target. Those live outside Prisma's DSL because Prisma
+  // can't express either.
+  @@index([ledger_id])
+  @@index([monthly_late_fee_id])
+}
+
+// Per-school, per-year monotonic counter. Replaces the old `COUNT(*) + 1`
+// receipt-number generator which had a TOCTOU race: two simultaneous
+// admin clicks could read the same count and try to insert duplicate
+// receipt numbers. We claim a number via an atomic INSERT ... ON
+// CONFLICT DO UPDATE so concurrent writers serialize on the row lock.
+model SchoolReceiptCounter {
+  school_id  String   @db.Uuid
+  year       Int
+  last_seq   Int      @default(0)
+  updated_at DateTime @updatedAt
+  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@id([school_id, year])
+}
+
+model FeeStructure {
+  id             String    @id @default(uuid()) @db.Uuid
+  school_id      String    @db.Uuid
+  session_id     String    @db.Uuid
+  class          String
+  section        String?
+  name           String
+  version        Int       @default(1)
+  is_active      Boolean   @default(true)
+  effective_from DateTime  @db.Date
+  effective_to   DateTime? @db.Date
+  created_by     String    @db.Uuid
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  fee_heads      FeeHead[]
+  creator        User      @relation("FeeStructureCreatedBy", fields: [created_by], references: [id])
+  school         School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  session        Session   @relation(fields: [session_id], references: [id])
+
+  @@index([school_id, session_id, class, section, is_active])
+  @@index([school_id, session_id])
+}
+
+model FeeTransaction {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  receipt_no          String
+  school_id           String                 @db.Uuid
+  student_id          String                 @db.Uuid
+  recorded_by_user_id String                 @db.Uuid
+  amount              Decimal                @db.Decimal(10, 2)
+  method              PaymentMethod
+  status              TransactionStatus      @default(VERIFIED)
+  mode_context        SchoolPaymentMode
+  external_txn_ref    String?
+  proof_url           String?
+  notes               String?
+  paid_at             DateTime
+  gateway_provider    PaymentGateway?
+  gateway_order_id    String?
+  gateway_payment_id  String?
+  gateway_signature   String?
+  verified_by_user_id String?                @db.Uuid
+  verified_at         DateTime?
+  rejection_reason    String?
+  refund_of_id        String?                @db.Uuid
+  editable_until      DateTime
+  created_at          DateTime               @default(now())
+  updated_at          DateTime               @updatedAt
+  allocations         FeePaymentAllocation[]
+  recordedBy          User                   @relation("FeeTransactionRecordedBy", fields: [recorded_by_user_id], references: [id])
+  refund_of           FeeTransaction?        @relation("FeeTransactionRefund", fields: [refund_of_id], references: [id])
+  refunds             FeeTransaction[]       @relation("FeeTransactionRefund")
+  school              School                 @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  // Restrict, not Cascade: hard-deleting a Student must NOT silently wipe
+  // their payment history. To remove a student, set their status to an
+  // inactive value and keep the transactions for audit/compliance.
+  student             Student                @relation(fields: [student_id], references: [id], onDelete: Restrict)
+  verifiedBy          User?                  @relation("FeeTransactionVerifiedBy", fields: [verified_by_user_id], references: [id])
+
+  @@unique([school_id, receipt_no])
+  @@index([school_id, external_txn_ref])
+  @@index([school_id, status])
+  @@index([school_id, status, paid_at])
+  @@index([student_id, paid_at])
+}
+
+model Question {
+  id              String       @id @default(uuid()) @db.Uuid
+  quiz_id         String       @db.Uuid
+  text            String
+  type            QuestionType
+  marks           Int          @default(1)
+  time_limit_secs Int          @default(30)
+  order           Int
+  correct_answer  String?
+  created_at      DateTime     @default(now())
+  quiz            Quiz         @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  answers         QuizAnswer[]
+  options         QuizOption[]
+
+  @@index([quiz_id, order])
+}
+
+model Quiz {
+  id                     String        @id @default(uuid()) @db.Uuid
+  school_id              String        @db.Uuid
+  created_by             String        @db.Uuid
+  title                  String
+  subject                String
+  subject_group          SubjectGroup  @default(GENERAL_KNOWLEDGE)
+  instructions           String?
+  class                  String
+  section                String
+  status                 QuizStatus    @default(DRAFT)
+  total_marks            Int
+  duration_mins          Int
+  per_question_time_secs Int?
+  start_time             DateTime
+  end_time               DateTime
+  shuffle_questions      Boolean       @default(true)
+  shuffle_options        Boolean       @default(true)
+  created_at             DateTime      @default(now())
+  updated_at             DateTime      @updatedAt
+  questions              Question[]
+  creator                User          @relation("QuizCreator", fields: [created_by], references: [id])
+  school                 School        @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  attempts               QuizAttempt[]
+
+  @@index([created_by])
+  @@index([end_time])
+  @@index([school_id, class, section])
+  @@index([school_id, status])
+  @@index([school_id, subject_group, end_time])
+  @@index([start_time])
+}
+
+model QuizAnswer {
+  id              String      @id @default(uuid()) @db.Uuid
+  attempt_id      String      @db.Uuid
+  question_id     String      @db.Uuid
+  given_answer    String?
+  is_correct      Boolean?
+  marks_awarded   Int?
+  answered_at     DateTime?
+  time_taken_secs Int?
+  attempt         QuizAttempt @relation(fields: [attempt_id], references: [id], onDelete: Cascade)
+  question        Question    @relation(fields: [question_id], references: [id])
+
+  @@unique([attempt_id, question_id])
+  @@index([attempt_id])
+}
+
+model QuizAttempt {
+  id             String        @id @default(uuid()) @db.Uuid
+  quiz_id        String        @db.Uuid
+  student_id     String        @db.Uuid
+  status         AttemptStatus @default(IN_PROGRESS)
+  started_at     DateTime      @default(now())
+  submitted_at   DateTime?
+  score          Int?
+  question_order String[]
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+  answers        QuizAnswer[]
+  quiz           Quiz          @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  student        User          @relation("QuizAttemptStudent", fields: [student_id], references: [id])
+
+  @@unique([quiz_id, student_id])
+  @@index([quiz_id, score])
+  @@index([quiz_id, status])
+  @@index([quiz_id, submitted_at])
+  @@index([student_id])
+  @@index([student_id, submitted_at])
+}
+
+model QuizOption {
+  id          String   @id @default(uuid()) @db.Uuid
+  question_id String   @db.Uuid
+  text        String
+  is_correct  Boolean  @default(false)
+  order       Int
+  question    Question @relation(fields: [question_id], references: [id], onDelete: Cascade)
+
+  @@index([question_id])
+}
+
+model SchoolPaymentConfig {
+  id                                  String            @id @default(uuid()) @db.Uuid
+  school_id                           String            @unique @db.Uuid
+  payment_mode                        SchoolPaymentMode
+  currency                            String            @default("INR")
+  gateway_provider                    PaymentGateway?
+  gateway_key_id                      String?
+  gateway_key_secret_encrypted        String?
+  gateway_webhook_secret              String?
+  default_late_fee_enabled            Boolean           @default(false)
+  default_late_fee_type               LateFeeType?
+  default_late_fee_value              Decimal?          @db.Decimal(10, 2)
+  default_late_fee_grace_day_of_month Int?
+  default_late_fee_frequency          LateFeeAccrual?   @default(MONTHLY)
+  created_at                          DateTime          @default(now())
+  updated_at                          DateTime          @updatedAt
+  school                              School            @relation(fields: [school_id], references: [id], onDelete: Cascade)
+}
+
+model SchoolBankAccount {
+  id             String         @id @default(uuid()) @db.Uuid
+  school_id      String         @db.Uuid
+  label          String?
+  account_holder String
+  bank_name      String
+  account_number String
+  ifsc           String
+  branch         String?
+  account_type   String?
+  is_active      Boolean        @default(false)
+  created_at     DateTime       @default(now())
+  updated_at     DateTime       @updatedAt
+  school         School         @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  qr_codes       SchoolQrCode[]
+
+  @@index([school_id, is_active])
+}
+
+model SchoolUpiAccount {
+  id         String   @id @default(uuid()) @db.Uuid
+  school_id  String   @db.Uuid
+  upi_id     String
+  label      String?
+  is_active  Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id, is_active])
+}
+
+model SchoolQrCode {
+  id              String             @id @default(uuid()) @db.Uuid
+  school_id       String             @db.Uuid
+  bank_account_id String?            @db.Uuid
+  image_url       String
+  caption         String
+  label           String?
+  is_active       Boolean            @default(false)
+  created_at      DateTime           @default(now())
+  updated_at      DateTime           @updatedAt
+  bank_account    SchoolBankAccount? @relation(fields: [bank_account_id], references: [id], onDelete: SetNull)
+  school          School             @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id, is_active])
+}
+
+model Session {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  school_id              String                  @db.Uuid
+  name                   String
+  start_date             DateTime                @db.Date
+  end_date               DateTime                @db.Date
+  is_current             Boolean                 @default(false)
+  created_at             DateTime                @default(now())
+  updated_at             DateTime                @updatedAt
+  fee_structures         FeeStructure[]
+  school                 School                  @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  fee_ledgers            StudentFeeLedger[]
+  fee_waivers            StudentFeeWaiver[]
+  studentMonthlyLateFees StudentMonthlyLateFee[]
+
+  @@unique([school_id, name])
+  @@index([school_id, is_current])
+}
+
+model StudentFeeLedger {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  school_id          String                 @db.Uuid
+  session_id         String                 @db.Uuid
+  student_id         String                 @db.Uuid
+  fee_head_id        String?                @db.Uuid
+  head_name_snapshot String
+  head_category      FeeCategory
+  period_year        Int
+  period_month       Int?
+  period_label       String
+  expected_amount    Decimal                @db.Decimal(10, 2)
+  waiver_amount      Decimal                @default(0) @db.Decimal(10, 2)
+  paid_amount        Decimal                @default(0) @db.Decimal(10, 2)
+  due_date           DateTime               @db.Date
+  grace_end_date     DateTime?              @db.Date
+  status             LedgerStatus           @default(PENDING)
+  structure_version  Int                    @default(1)
+  created_at         DateTime               @default(now())
+  updated_at         DateTime               @updatedAt
+  allocations        FeePaymentAllocation[]
+  fee_head           FeeHead?               @relation(fields: [fee_head_id], references: [id])
+  school             School                 @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  session            Session                @relation(fields: [session_id], references: [id])
+  student            Student                @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([student_id, fee_head_id, period_year, period_month])
+  @@index([school_id, due_date])
+  @@index([school_id, grace_end_date, status])
+  @@index([school_id, period_year, period_month, status])
+  @@index([school_id, session_id, status])
+  // Covers per-student session queries — common in breakdown / receipt paths.
+  // Without this composite, those queries fall back to `[school_id, session_id, status]`
+  // and post-filter by student. (Audit H7.)
+  @@index([school_id, session_id, student_id, status])
+  @@index([student_id, status])
+}
+
+model StudentMonthlyLateFee {
+  id              String                 @id @default(uuid()) @db.Uuid
+  school_id       String                 @db.Uuid
+  session_id      String                 @db.Uuid
+  student_id      String                 @db.Uuid
+  period_year     Int
+  period_month    Int
+  amount          Decimal                @default(0) @db.Decimal(10, 2)
+  paid            Decimal                @default(0) @db.Decimal(10, 2)
+  waiver_amount   Decimal                @default(0) @db.Decimal(10, 2)
+  waiver_type     WaiverType?
+  waiver_value    Decimal?               @db.Decimal(10, 2)
+  waived          Boolean                @default(false)
+  waiver_reason   String?
+  waived_by       String?                @db.Uuid
+  waived_at       DateTime?
+  periods_accrued Int                    @default(0)
+  last_accrued_at DateTime?
+  created_at      DateTime               @default(now())
+  updated_at      DateTime               @updatedAt
+  allocations     FeePaymentAllocation[] @relation("MonthlyLateFeeAllocation")
+  school          School                 @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  session         Session                @relation(fields: [session_id], references: [id])
+  student         Student                @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([student_id, session_id, period_year, period_month])
+  @@index([school_id, period_year, period_month])
+  @@index([school_id, session_id, period_year, period_month])
+}
+
+model StudentFeeWaiver {
+  id           String     @id @default(uuid()) @db.Uuid
+  school_id    String     @db.Uuid
+  student_id   String     @db.Uuid
+  session_id   String     @db.Uuid
+  fee_head_id  String     @db.Uuid
+  period_year  Int
+  period_month Int
+  type         WaiverType
+  value        Decimal    @db.Decimal(10, 2)
+  reason       String
+  granted_by   String     @db.Uuid
+  granted_at   DateTime   @default(now())
+  revoked_at   DateTime?
+  revoked_by   String?    @db.Uuid
+  created_at   DateTime   @default(now())
+  updated_at   DateTime   @updatedAt
+  fee_head     FeeHead    @relation(fields: [fee_head_id], references: [id])
+  grantedBy    User       @relation("FeeWaiverGrantedBy", fields: [granted_by], references: [id])
+  revokedBy    User?      @relation("FeeWaiverRevokedBy", fields: [revoked_by], references: [id])
+  school       School     @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  session      Session    @relation(fields: [session_id], references: [id])
+  student      Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id, session_id])
+  @@index([student_id, session_id])
+  @@index([school_id, session_id, period_year, period_month])
+  @@index([student_id, session_id, fee_head_id, period_year, period_month])
+}
+
+model SchoolSubscriptionHistory {
+  id               String             @id @default(uuid()) @db.Uuid
+  school_id        String             @db.Uuid
+  previous_status  SubscriptionStatus
+  new_status       SubscriptionStatus
+  previous_ends_at DateTime?
+  new_ends_at      DateTime?
+  changed_by       String             @db.Uuid
+  reason           String?
+  created_at       DateTime           @default(now())
+
+  school    School @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  changedBy User   @relation("SubscriptionChangedBy", fields: [changed_by], references: [id])
+
+  @@index([school_id, created_at(sort: Desc)])
 }
 
 enum SubscriptionStatus {
@@ -66,300 +906,144 @@ enum DayOfWeek {
   SUNDAY
 }
 
-//
-// MODELS
-//
-
-model User {
-  id                   String   @id @default(uuid()) @db.Uuid
-  name                 String
-  username             String   @unique
-  email                String?  @unique
-  phone                String?
-  role                 Role     @default(STUDENT)
-  password_hash        String
-  must_reset_password  Boolean  @default(true)
-  is_profile_complete  Boolean  @default(false)
-  is_active            Boolean  @default(true)
-  last_login_at        DateTime?
-  date_of_birth        DateTime?
-  blood_group          String?
-  aadhaar_number       String?          @unique
-  address              String?
-  profile_picture      String?
-  created_at           DateTime @default(now())
-  updated_at           DateTime @updatedAt
-
-  schoolUsers                    SchoolUser[]
-  students                       Student[]
-  teachers                       Teacher[]
-  attendancesSubmitted           Attendance[]         @relation("AttendanceSubmittedBy")
-  attendancesEdited              Attendance[]         @relation("AttendanceLastEditedBy")
-  teacherAttendancesSubmitted    TeacherAttendance[]  @relation("TeacherAttendanceSubmittedBy")
-  teacherAttendancesEdited       TeacherAttendance[]  @relation("TeacherAttendanceLastEditedBy")
-  calendarEntries                SchoolCalendar[]     @relation("CalendarCreatedBy")
-  attendanceAccessesGranted      AttendanceAccess[]   @relation("AttendanceAccessGrantedBy")
-  notificationsCreated           Notification[]       @relation("NotificationCreatedBy")
-  notificationReads              NotificationRead[]   @relation("NotificationReadBy")
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  AUTO_SUBMITTED
 }
 
-model School {
-  id                    String   @id @default(uuid()) @db.Uuid
-  schoolCode            String   @unique
-  schoolName            String
-  subscription_status   SubscriptionStatus @default(TRIAL)
-  status                SchoolStatus @default(ACTIVE)
-  trial_ends_at         DateTime?
-  subscription_ends_at  DateTime?
-  max_students          Int?
-  session_started_on    DateTime?  @db.Date
-  created_at            DateTime @default(now())
-  updated_at            DateTime @updatedAt
-
-  schoolUsers           SchoolUser[]
-  students              Student[]
-  teachers              Teacher[]
-  classTeachers         ClassTeacher[]
-  attendances           Attendance[]
-  teacherAttendances    TeacherAttendance[]
-  calendarEntries       SchoolCalendar[]
-  attendanceAccesses    AttendanceAccess[]
-  notifications         Notification[]
-  periods               Period[]
-  timetables            Timetable[]
+enum FeeAuditAction {
+  CREATE_STRUCTURE
+  UPDATE_STRUCTURE
+  ARCHIVE_STRUCTURE
+  DELETE_STRUCTURE
+  CREATE_LEDGER
+  EDIT_LEDGER
+  WAIVE_LEDGER
+  DELETE_LEDGER
+  CREATE_TRANSACTION
+  EDIT_TRANSACTION
+  VERIFY_TRANSACTION
+  REJECT_TRANSACTION
+  REFUND_TRANSACTION
+  UNLOCK_TRANSACTION
+  CREATE_WAIVER
+  REMOVE_WAIVER
+  ACCRUE_LATE_FEE
+  WAIVE_LATE_FEE
+  UPSERT_PAYMENT_CONFIG
+  CREATE_SESSION
+  SET_CURRENT_SESSION
+  CREATE_BANK_ACCOUNT
+  UPDATE_BANK_ACCOUNT
+  DELETE_BANK_ACCOUNT
+  SET_ACTIVE_BANK_ACCOUNT
+  CREATE_UPI_ACCOUNT
+  UPDATE_UPI_ACCOUNT
+  DELETE_UPI_ACCOUNT
+  SET_ACTIVE_UPI_ACCOUNT
+  CREATE_QR_CODE
+  UPDATE_QR_CODE
+  DELETE_QR_CODE
+  SET_ACTIVE_QR_CODE
+  UPDATE_SCHOOL_BRANDING
+  ACCRUE_MONTHLY_LATE_FEE
+  WAIVE_MONTHLY_LATE_FEE
 }
 
-model SchoolUser {
-  id         String   @id @default(uuid()) @db.Uuid
-  school_id  String   @db.Uuid
-  user_id    String   @db.Uuid
-  role       Role
-  status     SchoolStatus @default(ACTIVE)
-  joined_at  DateTime @default(now())
-  left_at    DateTime?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [user_id], references: [id])
-
-  @@unique([school_id, user_id])
+enum FeeCategory {
+  TUITION
+  TRANSPORT
+  LAB
+  LIBRARY
+  EXAM
+  SESSION
+  ACTIVITY
+  MISC
 }
 
-model Student {
-  id              String   @id @default(uuid()) @db.Uuid
-  school_id       String   @db.Uuid
-  user_id         String   @db.Uuid
-  admission_no    String?
-  class           String
-  section         String
-  roll_no         String
-  admission_date  DateTime?
-  stream          String?
-  guardian_name   String
-  guardian_phone  String
-  house_name      String?
-  father_name     String?
-  mother_name     String?
-  status          RecordStatus @default(ACTIVE)
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-
-  school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  user            User     @relation(fields: [user_id], references: [id])
-  attendances     Attendance[]
-
-  @@unique([school_id, admission_no])
-  @@unique([school_id, class, section, roll_no])
+enum FeeFrequency {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  ANNUAL
 }
 
-model Teacher {
-  id           String   @id @default(uuid()) @db.Uuid
-  school_id    String   @db.Uuid
-  user_id      String   @db.Uuid
-  employee_id  String
-  joining_date DateTime?
-  status       SchoolStatus @default(ACTIVE)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-
-  school              School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  user                User                @relation(fields: [user_id], references: [id])
-  classTeacher        ClassTeacher?
-  teacherAttendances  TeacherAttendance[]
-  attendanceAccesses  AttendanceAccess[]
-  timetables          Timetable[]
-
-  @@unique([school_id, employee_id])
+enum LateFeeAccrual {
+  MONTHLY
+  DAILY
+  ONE_TIME
 }
 
-model ClassTeacher {
-  id          String       @id @default(uuid()) @db.Uuid
-  school_id   String       @db.Uuid
-  teacher_id  String       @unique @db.Uuid
-  class       String
-  section     String
-  assigned_at DateTime     @default(now())
-  created_at  DateTime     @default(now())
-  updated_at  DateTime     @updatedAt
-
-  school      School       @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  teacher     Teacher      @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
-
-  @@unique([school_id, class, section])
+enum LateFeeType {
+  FIXED
+  PERCENT
 }
 
-model AttendanceAccess {
-  id          String   @id @default(uuid()) @db.Uuid
-  school_id   String   @db.Uuid
-  teacher_id  String   @db.Uuid
-  class       String
-  section     String
-  start_date  DateTime @db.Date
-  end_date    DateTime @db.Date
-  granted_by  String   @db.Uuid
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-
-  school     School  @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  teacher    Teacher @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
-  grantedBy  User    @relation("AttendanceAccessGrantedBy", fields: [granted_by], references: [id])
-
-  @@index([school_id, class, section])
-  @@index([teacher_id])
+enum LedgerStatus {
+  PENDING
+  PARTIAL
+  PAID
+  WAIVED
+  OVERDUE
 }
 
-model Attendance {
-  id              String           @id @default(uuid()) @db.Uuid
-  school_id       String           @db.Uuid
-  student_id      String           @db.Uuid
-  date            DateTime         @db.Date
-  status          AttendanceStatus
-  submitted_by    String           @db.Uuid
-  submitted_at    DateTime         @default(now())
-  last_edited_by  String?          @db.Uuid
-  last_edited_at  DateTime?
-  created_at      DateTime         @default(now())
-  updated_at      DateTime         @updatedAt
-
-  school          School           @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student         Student          @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  submittedBy     User             @relation("AttendanceSubmittedBy", fields: [submitted_by], references: [id])
-  lastEditedBy    User?            @relation("AttendanceLastEditedBy", fields: [last_edited_by], references: [id])
-
-  @@unique([school_id, student_id, date])
-  @@index([school_id, date])
-  @@index([student_id, date])
+enum PaymentGateway {
+  RAZORPAY
+  CASHFREE
+  STRIPE
 }
 
-model TeacherAttendance {
-  id              String           @id @default(uuid()) @db.Uuid
-  school_id       String           @db.Uuid
-  teacher_id      String           @db.Uuid
-  date            DateTime         @db.Date
-  status          AttendanceStatus
-  submitted_by    String           @db.Uuid
-  submitted_at    DateTime         @default(now())
-  last_edited_by  String?          @db.Uuid
-  last_edited_at  DateTime?
-  created_at      DateTime         @default(now())
-  updated_at      DateTime         @updatedAt
-
-  school          School           @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  teacher         Teacher          @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
-  submittedBy     User             @relation("TeacherAttendanceSubmittedBy", fields: [submitted_by], references: [id])
-  lastEditedBy    User?            @relation("TeacherAttendanceLastEditedBy", fields: [last_edited_by], references: [id])
-
-  @@unique([school_id, teacher_id, date])
-  @@index([school_id, date])
-  @@index([teacher_id, date])
+enum PaymentMethod {
+  CASH
+  UPI_OFFLINE
+  BANK_TRANSFER
+  CHEQUE
+  UPI_ONLINE
+  CARD
+  NETBANKING
+  WALLET
+  OTHER
 }
 
-model SchoolCalendar {
-  id          String   @id @default(uuid()) @db.Uuid
-  school_id   String   @db.Uuid
-  date        DateTime @db.Date
-  type        DayType
-  reason      String?
-  created_by  String   @db.Uuid
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-
-  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  createdBy   User     @relation("CalendarCreatedBy", fields: [created_by], references: [id])
-
-  @@unique([school_id, date])
-  @@index([school_id, date])
+enum QuestionType {
+  MCQ
+  FILL_BLANK
+  ONE_WORD
 }
 
-model Notification {
-  id              String               @id @default(uuid()) @db.Uuid
-  school_id       String               @db.Uuid
-  // Nullable so notifications survive when their creator's account is deleted (SetNull)
-  created_by      String?              @db.Uuid
-  title           String
-  message         String
-  target_audience NotificationAudience @default(ALL)
-  target_class    String?
-  target_section  String?
-  created_at      DateTime             @default(now())
-  updated_at      DateTime             @updatedAt
-
-  school          School               @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  creator         User?                @relation("NotificationCreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
-  reads           NotificationRead[]
-
-  @@index([school_id, created_at(sort: Desc)])
+enum QuizStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
 }
 
-model NotificationRead {
-  id              String       @id @default(uuid()) @db.Uuid
-  notification_id String       @db.Uuid
-  user_id         String       @db.Uuid
-  read_at         DateTime     @default(now())
-
-  notification    Notification @relation(fields: [notification_id], references: [id], onDelete: Cascade)
-  user            User         @relation("NotificationReadBy", fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@unique([notification_id, user_id])
-  @@index([user_id])
+enum SubjectGroup {
+  SCIENCE
+  MATHEMATICS
+  SOCIAL_SCIENCE
+  LANGUAGES
+  COMPUTER_SCIENCE
+  COMMERCE
+  ARTS
+  GENERAL_KNOWLEDGE
 }
 
-model Period {
-  id          String      @id @default(uuid()) @db.Uuid
-  school_id   String      @db.Uuid
-  label       String
-  start_time  String
-  end_time    String
-  is_break    Boolean     @default(false)
-  order       Int
-  created_at  DateTime    @default(now())
-  updated_at  DateTime    @updatedAt
-
-  school      School      @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  timetables  Timetable[]
-
-  @@index([school_id, order])
+enum SchoolPaymentMode {
+  FULL_MANUAL
+  FULL_ONLINE
+  HYBRID
 }
 
-model Timetable {
-  id          String     @id @default(uuid()) @db.Uuid
-  school_id   String     @db.Uuid
-  period_id   String     @db.Uuid
-  day_of_week DayOfWeek
-  teacher_id  String     @db.Uuid
-  subject     String
-  class       String
-  section     String
-  created_at  DateTime   @default(now())
-  updated_at  DateTime   @updatedAt
+enum TransactionStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
 
-  school      School     @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  period      Period     @relation(fields: [period_id], references: [id], onDelete: Cascade)
-  teacher     Teacher    @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
-
-  @@unique([school_id, period_id, day_of_week, teacher_id])
-  @@unique([school_id, period_id, day_of_week, class, section])
-  @@index([school_id, day_of_week])
-  @@index([teacher_id])
+enum WaiverType {
+  PERCENT
+  AMOUNT
 }

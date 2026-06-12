@@ -57,3 +57,18 @@ export type TeacherSelfStats = {
   lateDays: number
   attendanceRate: number
 }
+
+// ─── Admin: per-teacher totals across the session (History view) ─────────────
+
+export type TeacherSchoolStat = {
+  teacherId: string
+  userId: string
+  name: string
+  employeeId: string
+  profilePicture: string | null
+  totalWorkingDays: number
+  totalPresent: number
+  totalAbsent: number
+  totalLate: number
+  attendanceRate: number
+}

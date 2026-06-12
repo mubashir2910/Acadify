@@ -26,7 +26,7 @@ export default function ClassSummaryTable({
         cellRenderer: (params: { data: ClassAttendanceSummary }) => (
           <button
             onClick={() => onClassClick(params.data.class, params.data.section)}
-            className="text-blue-600 hover:underline font-medium"
+            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
           >
             {params.data.className}
           </button>
@@ -45,7 +45,7 @@ export default function ClassSummaryTable({
         field: "totalPresent",
         width: 90,
         cellRenderer: (params: { value: number }) => (
-          <span className="text-green-700 font-medium">{params.value}</span>
+          <span className="text-green-700 dark:text-green-400 font-medium">{params.value}</span>
         ),
       },
       {
@@ -53,7 +53,7 @@ export default function ClassSummaryTable({
         field: "totalAbsent",
         width: 90,
         cellRenderer: (params: { value: number }) => (
-          <span className="text-red-600 font-medium">{params.value}</span>
+          <span className="text-red-600 dark:text-red-400 font-medium">{params.value}</span>
         ),
       },
       {
@@ -61,7 +61,7 @@ export default function ClassSummaryTable({
         field: "totalLate",
         width: 70,
         cellRenderer: (params: { value: number }) => (
-          <span className="text-amber-600 font-medium">{params.value}</span>
+          <span className="text-amber-600 dark:text-amber-400 font-medium">{params.value}</span>
         ),
       },
       {

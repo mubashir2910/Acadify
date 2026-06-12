@@ -1,10 +1,11 @@
 import { HeroHeader } from '@/components/header'
 import BookDemo from '@/components/book-demo'
 import Footer from '@/components/footer'
+import { ForceLight } from '@/components/force-theme'
 
 export default function TermsOfServicePage() {
     return (
-        <>
+        <ForceLight>
             <BookDemo />
             <HeroHeader />
             <main className="relative min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 pt-24 pb-24">
@@ -204,6 +205,6 @@ export default function TermsOfServicePage() {
 
             </main>
             <Footer />
-        </>
+        </ForceLight>
     )
 }

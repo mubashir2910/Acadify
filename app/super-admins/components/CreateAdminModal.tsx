@@ -119,8 +119,13 @@ export default function CreateAdminModal({ school, onClose }: CreateAdminModalPr
               >
                 Cancel
               </Button>
-              <Button type="submit" size="sm" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Admin"}
+              <Button
+                type="submit"
+                size="sm"
+                loading={isSubmitting}
+                loadingText="Creating..."
+              >
+                Create Admin
               </Button>
             </div>
           </form>
@@ -129,20 +134,20 @@ export default function CreateAdminModal({ school, onClose }: CreateAdminModalPr
         {/* Success view */}
         {view === "success" && createdCredentials && (
           <div className="space-y-4">
-            <div className="rounded-md bg-green-50 border border-green-200 p-4 space-y-3">
-              <p className="text-sm font-semibold text-green-800">
+            <div className="rounded-md bg-green-500/10 border border-green-200 p-4 space-y-3">
+              <p className="text-sm font-semibold text-green-700 dark:text-green-400">
                 Admin account created successfully!
               </p>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground w-28 shrink-0">Username</span>
-                  <code className="font-mono bg-white border border-green-200 rounded px-2 py-0.5 text-green-900 select-all">
+                  <code className="font-mono bg-card border border-green-200 rounded px-2 py-0.5 text-green-900 select-all">
                     {createdCredentials.username}
                   </code>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground w-28 shrink-0">Temp Password</span>
-                  <code className="font-mono bg-white border border-green-200 rounded px-2 py-0.5 text-green-900 select-all">
+                  <code className="font-mono bg-card border border-green-200 rounded px-2 py-0.5 text-green-900 select-all">
                     {createdCredentials.tempPassword}
                   </code>
                 </div>

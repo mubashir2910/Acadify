@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Poppins, Libre_Baskerville, Geist_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
 import Script from "next/script";
 import "./globals.css";
 
@@ -142,7 +143,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="light">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <Script
           id="json-ld"
@@ -155,12 +156,19 @@ export default function RootLayout({
         className={`${poppins.variable} ${libreBaskerville.variable} ${geistMono.variable} antialiased`}
         style={{ fontFamily: "var(--font-poppins), Poppins, sans-serif" }}
       >
-        <SessionProvider>
-          <TooltipProvider>
-            {children}
-          </TooltipProvider>
-          <Toaster richColors position="top-right" />
-        </SessionProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SessionProvider>
+            <TooltipProvider>
+              {children}
+            </TooltipProvider>
+            <Toaster />
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

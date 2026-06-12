@@ -67,7 +67,7 @@ export function LoginForm({ className }: { className?: string }) {
       onSubmit={handleSubmit(onSubmit)}
     >
       <div className="flex flex-col items-center gap-1 text-center">
-        <h1 className="text-2xl font-bold">Welcome back</h1>
+        <h1 className="text-2xl font-bold">Welcome back ! </h1>
         <p className="text-sm text-muted-foreground">
           Sign in to your Acadify account
         </p>
@@ -116,8 +116,13 @@ export function LoginForm({ className }: { className?: string }) {
           <p className="text-sm text-destructive text-center">{serverError}</p>
         )}
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Signing in..." : "Sign in"}
+        <Button
+          type="submit"
+          className="w-full"
+          loading={isSubmitting}
+          loadingText="Signing in..."
+        >
+          Sign in
         </Button>
       </div>
     </form>

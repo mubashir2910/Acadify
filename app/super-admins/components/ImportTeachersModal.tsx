@@ -169,7 +169,7 @@ export default function ImportTeachersModal({
           <div className="mt-2 border rounded-md overflow-hidden">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b">
+                <tr className="bg-muted/50 border-b">
                   <th className="text-left px-3 py-1.5 font-medium">Column</th>
                   <th className="text-center px-3 py-1.5 font-medium w-20">Required</th>
                   <th className="text-left px-3 py-1.5 font-medium">Notes</th>
@@ -181,9 +181,9 @@ export default function ImportTeachersModal({
                     <td className="px-3 py-1.5 font-mono">{f.name}</td>
                     <td className="px-3 py-1.5 text-center">
                       {f.required ? (
-                        <span className="text-green-600 font-semibold">Yes</span>
+                        <span className="text-green-600 dark:text-green-400 font-semibold">Yes</span>
                       ) : (
-                        <span className="text-slate-400">No</span>
+                        <span className="text-muted-foreground">No</span>
                       )}
                     </td>
                     <td className="px-3 py-1.5 text-muted-foreground">{f.note ?? ""}</td>
@@ -196,18 +196,18 @@ export default function ImportTeachersModal({
 
         {/* Result: success */}
         {importState.phase === "success" && (
-          <div className="rounded-md bg-green-50 border border-green-200 p-4 text-sm space-y-1">
-            <p className="font-semibold text-green-800">Import successful!</p>
-            <p className="text-green-700">
+          <div className="rounded-md bg-green-500/10 border border-green-500/30 p-4 text-sm space-y-1">
+            <p className="font-semibold text-green-700 dark:text-green-400">Import successful!</p>
+            <p className="text-green-700 dark:text-green-400">
               Total rows: {importState.summary.total}
             </p>
-            <p className="text-green-700">
+            <p className="text-green-700 dark:text-green-400">
               Imported: {importState.summary.imported}
             </p>
-            <p className="text-green-700">
+            <p className="text-green-700 dark:text-green-400">
               Failed: {importState.summary.failed}
             </p>
-            <p className="text-green-600 text-xs mt-1">
+            <p className="text-green-600 dark:text-green-400 text-xs mt-1">
               Credentials PDF has been downloaded automatically.
             </p>
           </div>
@@ -215,21 +215,21 @@ export default function ImportTeachersModal({
 
         {/* Result: error */}
         {importState.phase === "error" && (
-          <div className="rounded-md bg-red-50 border border-red-200 p-4 text-sm space-y-2">
+          <div className="rounded-md bg-destructive/10 border border-destructive/30 p-4 text-sm space-y-2">
             <div className="flex items-center justify-between">
-              <p className="font-semibold text-red-800">Import failed</p>
-              <span className="text-xs text-red-600">
+              <p className="font-semibold text-destructive">Import failed</p>
+              <span className="text-xs text-destructive">
                 {importState.errors.length} error(s)
               </span>
             </div>
             <ul className="list-disc list-inside space-y-0.5 max-h-40 overflow-y-auto">
               {importState.errors.map((err, i) => (
-                <li key={i} className="text-red-700 text-xs">
+                <li key={i} className="text-destructive text-xs">
                   {err}
                 </li>
               ))}
             </ul>
-            <p className="text-xs text-red-500">
+            <p className="text-xs text-destructive/80">
               Please fix the errors and try again.
             </p>
           </div>
@@ -252,9 +252,11 @@ export default function ImportTeachersModal({
             <Button
               size="sm"
               onClick={handleImport}
-              disabled={!selectedFile || isUploading}
+              disabled={!selectedFile}
+              loading={isUploading}
+              loadingText="Importing..."
             >
-              {isUploading ? "Importing..." : "Import"}
+              Import
             </Button>
           </div>
         </div>

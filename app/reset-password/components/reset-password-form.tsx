@@ -119,8 +119,13 @@ export function ResetPasswordForm() {
           <p className="text-sm text-destructive text-center">{serverError}</p>
         )}
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : "Set Password"}
+        <Button
+          type="submit"
+          className="w-full"
+          loading={isSubmitting}
+          loadingText="Saving..."
+        >
+          Set Password
         </Button>
       </div>
     </form>

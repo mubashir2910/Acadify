@@ -18,10 +18,21 @@ interface AvailableTeacher {
   user: { name: string }
 }
 
+interface AvailableAdmin {
+  userId: string
+  name: string
+}
+
 interface ClassSection {
   class: string
   section: string
 }
+
+// Discriminated picker option so we can label admins and route to the right
+// API field (teacherId vs adminUserId).
+type AssigneeOption =
+  | { kind: "teacher"; id: string; label: string }
+  | { kind: "admin"; userId: string; label: string }
 
 interface AssignModalProps {
   onClose: () => void
@@ -29,10 +40,10 @@ interface AssignModalProps {
 }
 
 export default function AssignModal({ onClose, onSuccess }: AssignModalProps) {
-  const [teachers, setTeachers] = useState<AvailableTeacher[]>([])
+  const [options, setOptions] = useState<AssigneeOption[]>([])
   const [classes, setClasses] = useState<ClassSection[]>([])
   const [selectedClass, setSelectedClass] = useState("")
-  const [selectedTeacherId, setSelectedTeacherId] = useState("")
+  const [selectedAssignee, setSelectedAssignee] = useState("") // "teacher:<id>" or "admin:<userId>"
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [loadingData, setLoadingData] = useState(true)
@@ -42,11 +53,31 @@ export default function AssignModal({ onClose, onSuccess }: AssignModalProps) {
     const { signal } = controller
 
     Promise.all([
-      fetch("/api/class-teachers/available-teachers", { signal }).then((r) => r.json()),
-      fetch("/api/class-teachers/available-classes", { signal }).then((r) => r.json()),
+      fetch("/api/class-teachers/available-teachers", { signal }).then((r) =>
+        r.json(),
+      ),
+      fetch("/api/class-teachers/available-admins", { signal }).then((r) =>
+        r.json(),
+      ),
+      fetch("/api/class-teachers/available-classes", { signal }).then((r) =>
+        r.json(),
+      ),
     ])
-      .then(([t, c]) => {
-        setTeachers(t)
+      .then(([t, a, c]) => {
+        const teacherOpts: AssigneeOption[] = (t as AvailableTeacher[]).map(
+          (x) => ({
+            kind: "teacher",
+            id: x.id,
+            label: `${x.user.name} (${x.employee_id})`,
+          }),
+        )
+        const adminOpts: AssigneeOption[] = (a as AvailableAdmin[]).map((x) => ({
+          kind: "admin",
+          userId: x.userId,
+          label: `${x.name} (Admin)`,
+        }))
+        // Teachers first, then admins — least surprising default
+        setOptions([...teacherOpts, ...adminOpts])
         setClasses(c)
         setLoadingData(false)
       })
@@ -60,21 +91,22 @@ export default function AssignModal({ onClose, onSuccess }: AssignModalProps) {
   }, [])
 
   async function handleSubmit() {
-    if (!selectedClass || !selectedTeacherId) return
+    if (!selectedClass || !selectedAssignee) return
     setSubmitting(true)
     setServerError(null)
 
     const [cls, sec] = selectedClass.split("|")
+    const [kind, id] = selectedAssignee.split(":")
+    const body =
+      kind === "admin"
+        ? { adminUserId: id, class: cls, section: sec }
+        : { teacherId: id, class: cls, section: sec }
 
     try {
       const res = await fetch("/api/class-teachers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          teacherId: selectedTeacherId,
-          class: cls,
-          section: sec,
-        }),
+        body: JSON.stringify(body),
       })
 
       if (!res.ok) {
@@ -141,27 +173,33 @@ export default function AssignModal({ onClose, onSuccess }: AssignModalProps) {
               )}
             </div>
 
-            {/* Teacher dropdown */}
+            {/* Assignee dropdown (teachers + admins) */}
             <div className="space-y-1.5">
-              <Label>Teacher</Label>
+              <Label>Class Teacher</Label>
               <Select
-                value={selectedTeacherId}
-                onValueChange={setSelectedTeacherId}
+                value={selectedAssignee}
+                onValueChange={setSelectedAssignee}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select teacher" />
+                  <SelectValue placeholder="Select teacher or admin" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teachers.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.user.name} ({t.employee_id})
-                    </SelectItem>
-                  ))}
+                  {options.map((opt) => {
+                    const value =
+                      opt.kind === "teacher"
+                        ? `teacher:${opt.id}`
+                        : `admin:${opt.userId}`
+                    return (
+                      <SelectItem key={value} value={value}>
+                        {opt.label}
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
-              {teachers.length === 0 && (
+              {options.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  All teachers are already assigned as class teachers.
+                  No teachers or admins available to assign.
                 </p>
               )}
             </div>
@@ -182,18 +220,11 @@ export default function AssignModal({ onClose, onSuccess }: AssignModalProps) {
               <Button
                 size="sm"
                 onClick={handleSubmit}
-                disabled={
-                  submitting || !selectedClass || !selectedTeacherId
-                }
+                disabled={!selectedClass || !selectedAssignee}
+                loading={submitting}
+                loadingText="Assigning..."
               >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                    Assigning...
-                  </>
-                ) : (
-                  "Assign"
-                )}
+                Assign
               </Button>
             </div>
           </div>

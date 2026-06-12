@@ -133,6 +133,6 @@ export const config = {
   // rate limit guard above can intercept POST requests to those paths.
   // Static assets and image files are still excluded.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|otf)).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|mp4|webm|ogg|mov|woff2?|ttf|otf)).*)",
   ],
 }

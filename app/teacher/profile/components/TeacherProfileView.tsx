@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
@@ -8,7 +9,7 @@ import {
   type TeacherProfileUpdateInput,
   BLOOD_GROUPS,
 } from "@/schemas/profile.schema"
-import { Pencil, X, Lock, Loader2, Eye, EyeOff } from "lucide-react"
+import { Pencil, X, Lock, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -23,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { FieldError } from "@/components/ui/field-error"
 import { ProfilePictureUploader } from "@/components/forms/profile-picture-uploader"
 import { maskAadhaar } from "@/lib/aadhaar"
+import { getTodayISTString } from "@/lib/working-days"
 
 interface TeacherProfile {
   id: string
@@ -52,6 +54,7 @@ function formatDate(val: string | null) {
 }
 
 export function TeacherProfileView() {
+  const router = useRouter()
   const [profile, setProfile] = useState<TeacherProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -120,6 +123,7 @@ export function TeacherProfileView() {
 
       setEditing(false)
       await fetchProfile()
+      router.refresh()
     } catch {
       setServerError("Network error — please try again")
     } finally {
@@ -145,7 +149,7 @@ export function TeacherProfileView() {
   return (
     <div className="space-y-6">
       {/* Header Card */}
-      <div className="bg-white rounded-xl border shadow-sm p-6">
+      <div className="bg-card rounded-xl border shadow-sm p-6">
         <div className="flex items-center gap-5">
           {editing ? (
             <ProfilePictureUploader
@@ -154,7 +158,7 @@ export function TeacherProfileView() {
               onUpload={(url) => setValue("profile_picture", url)}
             />
           ) : (
-            <div className="h-20 w-20 rounded-full overflow-hidden bg-[#1e2a4a] flex items-center justify-center text-white text-xl font-semibold shrink-0">
+            <div className="h-20 w-20 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-foreground text-xl font-semibold shrink-0">
               {profile.profile_picture ? (
                 <img
                   src={profile.profile_picture}
@@ -172,7 +176,7 @@ export function TeacherProfileView() {
             </div>
           )}
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">
+            <h2 className="text-xl font-semibold text-foreground">
               {profile.name}
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -186,9 +190,9 @@ export function TeacherProfileView() {
       </div>
 
       {/* Personal Information */}
-      <div className="bg-white rounded-xl border shadow-sm p-6">
+      <div className="bg-card rounded-xl border shadow-sm p-6">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-semibold text-slate-900">
+          <h3 className="text-base font-semibold text-foreground">
             Personal Information
           </h3>
           {!editing ? (
@@ -249,8 +253,10 @@ export function TeacherProfileView() {
                 <Input
                   id="date_of_birth"
                   type="date"
+                  max={getTodayISTString()}
                   {...register("date_of_birth")}
                 />
+                <FieldError message={errors.date_of_birth?.message} />
               </div>
             </div>
 
@@ -258,15 +264,8 @@ export function TeacherProfileView() {
               <p className="text-sm text-destructive">{serverError}</p>
             )}
 
-            <Button type="submit" disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save Changes"
-              )}
+            <Button type="submit" loading={saving} loadingText="Saving...">
+              Save Changes
             </Button>
           </form>
         ) : (
@@ -276,7 +275,7 @@ export function TeacherProfileView() {
             <div>
               <p className="text-xs text-muted-foreground mb-0.5">Aadhaar Number</p>
               <div className="flex items-center gap-1.5">
-                <p className="font-medium text-slate-800">
+                <p className="font-medium text-foreground">
                   {showAadhaar
                     ? (profile.aadhaar_number ?? "—")
                     : maskAadhaar(profile.aadhaar_number)}
@@ -285,7 +284,7 @@ export function TeacherProfileView() {
                   <button
                     type="button"
                     onClick={() => setShowAadhaar((prev) => !prev)}
-                    className="text-muted-foreground hover:text-slate-700 transition-colors"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
                     aria-label={showAadhaar ? "Hide Aadhaar" : "Show Aadhaar"}
                   >
                     {showAadhaar
@@ -301,9 +300,9 @@ export function TeacherProfileView() {
       </div>
 
       {/* Employment Information (read-only) */}
-      <div className="bg-white rounded-xl border shadow-sm p-6">
+      <div className="bg-card rounded-xl border shadow-sm p-6">
         <div className="flex items-center gap-2 mb-5">
-          <h3 className="text-base font-semibold text-slate-900">
+          <h3 className="text-base font-semibold text-foreground">
             Employment Information
           </h3>
           <Lock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -331,7 +330,7 @@ function InfoField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-      <p className="font-medium text-slate-800">{value}</p>
+      <p className="font-medium text-foreground">{value}</p>
     </div>
   )
 }

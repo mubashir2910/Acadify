@@ -49,7 +49,7 @@ export default function TeacherAttendanceRadialChart({ summary, isSubmitted }: T
   ]
 
   return (
-    <Card className="border-0 shadow-none bg-slate-50">
+    <Card className="border-0 shadow-none bg-muted/50">
       <CardHeader className="pb-0 pt-4 px-4">
         <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           Today&apos;s Attendance Breakdown
@@ -81,7 +81,7 @@ export default function TeacherAttendanceRadialChart({ summary, isSubmitted }: T
           </ResponsiveContainer>
           {/* Center label */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-2xl font-bold text-slate-800">{attendanceRate}%</span>
+            <span className="text-2xl font-bold text-foreground">{attendanceRate}%</span>
             <span className="text-xs text-muted-foreground">rate</span>
           </div>
         </div>

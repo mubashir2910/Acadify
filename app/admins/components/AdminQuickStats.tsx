@@ -11,23 +11,23 @@ interface AdminQuickStatsProps {
 export default function AdminQuickStats({ totalStudents, attendanceRate }: AdminQuickStatsProps) {
   return (
     <div className="grid grid-cols-2 gap-3">
-      <Card className="bg-slate-50 border-0 shadow-none">
+      <Card className="bg-muted/50 border-0 shadow-none">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Users className="h-4 w-4 text-slate-600" />
+            <Users className="h-4 w-4 text-muted-foreground" />
             <span className="text-xs font-medium text-muted-foreground">Total Students</span>
           </div>
-          <p className="text-2xl font-bold text-slate-700">{totalStudents}</p>
+          <p className="text-2xl font-bold text-foreground">{totalStudents}</p>
         </CardContent>
       </Card>
 
-      <Card className="bg-blue-50 border-0 shadow-none">
+      <Card className="bg-accent border-0 shadow-none">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Percent className="h-4 w-4 text-blue-600" />
+            <Percent className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <span className="text-xs font-medium text-muted-foreground">Today&apos;s Attendance Rate</span>
           </div>
-          <p className="text-2xl font-bold text-blue-700">{attendanceRate}%</p>
+          <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{attendanceRate}%</p>
         </CardContent>
       </Card>
     </div>

@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { NotificationItem } from "@/schemas/notifications.schema"
 import { formatDistanceToNow } from "date-fns"
+import { Paperclip } from "lucide-react"
 import { audienceLabel } from "./utils"
 
 interface NotificationCardProps {
@@ -17,7 +18,7 @@ export function NotificationCard({ notification, onClick }: NotificationCardProp
   return (
     <Card
       onClick={onClick}
-      className={`cursor-pointer transition-colors hover:bg-slate-50 ${
+      className={`cursor-pointer transition-colors hover:bg-muted/50 ${
         !notification.is_read ? "border-l-4 border-l-blue-500" : ""
       }`}
     >
@@ -26,12 +27,12 @@ export function NotificationCard({ notification, onClick }: NotificationCardProp
           <div className="min-w-0 flex-1">
             <p
               className={`text-sm leading-snug ${
-                !notification.is_read ? "font-semibold text-slate-900" : "font-medium text-slate-700"
+                !notification.is_read ? "font-semibold text-foreground" : "font-medium text-foreground"
               }`}
             >
               {notification.title}
             </p>
-            <p className="mt-0.5 text-xs text-slate-500 line-clamp-2">
+            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
               {notification.message}
             </p>
           </div>
@@ -48,9 +49,12 @@ export function NotificationCard({ notification, onClick }: NotificationCardProp
               notification.target_section
             )}
           </Badge>
-          <span className="text-[11px] text-slate-400">
+          <span className="text-[11px] text-muted-foreground">
             {notification.created_by_name ?? "Deleted User"} · {relativeTime}
           </span>
+          {notification.attachment_url && (
+            <Paperclip className="h-3 w-3 text-muted-foreground" aria-label="Has attachment" />
+          )}
         </div>
       </CardContent>
     </Card>

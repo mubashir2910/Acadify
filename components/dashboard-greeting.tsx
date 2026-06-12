@@ -1,5 +1,7 @@
 "use client"
 
+import { NotificationBell } from "@/components/notifications/NotificationBell"
+
 interface DashboardGreetingProps {
   name: string
   subtitle: string
@@ -22,9 +24,12 @@ export function DashboardGreeting({ name, subtitle }: DashboardGreetingProps) {
                               "Good Night"
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-900">{greeting}, {name}!</h1>
-      <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">{greeting}, {name}!</h1>
+        <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+      </div>
+      <NotificationBell />
     </div>
   )
 }

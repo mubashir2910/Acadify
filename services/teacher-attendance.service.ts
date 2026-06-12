@@ -7,6 +7,7 @@ import type {
   TeacherAttendanceRecord,
   TeacherAttendanceSummaryStats,
   TeacherSelfStats,
+  TeacherSchoolStat,
 } from "@/schemas/teacher-attendance.schema"
 
 export { getAdminSchoolId }
@@ -30,7 +31,13 @@ export async function getAdminTeachers(
   const date = new Date(dateStr + "T00:00:00.000Z")
 
   const teachers = await prisma.teacher.findMany({
-    where: { school_id: schoolId, status: "ACTIVE" },
+    where: {
+      school_id: schoolId,
+      status: "ACTIVE",
+      // Exclude admin-Teacher rows so the Staff Attendance marking list shows
+      // only actual teachers — admins are managed separately.
+      user: { role: "TEACHER" },
+    },
     select: {
       id: true,
       employee_id: true,
@@ -124,11 +131,13 @@ export async function submitTeacherAttendance(
     throw new Error("BEFORE_SESSION_START")
   }
 
-  // Verify all teacher IDs belong to this school and are active
+  // Verify all teacher IDs belong to this school and are active. Excludes
+  // admin-Teacher rows so admins don't get marked as staff-attendance entities.
   const validTeachers = await prisma.teacher.findMany({
     where: {
       school_id: schoolId,
       status: "ACTIVE",
+      user: { role: "TEACHER" },
       id: { in: records.map((r) => r.teacherId) },
     },
     select: { id: true },
@@ -332,4 +341,103 @@ export async function getTeacherSelfMonthly(
     date: r.date.toISOString().split("T")[0],
     status: r.status,
   }))
+}
+
+// ─── Admin: per-teacher totals for the History view ─────────────────
+// Mirrors getClassStudentStats for the staff side. Returns one row per active
+// teacher in the school with their session-wide attendance breakdown plus
+// the working-day denominator used to compute the rate.
+export async function getSchoolTeacherStats(
+  schoolId: string,
+): Promise<{ sessionStartedOn: string | null; stats: TeacherSchoolStat[] }> {
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { session_started_on: true },
+  })
+
+  const sessionStart = school?.session_started_on ?? null
+  const today = getNowIST()
+  today.setUTCHours(0, 0, 0, 0)
+
+  let totalWorkingDays = 0
+  if (sessionStart) {
+    const { holidays, workingWeekends } = await getSchoolHolidaysInRange(
+      schoolId,
+      sessionStart,
+      today,
+    )
+    totalWorkingDays = countWorkingDays(sessionStart, today, holidays, workingWeekends)
+  }
+
+  const teachers = await prisma.teacher.findMany({
+    where: {
+      school_id: schoolId,
+      status: "ACTIVE",
+      // Staff Insights = teachers only. Admin-Teacher rows are excluded so
+      // teaching admins don't appear in the staff attendance roll-up.
+      user: { role: "TEACHER" },
+    },
+    select: {
+      id: true,
+      employee_id: true,
+      user: {
+        select: { id: true, name: true, profile_picture: true },
+      },
+    },
+    orderBy: { employee_id: "asc" },
+  })
+
+  if (teachers.length === 0) {
+    return {
+      sessionStartedOn: sessionStart?.toISOString().split("T")[0] ?? null,
+      stats: [],
+    }
+  }
+
+  const counts = await prisma.teacherAttendance.groupBy({
+    by: ["teacher_id", "status"],
+    where: {
+      school_id: schoolId,
+      teacher_id: { in: teachers.map((t) => t.id) },
+      ...(sessionStart ? { date: { gte: sessionStart } } : {}),
+    },
+    _count: { status: true },
+  })
+
+  const countMap = new Map<string, { present: number; absent: number; late: number }>()
+  for (const c of counts) {
+    if (!countMap.has(c.teacher_id)) {
+      countMap.set(c.teacher_id, { present: 0, absent: 0, late: 0 })
+    }
+    const entry = countMap.get(c.teacher_id)!
+    if (c.status === "PRESENT") entry.present = c._count.status
+    else if (c.status === "ABSENT") entry.absent = c._count.status
+    else if (c.status === "LATE") entry.late = c._count.status
+  }
+
+  const stats: TeacherSchoolStat[] = teachers.map((t) => {
+    const c = countMap.get(t.id) ?? { present: 0, absent: 0, late: 0 }
+    const attended = c.present + c.late
+    const rate = totalWorkingDays > 0
+      ? Math.round((attended / totalWorkingDays) * 100 * 10) / 10
+      : 0
+
+    return {
+      teacherId: t.id,
+      userId: t.user.id,
+      name: t.user.name,
+      employeeId: t.employee_id,
+      profilePicture: t.user.profile_picture,
+      totalWorkingDays,
+      totalPresent: c.present,
+      totalAbsent: c.absent,
+      totalLate: c.late,
+      attendanceRate: rate,
+    }
+  })
+
+  return {
+    sessionStartedOn: sessionStart?.toISOString().split("T")[0] ?? null,
+    stats,
+  }
 }

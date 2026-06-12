@@ -101,6 +101,7 @@ export interface ClassStudentStat {
   name: string
   rollNo: string
   profilePicture: string | null
+  totalWorkingDays: number
   totalPresent: number
   totalAbsent: number
   totalLate: number

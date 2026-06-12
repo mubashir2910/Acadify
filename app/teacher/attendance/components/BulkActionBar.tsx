@@ -1,43 +1,40 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
 import { Check, X, Clock } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type { AttendanceStatus } from "@/schemas/attendance.schema"
 
 interface BulkActionBarProps {
   onMarkAll: (status: AttendanceStatus) => void
 }
 
+// Pill-style "Mark all" bar — kept visually identical to the admin's teacher
+// attendance form (TeacherAttendanceForm) so the marking experience feels the
+// same whether you're marking students or staff.
 export default function BulkActionBar({ onMarkAll }: BulkActionBarProps) {
   return (
-    <div className="flex flex-wrap gap-2 sticky top-0 z-10 bg-slate-50 py-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onMarkAll("PRESENT")}
-        className="gap-1.5 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
-      >
-        <Check className="h-3.5 w-3.5" />
-        All Present
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onMarkAll("ABSENT")}
-        className="gap-1.5 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-      >
-        <X className="h-3.5 w-3.5" />
-        All Absent
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onMarkAll("LATE")}
-        className="gap-1.5 border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
-      >
-        <Clock className="h-3.5 w-3.5" />
-        All Late
-      </Button>
+    <div className="flex items-center gap-2 rounded-xl bg-muted/50 border p-3">
+      <span className="text-xs font-medium text-muted-foreground mr-1">
+        Mark all:
+      </span>
+      {(["PRESENT", "ABSENT", "LATE"] as const).map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onMarkAll(s)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+            s === "PRESENT" && "bg-green-500/15 text-green-700 dark:text-green-400 hover:bg-green-500/25",
+            s === "ABSENT" && "bg-red-500/15 text-red-700 dark:text-red-400 hover:bg-red-500/25",
+            s === "LATE" && "bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25",
+          )}
+        >
+          {s === "PRESENT" && <Check className="h-3 w-3" />}
+          {s === "ABSENT" && <X className="h-3 w-3" />}
+          {s === "LATE" && <Clock className="h-3 w-3" />}
+          {s === "PRESENT" ? "Present" : s === "ABSENT" ? "Absent" : "Late"}
+        </button>
+      ))}
     </div>
   )
 }

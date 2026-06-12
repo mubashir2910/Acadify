@@ -27,7 +27,7 @@ export function ProfilePicCell<T extends RowWithUser>(params: ICellRendererParam
 
   return (
     <div className="flex items-center justify-center h-full">
-      <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-xs font-medium">
+      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium">
         {name.charAt(0).toUpperCase()}
       </div>
     </div>

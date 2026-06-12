@@ -2,29 +2,50 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { PeriodRow } from "@/schemas/timetable.schema"
 
-interface PeriodFormModalProps {
-  mode: "create" | "edit"
-  period?: PeriodRow
-  lastPeriodEndTime?: string
-  defaultOrder?: number
-  onClose: () => void
-  onSuccess: () => void
-}
+/**
+ * Discriminated props — `groupId` is required for creates, ignored for edits.
+ * The compiler refuses creates that omit a group, which closes the runtime
+ * footgun where the API would 422 with an unhelpful "group_id required".
+ */
+type PeriodFormModalProps =
+  | {
+      mode: "create"
+      groupId: string
+      period?: never
+      lastPeriodEndTime?: string
+      defaultOrder: number
+      onClose: () => void
+      onSuccess: () => void
+    }
+  | {
+      mode: "edit"
+      groupId?: never
+      period: PeriodRow
+      lastPeriodEndTime?: never
+      defaultOrder?: never
+      onClose: () => void
+      onSuccess: () => void
+    }
 
-export default function PeriodFormModal({
-  mode,
-  period,
-  lastPeriodEndTime,
-  defaultOrder = 1,
-  onClose,
-  onSuccess,
-}: PeriodFormModalProps) {
+export default function PeriodFormModal(props: PeriodFormModalProps) {
+  const { mode, onClose, onSuccess } = props
+  const period = mode === "edit" ? props.period : undefined
+  const groupId = mode === "create" ? props.groupId : undefined
+  const lastPeriodEndTime = mode === "create" ? props.lastPeriodEndTime : undefined
+  const defaultOrder = mode === "create" ? props.defaultOrder : 1
+
   const [label, setLabel] = useState(period?.label ?? "")
   const [startTime, setStartTime] = useState(period?.start_time ?? "")
   const [endTime, setEndTime] = useState(period?.end_time ?? "")
@@ -48,8 +69,20 @@ export default function PeriodFormModal({
       const method = mode === "create" ? "POST" : "PATCH"
       const body =
         mode === "create"
-          ? { label: label.trim(), start_time: startTime, end_time: endTime, is_break: isBreak, order: defaultOrder }
-          : { label: label.trim(), start_time: startTime, end_time: endTime, is_break: isBreak }
+          ? {
+              group_id: groupId,
+              label: label.trim(),
+              start_time: startTime,
+              end_time: endTime,
+              is_break: isBreak,
+              order: defaultOrder,
+            }
+          : {
+              label: label.trim(),
+              start_time: startTime,
+              end_time: endTime,
+              is_break: isBreak,
+            }
 
       const res = await fetch(url, {
         method,
@@ -72,14 +105,18 @@ export default function PeriodFormModal({
     }
   }
 
-  // Quick duplicate helper: pre-fill start time from the last period's end time
   function fillFromLastPeriod() {
     const t = lastPeriodEndTime ?? period?.end_time
     if (t) setStartTime(t)
   }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Add Period" : "Edit Period"}</DialogTitle>
@@ -121,7 +158,7 @@ export default function PeriodFormModal({
             <button
               type="button"
               onClick={fillFromLastPeriod}
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
             >
               Use last period&apos;s end time as start
             </button>
@@ -146,8 +183,8 @@ export default function PeriodFormModal({
             <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving…" : mode === "create" ? "Add" : "Save"}
+            <Button type="submit" loading={submitting} loadingText="Saving…">
+              {mode === "create" ? "Add" : "Save"}
             </Button>
           </DialogFooter>
         </form>

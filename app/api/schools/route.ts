@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { createSchool, getSchools } from "@/services/school.service"
-import { createSchoolSchema } from "@/schemas/school.schema"
+import { createSchoolApiSchema } from "@/schemas/school.schema"
 import { ZodError } from "zod"
 import { superAdminWriteLimiter, expensiveReadLimiter, checkRateLimit } from "@/lib/rate-limit"
 
@@ -16,12 +16,15 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    const validated = createSchoolSchema.parse(body)
+    const validated = createSchoolApiSchema.parse(body)
     const school = await createSchool(validated)
     return NextResponse.json(school, { status: 201 })
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json({ message: error.issues[0].message }, { status: 422 })
+    }
+    if (error instanceof Error && error.message === "SCHOOL_CODE_EXISTS") {
+      return NextResponse.json({ message: "School code already exists" }, { status: 409 })
     }
     return NextResponse.json({ message: "Failed to create school" }, { status: 500 })
   }

@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DataErrorState } from "@/components/ui/data-error-state"
 import type { PlatformStats } from "@/schemas/school.schema"
 import DashboardStats from "./DashboardStats"
 import SubscriptionInsights from "./SubscriptionInsights"
@@ -12,7 +13,9 @@ export default function DashboardAnalytics() {
     const [stats, setStats] = useState<PlatformStats | null>(null)
     const [error, setError] = useState(false)
 
-    useEffect(() => {
+    const fetchStats = useCallback(() => {
+        setError(false)
+        setStats(null)
         fetch("/api/super-admin/dashboard-stats")
             .then((res) => {
                 if (!res.ok) throw new Error("Failed to load")
@@ -22,11 +25,17 @@ export default function DashboardAnalytics() {
             .catch(() => setError(true))
     }, [])
 
+    useEffect(() => {
+        fetchStats()
+    }, [fetchStats])
+
     if (error) {
         return (
-            <p className="text-sm text-muted-foreground">
-                Could not load platform analytics. Please refresh the page.
-            </p>
+            <DataErrorState
+                title="Couldn't load platform analytics"
+                description="Something went wrong on our side."
+                onRetry={fetchStats}
+            />
         )
     }
 

@@ -81,7 +81,7 @@ export default function EditAttendanceModal({
                 "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
                 status === opt.value
                   ? opt.activeClass
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  : "bg-muted text-muted-foreground hover:bg-muted"
               )}
             >
               {opt.icon}
@@ -97,9 +97,11 @@ export default function EditAttendanceModal({
           <Button
             className="flex-1"
             onClick={handleSave}
-            disabled={!status || saving || status === currentStatus}
+            disabled={!status || status === currentStatus}
+            loading={saving}
+            loadingText="Saving..."
           >
-            {saving ? "Saving..." : "Save"}
+            Save
           </Button>
         </div>
       </DialogContent>
