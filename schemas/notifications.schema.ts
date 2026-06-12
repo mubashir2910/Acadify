@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { cloudinaryUrlSchema } from "@/lib/attachment"
+import { attachmentUrlSchema } from "@/lib/attachment"
 
 export const notificationAudienceEnum = z.enum(["ALL", "STUDENT", "TEACHER"])
 export type NotificationAudience = z.infer<typeof notificationAudienceEnum>
@@ -26,7 +26,7 @@ export const createNotificationSchema = z
     target_class: z.string().min(1).max(50).nullable(),
     target_section: z.string().min(1).max(50).nullable(),
     // Optional single attachment (PDF / image / Office doc)
-    attachmentUrl: cloudinaryUrlSchema.nullable().optional(),
+    attachmentUrl: attachmentUrlSchema.nullable().optional(),
     attachmentType: attachmentTypeEnum.nullable().optional(),
     attachmentName: z.string().max(255).nullable().optional(),
   })

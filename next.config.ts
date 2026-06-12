@@ -5,7 +5,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "res.cloudinary.com",
+        hostname: "acadify.sgp1.cdn.digitaloceanspaces.com",
+      },
+      {
+        protocol: "https",
+        hostname: "acadify.sgp1.digitaloceanspaces.com",
       },
       {
         protocol: "https",

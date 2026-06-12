@@ -4,6 +4,7 @@ import { SessionProvider } from "next-auth/react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Analytics } from "@vercel/analytics/react";
 import Script from "next/script";
 import "./globals.css";
 
@@ -169,6 +170,7 @@ export default function RootLayout({
             <Toaster />
           </SessionProvider>
         </ThemeProvider>
+        <Analytics/>
       </body>
     </html>
   );
