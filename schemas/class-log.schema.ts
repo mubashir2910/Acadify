@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { cloudinaryUrlSchema } from "@/lib/attachment"
+import { attachmentUrlSchema } from "@/lib/attachment"
 
 /**
  * A strict YYYY-MM-DD string that is also a real calendar date.
@@ -28,7 +28,7 @@ export const createClassLogSchema = z
     date: isoDateString(),
     topic: z.string().min(1, "Topic is required").max(200, "Topic must be 200 characters or less"),
     description: z.string().max(1000, "Description must be 1000 characters or less").optional(),
-    attachmentUrl: cloudinaryUrlSchema.optional(),
+    attachmentUrl: attachmentUrlSchema.optional(),
     attachmentType: z.enum(["pdf", "image"]).optional(),
   })
   // An attachment URL and its type must be provided together (or not at all).
