@@ -176,7 +176,7 @@ export function ChapterText({
                 ))}
             </div>
 
-            <h3 className="mt-4 text-2xl font-bold leading-tight text-gray-900 sm:mt-8 sm:text-[1.7rem]">
+            <h3 className="mt-5 text-2xl font-bold leading-tight text-gray-900 sm:mt-8 sm:text-[1.7rem]">
                 {chapter.title}
             </h3>
             <p className={`mt-1 text-base font-semibold ${chapter.accentText}`}>
@@ -190,14 +190,14 @@ export function ChapterText({
                 /* Mobile (1-up): why-box + a small image, in normal flow. */
                 <>
                     <WhyBox chapter={chapter} className="hidden mt-4" />
-                    <div className="relative mx-auto mt-3 h-32 w-32 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    <div className="relative mx-auto mt-4 h-54 w-54 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
                         <Image
                             src={chapter.image}
                             alt={`${chapter.title} illustration`}
                             fill
                             draggable={false}
                             className="object-cover pointers-events-none"
-                            sizes="160px"
+                            sizes="260px"
                         />
                     </div>
                 </>

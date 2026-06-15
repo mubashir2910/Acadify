@@ -41,6 +41,15 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
+      {
+        // Static landing assets (hero video/poster + marketing imagery) rarely change.
+        // Cache them for 30 days so returning visitors serve them straight from cache
+        // (no revalidation round-trip). To push an update, rename the file.
+        source: "/assets/landing/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=2592000" },
+        ],
+      },
     ]
   },
 };
