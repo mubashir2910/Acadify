@@ -1,11 +1,18 @@
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 
 // Convert optional date string to Date or null for Prisma
 function toDate(val?: string | null): Date | null | undefined {
   if (val === undefined) return undefined
   if (!val) return null
   return new Date(val)
+}
+
+/** A user's profile feeds both the profile page and their digital ID card. */
+async function invalidateProfile(userId: string): Promise<void> {
+  await invalidateTags(cacheTags.profile(userId), cacheTags.digitalId(userId))
 }
 
 // Handle Prisma unique constraint violation (P2002) with a readable error
@@ -31,7 +38,10 @@ function throwIfUniqueViolation(error: unknown): never {
 // ─── GET student profile ────────────────────────────────────────────────────
 
 export async function getStudentProfile(userId: string) {
-  return prisma.user.findUnique({
+  return cached(
+    cacheKeys.profile(userId),
+    { ttl: 1800, tags: [cacheTags.profile(userId)] },
+    () => prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -62,13 +72,16 @@ export async function getStudentProfile(userId: string) {
         },
       },
     },
-  })
+  }))
 }
 
 // ─── GET teacher profile ────────────────────────────────────────────────────
 
 export async function getTeacherProfile(userId: string) {
-  return prisma.user.findUnique({
+  return cached(
+    cacheKeys.profile(userId),
+    { ttl: 1800, tags: [cacheTags.profile(userId)] },
+    () => prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -90,7 +103,7 @@ export async function getTeacherProfile(userId: string) {
         },
       },
     },
-  })
+  }))
 }
 
 // ─── UPDATE student profile (editable fields only) ──────────────────────────
@@ -132,6 +145,8 @@ export async function updateStudentProfile(
         data: studentFields,
       })
     }
+
+    await invalidateProfile(userId)
   } catch (error) {
     throwIfUniqueViolation(error)
   }
@@ -150,13 +165,15 @@ export async function updateTeacherProfile(
 ) {
   const { date_of_birth, ...rest } = data
   try {
-    return await prisma.user.update({
+    const result = await prisma.user.update({
       where: { id: userId },
       data: {
         ...rest,
         date_of_birth: toDate(date_of_birth),
       },
     })
+    await invalidateProfile(userId)
+    return result
   } catch (error) {
     throwIfUniqueViolation(error)
   }
@@ -179,7 +196,7 @@ export async function completeStudentProfile(
   const { house_name, father_name, mother_name, ...rest } = data
 
   try {
-    return await prisma.$transaction([
+    const result = await prisma.$transaction([
       prisma.user.update({
         where: { id: userId },
         data: {
@@ -192,6 +209,8 @@ export async function completeStudentProfile(
         data: { house_name, father_name, mother_name },
       }),
     ])
+    await invalidateProfile(userId)
+    return result
   } catch (error) {
     throwIfUniqueViolation(error)
   }
@@ -208,7 +227,7 @@ export async function completeTeacherProfile(
 ) {
   const { date_of_birth, ...rest } = data
   try {
-    return await prisma.user.update({
+    const result = await prisma.user.update({
       where: { id: userId },
       data: {
         ...rest,
@@ -216,6 +235,8 @@ export async function completeTeacherProfile(
         is_profile_complete: true,
       },
     })
+    await invalidateProfile(userId)
+    return result
   } catch (error) {
     throwIfUniqueViolation(error)
   }
@@ -224,7 +245,10 @@ export async function completeTeacherProfile(
 // ─── GET admin profile ─────────────────────────────────────────────────────
 
 export async function getAdminProfile(userId: string) {
-  return prisma.user.findUnique({
+  return cached(
+    cacheKeys.profile(userId),
+    { ttl: 1800, tags: [cacheTags.profile(userId)] },
+    () => prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -245,7 +269,7 @@ export async function getAdminProfile(userId: string) {
         take: 1,
       },
     },
-  })
+  }))
 }
 
 // ─── COMPLETE admin profile (first login) ───────────────────────────────────
@@ -262,7 +286,7 @@ export async function completeAdminProfile(
 ) {
   const { date_of_birth, ...rest } = data
   try {
-    return await prisma.user.update({
+    const result = await prisma.user.update({
       where: { id: userId },
       data: {
         ...rest,
@@ -270,6 +294,8 @@ export async function completeAdminProfile(
         is_profile_complete: true,
       },
     })
+    await invalidateProfile(userId)
+    return result
   } catch (error) {
     throwIfUniqueViolation(error)
   }
@@ -289,13 +315,15 @@ export async function updateAdminProfile(
 ) {
   const { date_of_birth, ...rest } = data
   try {
-    return await prisma.user.update({
+    const result = await prisma.user.update({
       where: { id: userId },
       data: {
         ...rest,
         date_of_birth: toDate(date_of_birth),
       },
     })
+    await invalidateProfile(userId)
+    return result
   } catch (error) {
     throwIfUniqueViolation(error)
   }

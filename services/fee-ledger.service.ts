@@ -6,6 +6,8 @@ import { assertSessionBelongsToSchool } from "./session.service"
 import { findApplicableStructure } from "./fee-structure.service"
 import { recomputeWaiverAmountsForStudent } from "./fee-waiver.service"
 import { accrueMonthlyLateFees } from "./fee-monthly-late-fee.service"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags, serializeParams } from "@/lib/cache-keys"
 
 const MONTH_LABELS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -277,6 +279,8 @@ export async function generateLedgerForSession(
     },
   })
 
+  await invalidateTags(cacheTags.fees(schoolId))
+
   return {
     createdCount,
     skippedAlreadyExists,
@@ -296,26 +300,40 @@ export async function getStudentLedger(
   studentId: string,
   sessionId?: string,
 ) {
-  await accrueMonthlyLateFees(schoolId, {
-    studentId,
-    sessionId,
-    actorUserId: null,
-  })
+  return cached(
+    cacheKeys.feesStudentLedger(studentId, serializeParams({ sessionId })),
+    { ttl: 60, tags: [cacheTags.fees(schoolId), cacheTags.feesStudent(studentId)] },
+    async () => {
+      await accrueMonthlyLateFees(schoolId, {
+        studentId,
+        sessionId,
+        actorUserId: null,
+      })
 
-  return prisma.studentFeeLedger.findMany({
-    where: {
-      school_id: schoolId,
-      student_id: studentId,
-      ...(sessionId ? { session_id: sessionId } : {}),
-    },
-    orderBy: [{ due_date: "asc" }, { head_name_snapshot: "asc" }],
-    include: {
-      session: { select: { id: true, name: true, is_current: true } },
-    },
-  })
+      return prisma.studentFeeLedger.findMany({
+        where: {
+          school_id: schoolId,
+          student_id: studentId,
+          ...(sessionId ? { session_id: sessionId } : {}),
+        },
+        orderBy: [{ due_date: "asc" }, { head_name_snapshot: "asc" }],
+        include: {
+          session: { select: { id: true, name: true, is_current: true } },
+        },
+      })
+    }
+  )
 }
 
 export async function getClassLedger(schoolId: string, query: LedgerQuery) {
+  return cached(
+    cacheKeys.feesLedger(schoolId, serializeParams({ ...query })),
+    { ttl: 60, tags: [cacheTags.fees(schoolId)] },
+    () => computeClassLedger(schoolId, query),
+  )
+}
+
+async function computeClassLedger(schoolId: string, query: LedgerQuery) {
   const sessionId = query.sessionId
   await accrueMonthlyLateFees(schoolId, {
     sessionId,
@@ -374,6 +392,14 @@ export async function getClassLedger(schoolId: string, query: LedgerQuery) {
 }
 
 export async function getLedgerById(schoolId: string, ledgerId: string) {
+  return cached(
+    cacheKeys.feesLedger(schoolId, `id:${ledgerId}`),
+    { ttl: 60, tags: [cacheTags.fees(schoolId)] },
+    () => computeLedgerById(schoolId, ledgerId),
+  )
+}
+
+async function computeLedgerById(schoolId: string, ledgerId: string) {
   return prisma.studentFeeLedger.findFirst({
     where: { id: ledgerId, school_id: schoolId },
     include: {

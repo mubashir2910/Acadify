@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { ZodError } from "zod"
+import { z, ZodError } from "zod"
 import { auth } from "@/auth"
 import { getAdminSchoolId } from "@/services/attendance.service"
 import {
@@ -66,15 +66,17 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   if (!schoolId) return NextResponse.json({ message: "No school assigned" }, { status: 403 })
 
   const { id } = await ctx.params
-
-  // Body shape: { deleteLedgers: boolean }. Defaults to false (keep ledgers).
-  let deleteLedgers = false
-  try {
-    const body = await req.json().catch(() => ({}))
-    deleteLedgers = Boolean(body?.deleteLedgers)
-  } catch {
-    /* empty body is fine */
+  if (!z.string().uuid().safeParse(id).success) {
+    return NextResponse.json({ message: "Invalid structure id" }, { status: 422 })
   }
+
+  // Body shape: { deleteLedgers?: boolean }. Defaults to false (keep ledgers).
+  const body = await req.json().catch(() => ({}))
+  const parsedBody = z.object({ deleteLedgers: z.boolean().optional() }).safeParse(body)
+  if (!parsedBody.success) {
+    return NextResponse.json({ message: "Invalid request body" }, { status: 422 })
+  }
+  const deleteLedgers = parsedBody.data.deleteLedgers ?? false
 
   try {
     await deleteFeeStructure(schoolId, session.user.id, id, { deleteLedgers })

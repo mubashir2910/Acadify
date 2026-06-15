@@ -69,7 +69,8 @@ export const reorderPeriodsSchema = z.object({
   group_id: z.string().uuid("Invalid timetable group"),
   periods: z
     .array(z.object({ id: z.string().uuid(), order: z.number().int().min(1) }))
-    .min(1),
+    .min(1)
+    .max(60, "Too many periods"),
 })
 
 // ─── Timetable Entry Schemas ──────────────────────────────────────────────────
@@ -99,8 +100,8 @@ export const assignTimetableSchema = z
     teacher_id: z.string().uuid("Invalid teacher").optional(),
     admin_user_id: z.string().uuid("Invalid admin user").optional(),
     subject: z.string().trim().min(1, "Subject is required").max(100, "Subject too long"),
-    class: z.string().trim().min(1, "Class is required"),
-    section: z.string().trim().min(1, "Section is required"),
+    class: z.string().trim().min(1, "Class is required").max(30, "Class too long"),
+    section: z.string().trim().min(1, "Section is required").max(30, "Section too long"),
   })
   .superRefine(timetableTargetRefine)
 
@@ -114,8 +115,8 @@ export const updateTimetableSchema = z
     teacher_id: z.string().uuid().optional(),
     admin_user_id: z.string().uuid().optional(),
     subject: z.string().trim().min(1).max(100).optional(),
-    class: z.string().trim().min(1).optional(),
-    section: z.string().trim().min(1).optional(),
+    class: z.string().trim().min(1).max(30).optional(),
+    section: z.string().trim().min(1).max(30).optional(),
   })
   .superRefine((data, ctx) => {
     // Only enforce mutual-exclusivity if any assignee field was provided.
@@ -140,8 +141,8 @@ const batchCreatePayload = z.object({
   teacher_id: z.string().uuid().optional(),
   admin_user_id: z.string().uuid().optional(),
   subject: z.string().trim().min(1).max(100),
-  class: z.string().trim().min(1),
-  section: z.string().trim().min(1),
+  class: z.string().trim().min(1).max(30),
+  section: z.string().trim().min(1).max(30),
 })
 
 const batchUpdatePayload = batchCreatePayload.partial()

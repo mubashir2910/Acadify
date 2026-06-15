@@ -11,7 +11,7 @@
 
 import Image from 'next/image'
 import { motion, useReducedMotion } from 'motion/react'
-import { Star } from 'lucide-react'
+import { Sparkles, Star } from 'lucide-react'
 import { type Chapter, CHAPTER_COUNT, toRoman } from './playbook-data'
 
 /** Which edge carries the book's binding shadow. */
@@ -133,6 +133,20 @@ export function PlaybookCover() {
 /* Chapter — text page (left / full)                                           */
 /* -------------------------------------------------------------------------- */
 
+/** The soft "why this is designed" pill shown near the bottom of the text page. */
+function WhyBox({ chapter, className = '' }: { chapter: Chapter; className?: string }) {
+    return (
+        <div
+            className={`flex items-start gap-2.5 rounded-xl ${chapter.accentBg} p-3.5 ${className}`}
+        >
+            <Sparkles className={`mt-0.5 h-4 w-4 shrink-0 ${chapter.accentText}`} />
+            <p className="text-[13px] font-medium leading-relaxed text-gray-600">
+                {chapter.why}
+            </p>
+        </div>
+    )
+}
+
 export function ChapterText({
     chapter,
     spineSide,
@@ -142,7 +156,6 @@ export function ChapterText({
     spineSide: SpineSide
     withThumbnail?: boolean
 }) {
-    const Icon = chapter.icon
     return (
         <div className="absolute inset-0 flex flex-col rounded-l-lg rounded-r-sm bg-[#fcfcfb] p-6 sm:p-9">
             <SpineShade side={spineSide} />
@@ -151,46 +164,46 @@ export function ChapterText({
                 Chapter {toRoman(chapter.chapterNo)}
             </span>
 
-            <div
-                className={`mt-5 flex h-12 w-12 items-center justify-center rounded-2xl sm:mt-6 sm:h-14 sm:w-14 ${chapter.accentBg} ${chapter.accentText}`}
-            >
-                <Icon className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
+            {/* Reading-progress segments (current chapter filled in the accent colour) */}
+            <div className={`mt-3 flex gap-1.5 ${chapter.accentText}`}>
+                {Array.from({ length: CHAPTER_COUNT }).map((_, i) => (
+                    <span
+                        key={i}
+                        className={`h-1 flex-1 rounded-full ${
+                            i < chapter.chapterNo ? 'bg-current' : 'bg-gray-200'
+                        }`}
+                    />
+                ))}
             </div>
 
-            <h3 className="mt-5 text-2xl font-bold leading-tight text-gray-900 sm:mt-6 sm:text-[1.7rem]">
+            <h3 className="mt-4 text-2xl font-bold leading-tight text-gray-900 sm:mt-8 sm:text-[1.7rem]">
                 {chapter.title}
             </h3>
-            <p className={`mt-2 text-base font-semibold ${chapter.accentText}`}>
+            <p className={`mt-1 text-base font-semibold ${chapter.accentText}`}>
                 {chapter.benefit}
             </p>
             <p className="mt-2 max-w-sm text-sm leading-relaxed text-gray-500 sm:mt-3">
                 {chapter.description}
             </p>
 
-            {/* Mobile (1-up) shows the image inline beneath the copy. */}
-            {withThumbnail && (
-                <div className="relative mt-4 w-full shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-                    <div className="relative h-24 w-full">
+            {withThumbnail ? (
+                /* Mobile (1-up): why-box + a small image, in normal flow. */
+                <>
+                    <WhyBox chapter={chapter} className="hidden mt-4" />
+                    <div className="relative mx-auto mt-3 h-32 w-32 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
                         <Image
                             src={chapter.image}
-                            alt={`${chapter.title} preview`}
+                            alt={`${chapter.title} illustration`}
                             fill
-                            className="object-contain p-2"
-                            sizes="80vw"
+                            draggable={false}
+                            className="object-cover pointers-events-none"
+                            sizes="160px"
                         />
                     </div>
-                </div>
-            )}
-
-            {/* Footer is decorative — hidden on the tighter mobile page. */}
-            {!withThumbnail && (
-                <div className="mt-auto flex items-center gap-3 pt-6 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-gray-400">
-                    <span>Learn</span>
-                    <span className="text-gray-300">·</span>
-                    <span>Manage</span>
-                    <span className="text-gray-300">·</span>
-                    <span>Grow</span>
-                </div>
+                </>
+            ) : (
+                /* Desktop (2-up): why-box pinned to the bottom. */
+                <WhyBox chapter={chapter} className="mt-auto" />
             )}
         </div>
     )
@@ -220,21 +233,47 @@ export function ChapterImage({
                 </span>
             </div>
 
-            <div className="relative flex flex-1 items-center justify-center">
-                {/* Soft accent glow behind the floating preview */}
+            <div className="relative flex flex-1 flex-col justify-center">
+                {/* Soft accent glow behind the illustration */}
                 <div
                     aria-hidden
-                    className={`absolute h-40 w-40 rounded-full ${chapter.accentBg} blur-3xl`}
+                    className={`pointer-events-none absolute left-1/2 top-4 h-44 w-44 -translate-x-1/2 rounded-full ${chapter.accentBg} blur-3xl`}
                 />
-                <div className="relative w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+
+                {/* Illustration */}
+                <div className="relative overflow-hidden rounded-2xl shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
                     <div className="relative aspect-[4/3] w-full">
                         <Image
                             src={chapter.image}
-                            alt={`${chapter.title} preview`}
+                            alt={`${chapter.title} illustration`}
                             fill
-                            className="object-contain p-3"
+                            className="object-cover"
                             sizes="(min-width: 1024px) 40vw, 80vw"
                         />
+                    </div>
+                </div>
+
+                {/* "Why it's built" — three highlight blocks, overlapping the image */}
+                <div className="relative z-10 -mt-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
+                    <div className="grid grid-cols-3 divide-x divide-gray-100">
+                        {chapter.highlights.map((h) => {
+                            const Icon = h.icon
+                            return (
+                                <div
+                                    key={h.label}
+                                    className="flex flex-col items-center gap-2 px-2 text-center"
+                                >
+                                    <div
+                                        className={`flex h-9 w-9 items-center justify-center rounded-full ${chapter.accentBg} ${chapter.accentText}`}
+                                    >
+                                        <Icon className="h-4 w-4" strokeWidth={1.75} />
+                                    </div>
+                                    <span className="text-[11px] font-medium leading-tight text-gray-600">
+                                        {h.label}
+                                    </span>
+                                </div>
+                            )
+                        })}
                     </div>
                 </div>
             </div>

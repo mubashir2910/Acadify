@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma"
 import type { CreateFeeWaiverInput, RevokeFeeWaiverInput } from "@/schemas/fee-waiver.schema"
 import { logFeeAction } from "./fee-audit.service"
 import { assertSessionBelongsToSchool } from "./session.service"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags, serializeParams } from "@/lib/cache-keys"
 
 export async function grantWaiver(
   schoolId: string,
@@ -47,7 +49,7 @@ export async function grantWaiver(
   // Multiple waivers for the same (head, period) are allowed. Each call
   // creates a new StudentFeeWaiver row; recomputeWaiverAmountsForStudent
   // sums every non-revoked row when recalculating the ledger's waiver_amount.
-  return prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx) => {
     // M4: cap active waivers per scope. Without a ceiling, an admin can
     // (accidentally or maliciously) stack hundreds of waiver rows, ballooning
     // the O(W) recompute loop and the audit-log noise per ledger. Ten is a
@@ -106,6 +108,9 @@ export async function grantWaiver(
 
     return created
   })
+
+  await invalidateTags(cacheTags.fees(schoolId), cacheTags.feesStudent(data.studentId))
+  return created
 }
 
 export async function revokeWaiver(
@@ -120,7 +125,7 @@ export async function revokeWaiver(
   if (!waiver) throw new Error("WAIVER_NOT_FOUND")
   if (waiver.revoked_at) throw new Error("WAIVER_ALREADY_REVOKED")
 
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const updated = await tx.studentFeeWaiver.update({
       where: { id: waiverId },
       data: { revoked_at: new Date(), revoked_by: actorUserId },
@@ -147,20 +152,28 @@ export async function revokeWaiver(
 
     return updated
   })
+
+  await invalidateTags(cacheTags.fees(schoolId), cacheTags.feesStudent(waiver.student_id))
+  return updated
 }
 
 export async function getStudentWaivers(schoolId: string, studentId: string, sessionId?: string) {
-  return prisma.studentFeeWaiver.findMany({
-    where: {
-      school_id: schoolId,
-      student_id: studentId,
-      ...(sessionId ? { session_id: sessionId } : {}),
-    },
-    orderBy: { granted_at: "desc" },
-    include: {
-      fee_head: { select: { id: true, name: true } },
-    },
-  })
+  return cached(
+    cacheKeys.feesWaivers(schoolId, `student:${studentId}:${serializeParams({ sessionId })}`),
+    { ttl: 60, tags: [cacheTags.fees(schoolId), cacheTags.feesStudent(studentId)] },
+    () =>
+      prisma.studentFeeWaiver.findMany({
+        where: {
+          school_id: schoolId,
+          student_id: studentId,
+          ...(sessionId ? { session_id: sessionId } : {}),
+        },
+        orderBy: { granted_at: "desc" },
+        include: {
+          fee_head: { select: { id: true, name: true } },
+        },
+      })
+  )
 }
 
 /**

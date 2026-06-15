@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { getQuizLeaderboard } from "@/services/quiz.service"
+import { expensiveReadLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 interface RouteParams {
   params: Promise<{ quizId: string }>
@@ -11,6 +12,9 @@ export async function GET(_req: Request, { params }: RouteParams) {
   if (!session?.user?.id || !["TEACHER", "ADMIN", "STUDENT"].includes(session.user.role)) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
+
+  const limited = await checkRateLimit(expensiveReadLimiter, `read:${session.user.id}`)
+  if (limited) return limited
 
   try {
     const { quizId } = await params

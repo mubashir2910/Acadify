@@ -64,9 +64,9 @@ export const manualPaymentSchema = z
         { message: "Paid date is outside the allowed range" },
       ),
     externalTxnRef: z.string().max(64).optional().nullable(),
-    proofUrl: z.string().url().optional().nullable(),
+    proofUrl: z.string().url().max(500).optional().nullable(),
     notes: z.string().max(500).optional().nullable(),
-    allocations: z.array(allocationSchema).min(1, "At least one allocation is required"),
+    allocations: z.array(allocationSchema).min(1, "At least one allocation is required").max(100, "Too many allocations"),
   })
   .superRefine((d, ctx) => {
     const sum = d.allocations.reduce((s, a) => s + a.amountApplied, 0)
@@ -99,7 +99,7 @@ export const hybridUploadSchema = z
       .trim()
       .min(6, "Reference must be at least 6 characters")
       .max(40, "Reference is too long"),
-    proofUrl: z.string().url("Payment proof is required"),
+    proofUrl: z.string().url("Payment proof is required").max(500),
     paidAt: z
       .string()
       .min(1, "Paid date is required")
@@ -118,7 +118,7 @@ export const hybridUploadSchema = z
         { message: "Paid date is outside the allowed range" },
       ),
     notes: z.string().max(500).optional().nullable(),
-    allocations: z.array(allocationSchema).min(1, "At least one allocation is required"),
+    allocations: z.array(allocationSchema).min(1, "At least one allocation is required").max(100, "Too many allocations"),
   })
   .superRefine((d, ctx) => {
     const sum = d.allocations.reduce((s, a) => s + a.amountApplied, 0)
@@ -162,7 +162,7 @@ export const editTransactionSchema = z
     paidAt: z.string().optional(),
     externalTxnRef: z.string().max(64).optional().nullable(),
     notes: z.string().max(500).optional().nullable(),
-    allocations: z.array(allocationSchema).min(1).optional(),
+    allocations: z.array(allocationSchema).min(1).max(100, "Too many allocations").optional(),
     reason: z.string().min(3, "Reason is required for edits").max(500),
   })
   .superRefine((d, ctx) => {

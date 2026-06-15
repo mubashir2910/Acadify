@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 import type {
   CreateGroupInput,
   UpdateGroupInput,
@@ -8,6 +10,12 @@ import type {
   TimetableGroupClassRow,
   TimetableGroupRow,
 } from "@/schemas/timetable-group.schema"
+
+/** Group/class-membership changes alter both the group views and the timetable
+ *  grids/student-timetable resolution, so we bust both tag families. */
+function timetableGroupTags(schoolId: string) {
+  return [cacheTags.timetableGroups(schoolId), cacheTags.timetable(schoolId)]
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +49,14 @@ function attachEntryCounts(
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 export async function getGroupsForSchool(schoolId: string): Promise<TimetableGroupRow[]> {
+  return cached(
+    cacheKeys.timetableGroups(schoolId),
+    { ttl: 900, tags: [cacheTags.timetableGroups(schoolId)] },
+    () => computeGroupsForSchool(schoolId),
+  )
+}
+
+async function computeGroupsForSchool(schoolId: string): Promise<TimetableGroupRow[]> {
   const groups = await prisma.timetableGroup.findMany({
     where: { school_id: schoolId },
     include: {
@@ -70,6 +86,17 @@ export async function getGroupsForSchool(schoolId: string): Promise<TimetableGro
 }
 
 export async function getGroupById(
+  schoolId: string,
+  groupId: string,
+): Promise<TimetableGroupRow | null> {
+  return cached(
+    cacheKeys.timetableGroupClasses(groupId),
+    { ttl: 900, tags: [cacheTags.timetableGroups(schoolId)] },
+    () => computeGroupById(schoolId, groupId),
+  )
+}
+
+async function computeGroupById(
   schoolId: string,
   groupId: string,
 ): Promise<TimetableGroupRow | null> {
@@ -120,6 +147,16 @@ export async function getGroupForClass(
 export async function getSchoolClassesNotInAnyGroup(
   schoolId: string,
 ): Promise<ClassSectionInput[]> {
+  return cached(
+    cacheKeys.timetableGroupAvailableClasses(schoolId),
+    { ttl: 900, tags: [cacheTags.timetableGroups(schoolId), cacheTags.classes(schoolId)] },
+    () => computeSchoolClassesNotInAnyGroup(schoolId),
+  )
+}
+
+async function computeSchoolClassesNotInAnyGroup(
+  schoolId: string,
+): Promise<ClassSectionInput[]> {
   const [activeClasses, claimed] = await Promise.all([
     prisma.student.findMany({
       where: { school_id: schoolId, status: "ACTIVE" },
@@ -145,7 +182,7 @@ export async function createGroup(
   input: CreateGroupInput,
 ): Promise<TimetableGroupRow> {
   try {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Name uniqueness inside this school.
       const nameClash = await tx.timetableGroup.findUnique({
         where: { school_id_name: { school_id: schoolId, name: input.name } },
@@ -193,6 +230,8 @@ export async function createGroup(
         entry_count: 0,
       }
     })
+    await invalidateTags(...timetableGroupTags(schoolId))
+    return result
   } catch (err) {
     // Race: another admin grabbed the same name or class between check and write.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
@@ -308,6 +347,8 @@ export async function updateGroup(
     throw err
   }
 
+  await invalidateTags(...timetableGroupTags(schoolId))
+
   const refreshed = await getGroupById(schoolId, groupId)
   if (!refreshed) throw new Error("GROUP_NOT_FOUND")
   return refreshed
@@ -327,6 +368,7 @@ export async function deleteGroup(schoolId: string, groupId: string): Promise<vo
   })
   if (!group) throw new Error("GROUP_NOT_FOUND")
   await prisma.timetableGroup.delete({ where: { id: groupId } })
+  await invalidateTags(...timetableGroupTags(schoolId))
 }
 
 export async function addClassesToGroup(
@@ -371,6 +413,8 @@ export async function addClassesToGroup(
     }
     throw err
   }
+
+  await invalidateTags(...timetableGroupTags(schoolId))
 }
 
 export async function removeClassFromGroup(
@@ -401,4 +445,5 @@ export async function removeClassFromGroup(
   if (entryCount > 0) throw new Error("CLASS_HAS_ENTRIES")
 
   await prisma.timetableGroupClass.delete({ where: { id: link.id } })
+  await invalidateTags(...timetableGroupTags(schoolId))
 }

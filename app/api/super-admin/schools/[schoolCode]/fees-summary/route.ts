@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { expensiveReadLimiter, checkRateLimit } from "@/lib/rate-limit"
+import { cached } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 
 interface RouteParams {
   params: Promise<{ schoolCode: string }>
@@ -40,6 +42,19 @@ export async function GET(_req: Request, { params }: RouteParams) {
   const limited = await checkRateLimit(expensiveReadLimiter, `super-fees:${session.user.id}`)
   if (limited) return limited
 
+  // Cached aggregate (short TTL + fee-tag invalidation). Bank/UPI/QR/branding
+  // edits are rare super-admin actions, so a ≤60s staleness on those parts is
+  // acceptable; any fee write busts this immediately via the fees tag.
+  const data = await cached(
+    cacheKeys.schoolFeesSummary(school.id),
+    { ttl: 60, tags: [cacheTags.fees(school.id)] },
+    () => buildFeesSummary(school.id),
+  )
+
+  return NextResponse.json({ school, ...data })
+}
+
+async function buildFeesSummary(schoolId: string) {
   const [
     paymentConfig,
     bankAccounts,
@@ -51,7 +66,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     ledgerAgg,
   ] = await Promise.all([
     prisma.schoolPaymentConfig.findUnique({
-      where: { school_id: school.id },
+      where: { school_id: schoolId },
       select: {
         payment_mode: true,
         currency: true,
@@ -66,20 +81,20 @@ export async function GET(_req: Request, { params }: RouteParams) {
       },
     }),
     prisma.schoolBankAccount.findMany({
-      where: { school_id: school.id },
+      where: { school_id: schoolId },
       orderBy: [{ is_active: "desc" }, { created_at: "asc" }],
     }),
     prisma.schoolUpiAccount.findMany({
-      where: { school_id: school.id },
+      where: { school_id: schoolId },
       orderBy: [{ is_active: "desc" }, { created_at: "asc" }],
     }),
     prisma.schoolQrCode.findMany({
-      where: { school_id: school.id },
+      where: { school_id: schoolId },
       orderBy: [{ is_active: "desc" }, { created_at: "asc" }],
       include: { bank_account: { select: { id: true, label: true, bank_name: true } } },
     }),
     prisma.feeStructure.findMany({
-      where: { school_id: school.id },
+      where: { school_id: schoolId },
       orderBy: [{ is_active: "desc" }, { class: "asc" }, { section: "asc" }, { version: "desc" }],
       include: {
         session: { select: { id: true, name: true, is_current: true } },
@@ -99,15 +114,15 @@ export async function GET(_req: Request, { params }: RouteParams) {
       },
     }),
     prisma.feeTransaction.aggregate({
-      where: { school_id: school.id, status: "VERIFIED" },
+      where: { school_id: schoolId, status: "VERIFIED" },
       _sum: { amount: true },
       _count: { _all: true },
     }),
     prisma.feeTransaction.count({
-      where: { school_id: school.id, status: "PENDING_VERIFICATION" },
+      where: { school_id: schoolId, status: "PENDING_VERIFICATION" },
     }),
     prisma.studentFeeLedger.aggregate({
-      where: { school_id: school.id, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
+      where: { school_id: schoolId, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
       _sum: { expected_amount: true, waiver_amount: true, paid_amount: true },
     }),
   ])
@@ -117,8 +132,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
   const totalLedgerPaid = Number(ledgerAgg._sum.paid_amount ?? 0)
   const outstandingFromLedger = Math.max(0, totalExpected - totalWaiver - totalLedgerPaid)
 
-  return NextResponse.json({
-    school,
+  return {
     paymentConfig,
     bankAccounts,
     upiAccounts,
@@ -130,5 +144,5 @@ export async function GET(_req: Request, { params }: RouteParams) {
       pendingVerifications: pendingCount,
       outstandingFromLedger,
     },
-  })
+  }
 }

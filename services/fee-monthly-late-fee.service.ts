@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { logFeeAction } from "./fee-audit.service"
 import { findApplicableStructure } from "./fee-structure.service"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags, serializeParams } from "@/lib/cache-keys"
 
 type MonthlyLateFeeOpts = {
   sessionId?: string
@@ -217,6 +219,13 @@ export async function accrueMonthlyLateFees(schoolId: string, opts: MonthlyLateF
     totalAdded = totalAdded.add(delta)
   }
 
+  // Only bust fee caches when accrual actually wrote new late-fee rows — a no-op
+  // accrual (the common case, called from within cached ledger reads) must not
+  // thrash the cache.
+  if (updated > 0) {
+    await invalidateTags(cacheTags.fees(schoolId))
+  }
+
   return { updated, totalAdded: totalAdded.toFixed(2) }
 }
 
@@ -283,7 +292,7 @@ export async function waiveMonthlyLateFee(
   monthlyLateFeeId: string,
   input: { type: "AMOUNT" | "PERCENT"; value: number; reason: string },
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.studentMonthlyLateFee.findFirst({
       where: { id: monthlyLateFeeId, school_id: schoolId },
     })
@@ -362,6 +371,9 @@ export async function waiveMonthlyLateFee(
 
     return updated
   })
+
+  await invalidateTags(cacheTags.fees(schoolId), cacheTags.feesStudent(result.student_id))
+  return result
 }
 
 /**
@@ -398,12 +410,17 @@ export async function getStudentMonthlyLateFees(
   studentId: string,
   sessionId?: string,
 ) {
-  return prisma.studentMonthlyLateFee.findMany({
-    where: {
-      school_id: schoolId,
-      student_id: studentId,
-      ...(sessionId ? { session_id: sessionId } : {}),
-    },
-    orderBy: [{ period_year: "asc" }, { period_month: "asc" }],
-  })
+  return cached(
+    cacheKeys.feesMonthlyBlocks(schoolId, `late-fees:${studentId}:${serializeParams({ sessionId })}`),
+    { ttl: 60, tags: [cacheTags.fees(schoolId), cacheTags.feesStudent(studentId)] },
+    () =>
+      prisma.studentMonthlyLateFee.findMany({
+        where: {
+          school_id: schoolId,
+          student_id: studentId,
+          ...(sessionId ? { session_id: sessionId } : {}),
+        },
+        orderBy: [{ period_year: "asc" }, { period_month: "asc" }],
+      })
+  )
 }

@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma"
+import { invalidateTags } from "@/lib/cache"
+import { cacheTags } from "@/lib/cache-keys"
 
 // ─── Seeded shuffle (Fisher-Yates with string seed) ───────────────────────
 
@@ -257,7 +259,7 @@ export async function submitAttempt(quizId: string, studentUserId: string) {
         },
       },
       quiz: {
-        select: { end_time: true, total_marks: true },
+        select: { end_time: true, total_marks: true, school_id: true },
       },
     },
   })
@@ -334,6 +336,14 @@ export async function submitAttempt(quizId: string, studentUserId: string) {
       },
     }),
   ])
+
+  // A finished submission changes every leaderboard view + this student's arena
+  // analytics — invalidate them so they rebuild on next read.
+  await invalidateTags(
+    cacheTags.leaderboard(attempt.quiz.school_id),
+    cacheTags.leaderboardQuiz(quizId),
+    cacheTags.arenaProfile(studentUserId),
+  )
 
   // Compute rank after submit
   const betterCount = await prisma.quizAttempt.count({

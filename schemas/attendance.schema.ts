@@ -16,7 +16,8 @@ export const submitAttendanceSchema = z.object({
         status: attendanceStatusEnum,
       })
     )
-    .min(1, "At least one attendance record is required"),
+    .min(1, "At least one attendance record is required")
+    .max(2000, "Too many attendance records in one request"),
 })
 export type SubmitAttendanceInput = z.infer<typeof submitAttendanceSchema>
 

@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
         hostname: "acadify.sgp1.digitaloceanspaces.com",
       },
       {
+        // Legacy images uploaded to Cloudinary before the Spaces migration.
+        // Kept so old logo_url/profile_picture values still render; new uploads
+        // go to Spaces. Remove once these URLs are purged from the DB.
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
+      {
         protocol: "https",
         hostname: "ik.imagekit.io",
       },

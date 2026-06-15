@@ -5,22 +5,45 @@ import { generateTemporaryPassword } from "@/lib/student-id"
 import { generateTeacherCredentialsPdf } from "@/lib/pdf-generator"
 import { parseDDMMYYYY } from "@/lib/date-parser"
 import { getAdminSchoolId } from "@/services/class-teacher.service"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 import type { CreateTeacherInput, CreateTeacherResult } from "@/schemas/teacher.schema"
 
+/** Tags busted whenever a school's teacher roster changes (add/import). */
+function teacherRosterTags(schoolId: string) {
+  return [
+    cacheTags.teachers(schoolId),
+    cacheTags.schoolStats(schoolId),
+    cacheTags.platformStats(),
+    cacheTags.birthdays(schoolId),
+  ]
+}
+
 export async function getTeachersBySchoolCode(schoolCode: string) {
-  return prisma.teacher.findMany({
-    // Exclude admin-Teacher rows from the public teachers list.
-    where: { school: { schoolCode }, user: { role: "TEACHER" } },
-    select: {
-      id: true,
-      employee_id: true,
-      joining_date: true,
-      status: true,
-      created_at: true,
-      user: { select: { name: true, email: true } },
-    },
-    orderBy: { created_at: "asc" },
+  const school = await prisma.school.findUnique({
+    where: { schoolCode },
+    select: { id: true },
   })
+  if (!school) return []
+
+  return cached(
+    cacheKeys.teachers(school.id, "by-code"),
+    { ttl: 120, tags: [cacheTags.teachers(school.id)] },
+    () =>
+      prisma.teacher.findMany({
+        // Exclude admin-Teacher rows from the public teachers list.
+        where: { school_id: school.id, user: { role: "TEACHER" } },
+        select: {
+          id: true,
+          employee_id: true,
+          joining_date: true,
+          status: true,
+          created_at: true,
+          user: { select: { name: true, email: true } },
+        },
+        orderBy: { created_at: "asc" },
+      })
+  )
 }
 import type { ParsedTeacherRow, EnrichedTeacher, ImportSummary } from "@/schemas/teacher.schema"
 
@@ -188,6 +211,8 @@ export async function importTeachers(
     ])
   })
 
+  await invalidateTags(...teacherRosterTags(school.id))
+
   // 6. Generate credentials PDF
   const credentialRows = enrichedTeachers.map((t) => ({
     name: t.name,
@@ -297,6 +322,8 @@ export async function createSingleTeacher(
       }),
     ])
   })
+
+  await invalidateTags(...teacherRosterTags(schoolId))
 
   return { employeeId: teacherUniqueId, temporaryPassword, name: input.name }
 }

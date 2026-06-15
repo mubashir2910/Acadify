@@ -1,3 +1,4 @@
+import "server-only"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 
 // ─── DigitalOcean Spaces (S3-compatible) upload helper ────────────────────────

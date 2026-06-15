@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { ZodError } from "zod"
+import { z, ZodError } from "zod"
 import { createPeriodSchema } from "@/schemas/timetable.schema"
 import {
   createPeriod,
@@ -24,6 +24,9 @@ export async function GET(request: Request) {
     const groupId = url.searchParams.get("groupId")
     if (!groupId) {
       return NextResponse.json({ message: "groupId query parameter required" }, { status: 400 })
+    }
+    if (!z.string().uuid().safeParse(groupId).success) {
+      return NextResponse.json({ message: "Invalid groupId" }, { status: 422 })
     }
 
     const periods = await getPeriodsForGroup(schoolId, groupId)

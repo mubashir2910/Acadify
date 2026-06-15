@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma"
 import { countWorkingDays, getWeekStart, getNowIST, getTodayISTString } from "@/lib/working-days"
 import { isSchoolHoliday, getSchoolHolidaysInRange } from "@/services/calendar.service"
 import { getAdminSchoolId } from "@/services/attendance.service"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 import type { AttendanceStatus } from "@prisma/client"
 import type {
   TeacherAttendanceRecord,
@@ -13,18 +15,23 @@ import type {
 export { getAdminSchoolId }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
-
-export async function getTeacherSchoolId(teacherUserId: string): Promise<string | null> {
-  const teacher = await prisma.teacher.findFirst({
-    where: { user_id: teacherUserId, status: "ACTIVE" },
-    select: { school_id: true },
-  })
-  return teacher?.school_id ?? null
-}
+// Re-exported from the single source of truth in lib/school-access.
+export { getTeacherSchoolId } from "@/lib/school-access"
 
 // ─── Get All Teachers With Attendance Status (Admin) ─────────────────
 
 export async function getAdminTeachers(
+  schoolId: string,
+  dateStr: string
+): Promise<{ summary: TeacherAttendanceSummaryStats; teachers: TeacherAttendanceRecord[] }> {
+  return cached(
+    cacheKeys.teacherAttendanceMonthly(schoolId, `admin-day:${dateStr}`),
+    { ttl: 120, tags: [cacheTags.attendance(schoolId)] },
+    () => computeAdminTeachers(schoolId, dateStr),
+  )
+}
+
+async function computeAdminTeachers(
   schoolId: string,
   dateStr: string
 ): Promise<{ summary: TeacherAttendanceSummaryStats; teachers: TeacherAttendanceRecord[] }> {
@@ -192,6 +199,8 @@ export async function submitTeacherAttendance(
     ),
   ])
 
+  await invalidateTags(cacheTags.attendance(schoolId))
+
   return { submitted: records.length }
 }
 
@@ -249,6 +258,8 @@ export async function editTeacherAttendance(
     },
   })
 
+  await invalidateTags(cacheTags.attendance(schoolId))
+
   return { updated: true }
 }
 
@@ -265,6 +276,18 @@ export async function getTeacherSelfStats(teacherUserId: string): Promise<Teache
   })
   if (!teacher) return null
 
+  return cached(
+    cacheKeys.teacherAttendanceMonthly(teacher.school_id, `self-stats:${teacher.id}`),
+    { ttl: 120, tags: [cacheTags.attendance(teacher.school_id)] },
+    () => computeTeacherSelfStats(teacher),
+  )
+}
+
+async function computeTeacherSelfStats(teacher: {
+  id: string
+  school_id: string
+  school: { session_started_on: Date | null }
+}): Promise<TeacherSelfStats | null> {
   const sessionStart = teacher.school.session_started_on
   const today = getNowIST()
   today.setUTCHours(0, 0, 0, 0)
@@ -321,16 +344,28 @@ export async function getTeacherSelfMonthly(
 ): Promise<{ date: string; status: string }[]> {
   const teacher = await prisma.teacher.findFirst({
     where: { user_id: teacherUserId, status: "ACTIVE" },
-    select: { id: true },
+    select: { id: true, school_id: true },
   })
   if (!teacher) return []
 
+  return cached(
+    cacheKeys.teacherAttendanceMonthly(teacher.school_id, `self:${teacher.id}:${year}-${month}`),
+    { ttl: 120, tags: [cacheTags.attendance(teacher.school_id)] },
+    () => computeTeacherSelfMonthly(teacher.id, year, month),
+  )
+}
+
+async function computeTeacherSelfMonthly(
+  teacherId: string,
+  year: number,
+  month: number
+): Promise<{ date: string; status: string }[]> {
   const startDate = new Date(Date.UTC(year, month - 1, 1))
   const endDate = new Date(Date.UTC(year, month, 0))
 
   const records = await prisma.teacherAttendance.findMany({
     where: {
-      teacher_id: teacher.id,
+      teacher_id: teacherId,
       date: { gte: startDate, lte: endDate },
     },
     select: { date: true, status: true },
@@ -348,6 +383,16 @@ export async function getTeacherSelfMonthly(
 // teacher in the school with their session-wide attendance breakdown plus
 // the working-day denominator used to compute the rate.
 export async function getSchoolTeacherStats(
+  schoolId: string,
+): Promise<{ sessionStartedOn: string | null; stats: TeacherSchoolStat[] }> {
+  return cached(
+    cacheKeys.teacherAttendanceSummary(schoolId),
+    { ttl: 120, tags: [cacheTags.attendance(schoolId)] },
+    () => computeSchoolTeacherStats(schoolId),
+  )
+}
+
+async function computeSchoolTeacherStats(
   schoolId: string,
 ): Promise<{ sessionStartedOn: string | null; stats: TeacherSchoolStat[] }> {
   const school = await prisma.school.findUnique({

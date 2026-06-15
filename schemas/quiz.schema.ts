@@ -30,7 +30,7 @@ export const SUBJECT_GROUP_LABELS: Record<SubjectGroup, string> = {
 // ─── Option (MCQ) ──────────────────────────────────────────────────────────
 
 export const optionSchema = z.object({
-  text: z.string().min(1, "Option text is required"),
+  text: z.string().min(1, "Option text is required").max(300, "Option text is too long"),
   isCorrect: z.boolean(),
   order: z.number().int().min(0),
 })
@@ -41,7 +41,7 @@ const TIME_LIMIT_OPTIONS = [5, 10, 15, 20, 30, 45, 60] as const
 
 export const questionSchema = z
   .object({
-    text: z.string().min(1, "Question text is required"),
+    text: z.string().min(1, "Question text is required").max(1000, "Question text is too long"),
     type: z.enum(["MCQ", "FILL_BLANK", "ONE_WORD"]),
     marks: z.number().int().min(1, "Marks must be at least 1"),
     timeLimitSecs: z.number().int().refine(
@@ -49,8 +49,8 @@ export const questionSchema = z
       { message: "Time limit must be one of: 5, 10, 15, 20, 30, 45, 60 seconds" }
     ),
     order: z.number().int().min(0),
-    correctAnswer: z.string().optional(),
-    options: z.array(optionSchema).optional(),
+    correctAnswer: z.string().max(200, "Answer is too long").optional(),
+    options: z.array(optionSchema).max(10, "Too many options").optional(),
   })
   .superRefine((q, ctx) => {
     if (q.type === "MCQ") {
@@ -85,19 +85,19 @@ export const questionSchema = z
 
 export const createQuizSchema = z
   .object({
-    title: z.string().min(3, "Title must be at least 3 characters"),
+    title: z.string().min(3, "Title must be at least 3 characters").max(150, "Title is too long"),
     subjectGroup: subjectGroupSchema,
-    subject: z.string().min(1, "Subject is required"),
-    instructions: z.string().optional(),
-    class: z.string().min(1, "Class is required"),
-    section: z.string().min(1, "Section is required"),
+    subject: z.string().min(1, "Subject is required").max(100, "Subject is too long"),
+    instructions: z.string().max(2000, "Instructions are too long").optional(),
+    class: z.string().min(1, "Class is required").max(30, "Class is too long"),
+    section: z.string().min(1, "Section is required").max(30, "Section is too long"),
     // totalPoints is predefined; questions must sum to this value
     totalPoints: z.number().int().min(1, "Total points must be at least 1"),
     startTime: z.string().min(1, "Start time is required"),
     endTime: z.string().min(1, "End time is required"),
     shuffleQuestions: z.boolean(),
     shuffleOptions: z.boolean(),
-    questions: z.array(questionSchema).min(1, "At least 1 question is required"),
+    questions: z.array(questionSchema).min(1, "At least 1 question is required").max(100, "Too many questions"),
   })
   .refine(
     (d) => new Date(d.endTime) > new Date(d.startTime),
@@ -139,7 +139,9 @@ export type UpdateQuizStatusInput = z.infer<typeof updateQuizStatusSchema>
 
 export const saveAnswerSchema = z.object({
   questionId: z.string().uuid("Invalid question ID"),
-  givenAnswer: z.string().nullable(),
+  // Cap length: MCQ answers are option UUIDs (~36 chars) and FILL_BLANK/ONE_WORD
+  // answers are short, so 1000 is generous while blocking oversized payloads.
+  givenAnswer: z.string().max(1000, "Answer is too long").nullable(),
 })
 
 export type SaveAnswerInput = z.infer<typeof saveAnswerSchema>

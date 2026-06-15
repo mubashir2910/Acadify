@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { CreateSchoolApiInput, PlatformStats, UpdateSchoolBrandingInput } from "@/schemas/school.schema";
 import type { ChangeSchoolCodeInput } from "@/schemas/school-code-change.schema";
 import { logFeeAction } from "@/services/fee-audit.service";
+import { cached, invalidateTags } from "@/lib/cache";
+import { cacheKeys, cacheTags } from "@/lib/cache-keys";
 
 const TRIAL_DAYS = 60
 
@@ -26,26 +28,45 @@ export async function getBrandingForUser(
     if (role === "SUPER_ADMIN") return null
 
     try {
-        if (role === "STUDENT") {
-            const student = await prisma.student.findFirst({
-                where: { user_id: userId, status: "ACTIVE" },
-                select: { school: { select: { schoolName: true, logo_url: true } } },
-            })
-            if (!student) return null
-            return { schoolName: student.school.schoolName, logoUrl: student.school.logo_url }
-        }
+        // Resolve which school the user belongs to (cheap, indexed). We cache the
+        // branding payload by schoolId so all users of a school share one entry and
+        // a single branding edit invalidates it for everyone.
+        const schoolId = await resolveUserSchoolId(userId, role)
+        if (!schoolId) return null
 
-        // ADMIN or TEACHER are linked to their school via SchoolUser.
-        const schoolUser = await prisma.schoolUser.findFirst({
-            where: { user_id: userId, status: "ACTIVE" },
-            select: { school: { select: { schoolName: true, logo_url: true } } },
-        })
-        if (!schoolUser) return null
-        return { schoolName: schoolUser.school.schoolName, logoUrl: schoolUser.school.logo_url }
+        return await cached(
+            cacheKeys.branding(schoolId),
+            { ttl: 3600, tags: [cacheTags.branding(schoolId)] },
+            async () => {
+                const school = await prisma.school.findUnique({
+                    where: { id: schoolId },
+                    select: { schoolName: true, logo_url: true },
+                })
+                if (!school) return null
+                return { schoolName: school.schoolName, logoUrl: school.logo_url }
+            },
+        )
     } catch {
         // Branding is non-critical: never let a failed lookup crash the dashboard.
         return null
     }
+}
+
+/** Resolves the active school_id for a user based on role. STUDENT → Student row;
+ *  ADMIN/TEACHER → SchoolUser membership. Returns null if none found. */
+async function resolveUserSchoolId(userId: string, role: string): Promise<string | null> {
+    if (role === "STUDENT") {
+        const student = await prisma.student.findFirst({
+            where: { user_id: userId, status: "ACTIVE" },
+            select: { school_id: true },
+        })
+        return student?.school_id ?? null
+    }
+    const schoolUser = await prisma.schoolUser.findFirst({
+        where: { user_id: userId, status: "ACTIVE" },
+        select: { school_id: true },
+    })
+    return schoolUser?.school_id ?? null
 }
 
 export async function createSchool(data: CreateSchoolApiInput) {
@@ -92,6 +113,7 @@ export async function createSchool(data: CreateSchoolApiInput) {
 
             return created
         })
+        await invalidateTags(cacheTags.platformStats(), cacheTags.platformSchools())
         return school
     } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -119,7 +141,7 @@ export async function changeSchoolCode(
     if (!school) throw new Error("SCHOOL_NOT_FOUND")
 
     try {
-        return await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             const updated = await tx.school.update({
                 where: { id: school.id },
                 data: { schoolCode: trimmedNew },
@@ -140,6 +162,12 @@ export async function changeSchoolCode(
 
             return updated
         })
+        await invalidateTags(
+            cacheTags.schoolByCode(trimmedCurrent),
+            cacheTags.branding(school.id),
+            cacheTags.platformSchools(),
+        )
+        return result
     } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
             throw new Error("SCHOOL_CODE_EXISTS")
@@ -165,8 +193,8 @@ export async function updateSchoolBranding(
         brand_color: data.brandColor ?? school.brand_color,
     }
 
-    return prisma.$transaction(async (tx) => {
-        const updated = await tx.school.update({
+    const updated = await prisma.$transaction(async (tx) => {
+        const row = await tx.school.update({
             where: { id: school.id },
             data: next,
             select: { id: true, schoolCode: true, schoolName: true, logo_url: true, motto: true, brand_color: true },
@@ -185,44 +213,61 @@ export async function updateSchoolBranding(
                 brand_color: school.brand_color,
             },
             newValue: {
-                logo_url: updated.logo_url,
-                motto: updated.motto,
-                brand_color: updated.brand_color,
+                logo_url: row.logo_url,
+                motto: row.motto,
+                brand_color: row.brand_color,
             },
         })
 
-        return updated
+        return row
     })
+
+    await invalidateTags(
+        cacheTags.branding(school.id),
+        cacheTags.schoolByCode(schoolCode),
+    )
+
+    return updated
 }
 
 export async function getSchools() {
-    return prisma.school.findMany({
-        select: {
-            id: true,
-            schoolName: true,
-            schoolCode: true,
-            subscription_status: true,
-        },
-        orderBy: { created_at: "desc" },
-    })
+    return cached(
+        cacheKeys.platformSchools(),
+        { ttl: 120, tags: [cacheTags.platformSchools()] },
+        () =>
+            prisma.school.findMany({
+                select: {
+                    id: true,
+                    schoolName: true,
+                    schoolCode: true,
+                    subscription_status: true,
+                },
+                orderBy: { created_at: "desc" },
+            })
+    )
 }
 
 export async function getSchoolByCode(schoolCode: string) {
-    return prisma.school.findUnique({
-        where: { schoolCode },
-        select: {
-            id: true,
-            schoolName: true,
-            schoolCode: true,
-            subscription_status: true,
-            trial_ends_at: true,
-            subscription_ends_at: true,
-            session_started_on: true,
-            logo_url: true,
-            motto: true,
-            brand_color: true,
-        },
-    })
+    return cached(
+        cacheKeys.schoolByCode(schoolCode),
+        { ttl: 3600, tags: [cacheTags.schoolByCode(schoolCode)] },
+        () =>
+            prisma.school.findUnique({
+                where: { schoolCode },
+                select: {
+                    id: true,
+                    schoolName: true,
+                    schoolCode: true,
+                    subscription_status: true,
+                    trial_ends_at: true,
+                    subscription_ends_at: true,
+                    session_started_on: true,
+                    logo_url: true,
+                    motto: true,
+                    brand_color: true,
+                },
+            })
+    )
 }
 
 export async function updateSessionStartDate(
@@ -232,10 +277,19 @@ export async function updateSessionStartDate(
     const school = await prisma.school.findUnique({ where: { schoolCode } })
     if (!school) throw new Error("SCHOOL_NOT_FOUND")
 
-    return prisma.school.update({
+    const updated = await prisma.school.update({
         where: { schoolCode },
         data: { session_started_on: new Date(sessionStartedOn + "T00:00:00.000Z") },
     })
+
+    // session_started_on feeds both the school profile and attendance-rate math.
+    await invalidateTags(
+        cacheTags.schoolByCode(schoolCode),
+        cacheTags.schoolStats(school.id),
+        cacheTags.attendance(school.id),
+    )
+
+    return updated
 }
 
 export async function updateSubscription(
@@ -276,6 +330,13 @@ export async function updateSubscription(
         }),
     ])
 
+    await invalidateTags(
+        cacheTags.subscription(school.id),
+        cacheTags.schoolByCode(schoolCode),
+        cacheTags.platformSchools(),
+        cacheTags.platformStats(),
+    )
+
     return updated
 }
 
@@ -286,13 +347,18 @@ export async function getSubscriptionHistory(schoolCode: string) {
     })
     if (!school) throw new Error("SCHOOL_NOT_FOUND")
 
-    return prisma.schoolSubscriptionHistory.findMany({
-        where: { school_id: school.id },
-        orderBy: { created_at: "desc" },
-        include: {
-            changedBy: { select: { id: true, name: true, role: true } },
-        },
-    })
+    return cached(
+        cacheKeys.subscriptionHistory(school.id),
+        { ttl: 600, tags: [cacheTags.subscription(school.id)] },
+        () =>
+            prisma.schoolSubscriptionHistory.findMany({
+                where: { school_id: school.id },
+                orderBy: { created_at: "desc" },
+                include: {
+                    changedBy: { select: { id: true, name: true, role: true } },
+                },
+            })
+    )
 }
 
 export async function getSchoolStats(schoolCode: string) {
@@ -306,6 +372,18 @@ export async function getSchoolStats(schoolCode: string) {
     })
     if (!school) throw new Error("SCHOOL_NOT_FOUND")
 
+    return cached(
+        cacheKeys.schoolStats(school.id),
+        { ttl: 600, tags: [cacheTags.schoolStats(school.id)] },
+        () => computeSchoolStats(school),
+    )
+}
+
+async function computeSchoolStats(school: {
+    id: string
+    created_at: Date
+    session_started_on: Date | null
+}) {
     const [
         studentTotal,
         studentActive,
@@ -342,6 +420,14 @@ export async function getSchoolStats(schoolCode: string) {
 }
 
 export async function getPlatformStats(): Promise<PlatformStats> {
+    return cached(
+        cacheKeys.platformStats(),
+        { ttl: 600, tags: [cacheTags.platformStats()] },
+        computePlatformStats,
+    )
+}
+
+async function computePlatformStats(): Promise<PlatformStats> {
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setUTCMonth(sixMonthsAgo.getUTCMonth() - 5)
     sixMonthsAgo.setUTCDate(1)
@@ -432,6 +518,15 @@ export async function deleteSchool(schoolCode: string) {
             ? [prisma.user.deleteMany({ where: { id: { in: userIds } } })]
             : []),
     ])
+
+    await invalidateTags(
+        cacheTags.platformStats(),
+        cacheTags.platformSchools(),
+        cacheTags.schoolByCode(schoolCode),
+        cacheTags.schoolStats(school.id),
+        cacheTags.branding(school.id),
+        cacheTags.subscription(school.id),
+    )
 
     return school
 }

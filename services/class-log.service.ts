@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { getNowIST, getTodayISTString } from "@/lib/working-days"
 import { isSchoolHoliday } from "@/services/calendar.service"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags, serializeParams } from "@/lib/cache-keys"
 import type { CreateClassLogInput } from "@/schemas/class-log.schema"
 import type { DayOfWeek } from "@prisma/client"
 
@@ -26,13 +28,8 @@ function getEarliestAllowedDate(): string {
   return ist.toISOString().split("T")[0]
 }
 
-export async function getAdminSchoolId(userId: string): Promise<string | null> {
-  const schoolUser = await prisma.schoolUser.findFirst({
-    where: { user_id: userId, role: "ADMIN", status: "ACTIVE" },
-    select: { school_id: true },
-  })
-  return schoolUser?.school_id ?? null
-}
+// Re-exported from the single source of truth in lib/school-access.
+export { getAdminSchoolId } from "@/lib/school-access"
 
 // ─── Teacher: get timetable slots with log status for a date ─────────────────
 
@@ -77,6 +74,19 @@ export async function getTeacherLogDashboard(
     return { isTeacher: false, isHoliday: false, loggable: false, slots: [] }
   }
 
+  // Depends on the teacher's timetable slots + class logs for the date; busted on
+  // log create and on timetable edits.
+  return cached(
+    cacheKeys.classLog(teacher.school_id, `teacher-dash:${teacherUserId}:${dateStr}`),
+    { ttl: 120, tags: [cacheTags.classLog(teacher.school_id), cacheTags.timetable(teacher.school_id)] },
+    () => computeTeacherLogDashboard(teacher, dateStr),
+  )
+}
+
+async function computeTeacherLogDashboard(
+  teacher: { id: string; school_id: string },
+  dateStr: string,
+): Promise<TeacherDashboardResult> {
   const dayOfWeek = getDayOfWeekFromDate(dateStr)
   const targetDate = new Date(`${dateStr}T00:00:00.000Z`)
 
@@ -165,12 +175,27 @@ export async function getTeacherLogHistory(
 ): Promise<ClassLogEntry[]> {
   const teacher = await prisma.teacher.findFirst({
     where: { user_id: teacherUserId, status: "ACTIVE" },
-    select: { id: true },
+    select: { id: true, school_id: true },
   })
   if (!teacher) return []
 
+  return cached(
+    cacheKeys.classLog(
+      teacher.school_id,
+      `teacher-hist:${teacherUserId}:${serializeParams({ fromDate, toDate })}`,
+    ),
+    { ttl: 120, tags: [cacheTags.classLog(teacher.school_id)] },
+    () => computeTeacherLogHistory(teacher.id, fromDate, toDate),
+  )
+}
+
+async function computeTeacherLogHistory(
+  teacherId: string,
+  fromDate?: string,
+  toDate?: string
+): Promise<ClassLogEntry[]> {
   const where: Prisma.ClassLogWhereInput = {
-    teacher_id: teacher.id,
+    teacher_id: teacherId,
   }
   if (fromDate || toDate) {
     where.date = {
@@ -260,6 +285,8 @@ export async function createClassLog(
     },
   })
 
+  await invalidateTags(cacheTags.classLog(schoolId))
+
   return {
     id: log.id,
     date: log.date.toISOString().split("T")[0],
@@ -299,6 +326,21 @@ export async function getStudentClassLogs(
   })
   if (!student) return []
 
+  return cached(
+    cacheKeys.classLog(
+      student.school_id,
+      `student:${studentUserId}:${serializeParams({ fromDate, toDate })}`,
+    ),
+    { ttl: 120, tags: [cacheTags.classLog(student.school_id)] },
+    () => computeStudentClassLogs(student, fromDate, toDate),
+  )
+}
+
+async function computeStudentClassLogs(
+  student: { school_id: string; class: string; section: string },
+  fromDate?: string,
+  toDate?: string
+): Promise<StudentClassLogEntry[]> {
   const where: Prisma.ClassLogWhereInput = {
     school_id: student.school_id,
     class: student.class,
@@ -353,6 +395,17 @@ export async function getAdminClassLogs(
   schoolId: string,
   filters: { class?: string; section?: string; from?: string; to?: string }
 ): Promise<AdminClassLogEntry[]> {
+  return cached(
+    cacheKeys.classLog(schoolId, `admin:${serializeParams(filters)}`),
+    { ttl: 120, tags: [cacheTags.classLog(schoolId)] },
+    () => computeAdminClassLogs(schoolId, filters),
+  )
+}
+
+async function computeAdminClassLogs(
+  schoolId: string,
+  filters: { class?: string; section?: string; from?: string; to?: string }
+): Promise<AdminClassLogEntry[]> {
   const where: Prisma.ClassLogWhereInput = { school_id: schoolId }
   if (filters.class) where.class = filters.class
   if (filters.section) where.section = filters.section
@@ -401,6 +454,17 @@ export interface MissingLogSlot {
 }
 
 export async function getAdminMissingLogs(
+  schoolId: string,
+  dateStr: string
+): Promise<MissingLogSlot[]> {
+  return cached(
+    cacheKeys.classLog(schoolId, `missing:${dateStr}`),
+    { ttl: 120, tags: [cacheTags.classLog(schoolId), cacheTags.timetable(schoolId)] },
+    () => computeAdminMissingLogs(schoolId, dateStr),
+  )
+}
+
+async function computeAdminMissingLogs(
   schoolId: string,
   dateStr: string
 ): Promise<MissingLogSlot[]> {

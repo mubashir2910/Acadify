@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { feeUploadLimiter, checkRateLimit } from "@/lib/rate-limit"
 import { uploadToSpaces, getExtension, CONTENT_TYPES } from "@/lib/spaces"
+import { magicMatchesExtension } from "@/lib/file-signature"
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024 // 3MB — accommodates higher-res screenshots
 const ALLOWED_FORMATS = ["jpg", "jpeg", "png", "webp", "heic", "pdf"]
@@ -38,6 +39,14 @@ export async function POST(req: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
+
+    // Defense-in-depth: confirm the bytes match the claimed extension.
+    if (!magicMatchesExtension(buffer, ext)) {
+      return NextResponse.json(
+        { message: "File content does not match its type" },
+        { status: 400 },
+      )
+    }
 
     const url = await uploadToSpaces(buffer, {
       key: `payment-proofs/proof_${session.user.id}_${Date.now()}.${ext}`,

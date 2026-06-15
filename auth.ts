@@ -1,3 +1,4 @@
+import "server-only"
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { authConfig } from "./auth.config"
@@ -10,6 +11,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         username: { label: "Username" },
         password: { label: "Password", type: "password" },
+        remember: { label: "Remember me", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) return null
@@ -18,8 +20,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           credentials.username as string,
           credentials.password as string
         )
+        if (!user) return null
 
-        return user ?? null
+        // Carry the "remember me" choice into the JWT so jwt.encode can size the
+        // token's lifetime (30 days vs 6 days). Sent as a string by the form.
+        const remember = credentials.remember === "true" || credentials.remember === true
+        return { ...user, remember }
       },
     }),
   ],
@@ -32,6 +38,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = (user as { role: string }).role
         token.mustResetPassword = (user as { mustResetPassword: boolean }).mustResetPassword
         token.isProfileComplete = (user as { isProfileComplete: boolean }).isProfileComplete
+        token.remember = (user as { remember?: boolean }).remember ?? false
         token.suspended = false
         return token
       }

@@ -31,3 +31,48 @@ export async function resolveSchoolForAdminAccess(
   if (!membership) return { error: "FORBIDDEN" }
   return { schoolId: school.id }
 }
+
+// ─── School-ID resolution helpers ─────────────────────────────────────────────
+// Single source of truth for mapping an authenticated user to their school.
+// Previously these were copy-pasted across several services with subtly
+// different status filters; they are unified here. All lookups require an
+// ACTIVE membership/record — this is fail-safe (it can only deny an inactive
+// user, never grant access) and matches the majority of prior call sites.
+
+/** Resolve the school an ADMIN belongs to (active membership only). */
+export async function getAdminSchoolId(userId: string): Promise<string | null> {
+  const schoolUser = await prisma.schoolUser.findFirst({
+    where: { user_id: userId, role: "ADMIN", status: "ACTIVE" },
+    select: { school_id: true },
+  })
+  return schoolUser?.school_id ?? null
+}
+
+/** Resolve the school a TEACHER belongs to (active record only). */
+export async function getTeacherSchoolId(userId: string): Promise<string | null> {
+  const teacher = await prisma.teacher.findFirst({
+    where: { user_id: userId, status: "ACTIVE" },
+    select: { school_id: true },
+  })
+  return teacher?.school_id ?? null
+}
+
+/** Resolve the school a STUDENT belongs to (active record only). */
+export async function getStudentSchoolId(userId: string): Promise<string | null> {
+  const student = await prisma.student.findFirst({
+    where: { user_id: userId, status: "ACTIVE" },
+    select: { school_id: true },
+  })
+  return student?.school_id ?? null
+}
+
+/** Resolve a user's school by role. Returns null for unknown/unsupported roles. */
+export async function resolveSchoolIdByRole(
+  userId: string,
+  role: string
+): Promise<string | null> {
+  if (role === "ADMIN") return getAdminSchoolId(userId)
+  if (role === "TEACHER") return getTeacherSchoolId(userId)
+  if (role === "STUDENT") return getStudentSchoolId(userId)
+  return null
+}
