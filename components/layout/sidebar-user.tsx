@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { signOut } from "next-auth/react"
 import { useTheme } from "next-themes"
-import { IdCard, LogOut, Monitor, Moon, Palette, Sun, User } from "lucide-react"
+import { LogOut, Monitor, Moon, Palette, Sun, User } from "lucide-react"
 import {
   SidebarFooter,
   SidebarMenu,
@@ -111,15 +111,6 @@ export function SidebarUser({ user, basePath }: SidebarUserProps) {
                   Profile
                 </Link>
               </DropdownMenuItem>
-              {/* Digital ID — school-facing roles only (super admins have no school ID) */}
-              {user.role !== "SUPER_ADMIN" && (
-                <DropdownMenuItem asChild>
-                  <Link href={`${basePath}/digital-id`} className="w-full cursor-pointer">
-                    <IdCard className="mr-2 h-4 w-4" />
-                    Digital ID
-                  </Link>
-                </DropdownMenuItem>
-              )}
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger className="cursor-pointer">
                   <ThemeIcon className="mr-2 h-4 w-4" />

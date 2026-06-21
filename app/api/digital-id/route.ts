@@ -3,7 +3,9 @@ import { ZodError } from "zod"
 import { auth } from "@/auth"
 import {
   getDigitalIdCard,
+  getDigitalIdPhotoQuota,
   setDigitalIdPhoto,
+  DigitalIdLimitError,
   DIGITAL_ID_ROLES,
 } from "@/services/digital-id.service"
 import { updateDigitalIdSchema } from "@/schemas/digital-id.schema"
@@ -31,11 +33,18 @@ export async function GET() {
   if (limited) return limited
 
   try {
-    const card = await getDigitalIdCard(session.user.id)
+    const [card, quota] = await Promise.all([
+      getDigitalIdCard(session.user.id),
+      getDigitalIdPhotoQuota(session.user.id),
+    ])
     if (!card) {
       return NextResponse.json({ message: "Digital ID not found" }, { status: 404 })
     }
-    return NextResponse.json(card)
+    return NextResponse.json({
+      ...card,
+      photoChangesRemaining: quota.remaining,
+      photoChangeLimit: quota.limit,
+    })
   } catch (error) {
     console.error("[GET /api/digital-id]", error)
     return NextResponse.json({ message: "Failed to load Digital ID" }, { status: 500 })
@@ -67,6 +76,9 @@ export async function PUT(req: Request) {
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json({ message: error.issues[0].message }, { status: 422 })
+    }
+    if (error instanceof DigitalIdLimitError) {
+      return NextResponse.json({ message: error.message }, { status: 429 })
     }
     console.error("[PUT /api/digital-id]", error)
     return NextResponse.json({ message: "Failed to update Digital ID" }, { status: 500 })

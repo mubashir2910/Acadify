@@ -25,6 +25,8 @@ model User {
   profile_picture             String?
   digital_id_photo            String?
   digital_id_token            String?                     @unique
+  digital_id_photo_changes    Int                         @default(0)
+  digital_id_photo_period     String?
   created_at                  DateTime                    @default(now())
   updated_at                  DateTime                    @updatedAt
   attendancesEdited           Attendance[]                @relation("AttendanceLastEditedBy")

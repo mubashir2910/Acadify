@@ -4,6 +4,10 @@ import { uploadImportLimiter, checkRateLimit } from "@/lib/rate-limit"
 import { uploadToSpaces, CONTENT_TYPES } from "@/lib/spaces"
 import { magicMatchesExtension } from "@/lib/file-signature"
 import { IMAGE_MIME_TO_EXT as IMAGE_EXT } from "@/lib/attachment"
+import {
+  assertCanChangeDigitalIdPhoto,
+  DigitalIdLimitError,
+} from "@/services/digital-id.service"
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
 
@@ -20,6 +24,10 @@ export async function POST(req: Request) {
   if (limited) return limited
 
   try {
+    // Enforce the monthly change cap BEFORE touching storage, so an over-limit
+    // attempt never uploads a file we'd then have to reject.
+    await assertCanChangeDigitalIdPhoto(session.user.id)
+
     const formData = await req.formData()
     const file = formData.get("file") as File | null
 
@@ -57,6 +65,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url })
   } catch (error) {
+    if (error instanceof DigitalIdLimitError) {
+      return NextResponse.json({ message: error.message }, { status: 429 })
+    }
     console.error("[POST /api/upload/digital-id-photo]", error)
     return NextResponse.json({ message: "Failed to upload image" }, { status: 500 })
   }

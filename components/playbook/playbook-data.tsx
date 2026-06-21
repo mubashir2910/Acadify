@@ -185,7 +185,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'Smart Time Table',
         benefit: 'No more scheduling chaos.',
         description:
-            'Effortlessly plan and manage class schedules without the puzzle. Say goodbye to overlapping classes and confused students.',
+            'Say goodbye to overlapping classes and confused students.',
         why: 'Built to make complex school scheduling as simple as drag-and-drop.',
         highlights: [
             { icon: ShieldCheck, label: 'Auto-conflict Check' },
@@ -202,7 +202,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'Interactive Calendar',
         benefit: 'Every event, perfectly synced.',
         description:
-            'Keep everyone aligned on holidays, exams, and school events. One unified calendar that keeps the whole school moving together.',
+            'One unified calendar that keeps the whole school moving together.',
         why: "Designed to eliminate the 'I didn't know' from school events.",
         highlights: [
             { icon: Users, label: 'School-wide Events' },
@@ -219,7 +219,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'Birthday Celebrations',
         benefit: 'Make every student feel special.',
         description:
-            'Never miss a special day. Automatically track and celebrate student and staff birthdays to foster a warmer school culture.',
+            'Celebrate student and staff birthdays to build a warmer school culture.',
         why: 'Because small celebrations create a big sense of belonging.',
         highlights: [
             { icon: BellRing, label: 'Auto Reminders' },
@@ -236,7 +236,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'Smart Directory',
         benefit: 'Everyone, just a tap away.',
         description:
-            'A centralized, lightning-fast directory of all students, teachers, and staff. Access emergency contacts and profiles in seconds.',
+            'A centralized, lightning-fast directory of all students, teachers, and staff.',
         why: "Designed to keep your school's entire community instantly accessible.",
         highlights: [
             { icon: Search, label: 'Lightning Fast Search' },
@@ -253,7 +253,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'Digital ID Cards',
         benefit: 'Identity that lives on their phone.',
         description:
-            'Generate beautiful, secure digital ID cards instantly. No more lost plastic cards, just scan-ready credentials right in their pocket.',
+            'Generate secure, verifiable digital IDs with quick QR-based scanning.',
         why: 'Built to modernize school identity and eliminate printing costs.',
         highlights: [
             { icon: Zap, label: 'Instant Generation' },
@@ -270,7 +270,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'Exam Management',
         benefit: 'Manual grading, completely gone.',
         description:
-            "Streamline the entire examination lifecycle. From scheduling tests to publishing results, we've automated the heavy lifting.",
+            "Manage exams effortlessly, from test creation to result publishing.",
         why: 'Designed to let teachers focus on teaching, not endless paperwork.',
         highlights: [
             { icon: CheckSquare, label: 'Automated Grading' },
@@ -287,7 +287,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'Visual Learn Path',
         benefit: 'See exactly how they learn.',
         description:
-            'Transform dry curriculums into rich, visual learning journeys. Students explore topics interactively, tracking their mastery step-by-step.',
+            'Interactive learning paths with step-by-step mastery tracking.',
         why: 'Built to make complex topics intuitive and engaging for every student.',
         highlights: [
             { icon: Map, label: 'Visual Roadmaps' },
@@ -304,7 +304,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'Monthly Reports',
         benefit: 'Crystal clear growth tracking.',
         description:
-            'Auto-generate comprehensive monthly snapshots of student progress. Keep parents informed and students motivated with beautiful insights.',
+            'Auto-generate monthly student progress reports with actionable insights.',
         why: 'Created to turn complex academic data into a simple story of growth.',
         highlights: [
             { icon: Sparkles, label: 'Auto-generated' },

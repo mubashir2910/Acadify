@@ -14,6 +14,12 @@ import {
 import { DigitalIdCard } from "./digital-id-card"
 import type { DigitalIdCard as DigitalIdCardData } from "@/schemas/digital-id.schema"
 
+// GET /api/digital-id returns the visual card plus the monthly photo-change quota.
+interface DigitalIdResponse extends DigitalIdCardData {
+  photoChangesRemaining: number
+  photoChangeLimit: number
+}
+
 // localStorage key suppresses the first-visit photo prompt once the user has made
 // a choice (uploaded a photo OR explicitly opted to use their profile picture).
 const setupKey = (acadifyId: string) => `acadify_digital_id_setup_${acadifyId}`
@@ -27,6 +33,11 @@ export function DigitalIdView() {
   const [uploading, setUploading] = useState(false)
   const [sharing, setSharing] = useState(false)
 
+  // Monthly photo-change allowance (server-enforced; mirrored here for UX).
+  const [remaining, setRemaining] = useState<number | null>(null)
+  const [limit, setLimit] = useState(2)
+  const [warnOpen, setWarnOpen] = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function loadCard() {
@@ -36,8 +47,10 @@ export function DigitalIdView() {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.message ?? "Failed to load Digital ID")
       }
-      const data: DigitalIdCardData = await res.json()
+      const data: DigitalIdResponse = await res.json()
       setCard(data)
+      setRemaining(data.photoChangesRemaining)
+      setLimit(data.photoChangeLimit)
 
       // First visit: prompt for a photo unless they've already chosen.
       const dismissed =
@@ -110,6 +123,28 @@ export function DigitalIdView() {
       if (fileInputRef.current) fileInputRef.current.value = ""
     }
   }
+
+  function openFilePicker() {
+    fileInputRef.current?.click()
+  }
+
+  // Gate a photo change on the monthly allowance: block when exhausted, warn on
+  // the final allowed change, otherwise open the picker directly.
+  function requestPhotoChange() {
+    if (remaining !== null && remaining <= 0) {
+      toast.error(
+        `You can change your ID photo only ${limit} times a month. Please try again next month.`
+      )
+      return
+    }
+    if (remaining === 1) {
+      setWarnOpen(true)
+      return
+    }
+    openFilePicker()
+  }
+
+  const limitReached = remaining !== null && remaining <= 0
 
   // Keep the existing profile picture (no dedicated photo) and stop prompting.
   function handleUseProfilePicture() {
@@ -192,17 +227,27 @@ export function DigitalIdView() {
         <Button
           variant="outline"
           className="flex-1"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
+          onClick={requestPhotoChange}
+          disabled={uploading || limitReached}
         >
           {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-          {card.hasCustomPhoto ? "Change photo" : "Add photo"}
+          {limitReached ? "Limit reached" : card.hasCustomPhoto ? "Change photo" : "Add photo"}
         </Button>
       </div>
 
-      <p className="max-w-[300px] sm:max-w-[380px] text-center text-xs text-muted-foreground">
-        Tilt the card to see the holographic effect. Share your link to show it off anywhere.
-      </p>
+      <div className="max-w-[300px] sm:max-w-[380px] space-y-1 text-center text-xs text-muted-foreground">
+        <p>Tilt the card to see the holographic effect. Share your link to show it off anywhere.</p>
+        {limitReached ? (
+          <p className="font-medium text-amber-600 dark:text-amber-500">
+            You&apos;ve used all {limit} photo changes this month. You can change it again next month.
+          </p>
+        ) : (
+          <p>
+            You can change your ID photo up to {limit} times a month
+            {remaining !== null ? ` — ${remaining} left this month.` : "."}
+          </p>
+        )}
+      </div>
 
       <input
         ref={fileInputRef}
@@ -223,13 +268,41 @@ export function DigitalIdView() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 pt-2">
-            <Button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+            <Button onClick={requestPhotoChange} disabled={uploading || limitReached}>
               {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
               Upload a photo
             </Button>
             <Button variant="outline" onClick={handleUseProfilePicture} disabled={uploading}>
               <ImageIcon className="mr-2 h-4 w-4" />
               Use my profile picture
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Last-allowed-change warning (shown when this would be the final change) */}
+      <Dialog open={warnOpen} onOpenChange={setWarnOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Last photo change this month</DialogTitle>
+            <DialogDescription>
+              You can change your ID photo only {limit} times a month. This will be your
+              final change for this month — after this you won&apos;t be able to change it
+              again until next month.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setWarnOpen(false)} disabled={uploading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setWarnOpen(false)
+                openFilePicker()
+              }}
+              disabled={uploading}
+            >
+              Continue
             </Button>
           </div>
         </DialogContent>

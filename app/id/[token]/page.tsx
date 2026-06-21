@@ -28,7 +28,7 @@ export default async function PublicDigitalIdPage({ params }: PageProps) {
         href="https://acadify.tech"
         className="text-xs text-white/50 transition-colors hover:text-white/80"
       >
-        Powered by Acadify
+        Powered by ACADIFY
       </a>
     </main>
   )

@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { motion } from "motion/react"
-import { LayoutDashboard, CalendarCheck, CalendarDays, Users, GraduationCap, Cake, ClipboardList, Bell, TableProperties, Compass, FolderCog, BarChart3, Settings, CreditCard, Wallet, ShieldCheck, Loader2, Swords, Trophy, PlusCircle, CalendarClock, ListChecks, BookOpen, ClipboardCheck } from "lucide-react"
+import { LayoutDashboard, CalendarCheck, CalendarDays, Users, GraduationCap, Cake, ClipboardList, Bell, TableProperties, Compass, FolderCog, BarChart3, Settings, CreditCard, Wallet, ShieldCheck, Loader2, Swords, Trophy, PlusCircle, CalendarClock, ListChecks, BookOpen, ClipboardCheck, IdCard } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   SidebarMenu,
@@ -33,6 +33,7 @@ const ADMIN_SECTIONS: NavSection[] = [
     headingIcon: "🧭",
     items: [
       { label: "Overview", icon: LayoutDashboard, slug: "" },
+      { label: "Digital ID", icon: IdCard, slug: "/digital-id" },
     ],
   },
   {
@@ -96,6 +97,7 @@ const TEACHER_SECTIONS: NavSection[] = [
     headingIcon: "🧭",
     items: [
       { label: "Overview", icon: LayoutDashboard, slug: "" },
+      { label: "Digital ID", icon: IdCard, slug: "/digital-id" },
     ],
   },
   {
@@ -149,6 +151,7 @@ const STUDENT_SECTIONS: NavSection[] = [
     headingIcon: "🧭",
     items: [
       { label: "Overview", icon: LayoutDashboard, slug: "" },
+      { label: "Digital ID", icon: IdCard, slug: "/digital-id" },
     ],
   },
   {

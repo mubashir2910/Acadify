@@ -59,8 +59,8 @@ export function AppSidebar({ basePath, user, branding }: AppSidebarProps) {
 
       {/* Co-brand footer: keep the SaaS identity when a school logo takes the header. */}
       {branding && (
-        <div className="px-3 pb-1 text-[11px] font-medium text-muted-foreground group-data-[collapsible=icon]:hidden">
-          Powered by Acadify
+        <div className="px-3 text-[11px] font-medium text-muted-foreground group-data-[collapsible=icon]:hidden">
+          Powered by ACADIFY
         </div>
       )}
 

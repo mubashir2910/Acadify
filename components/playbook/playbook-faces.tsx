@@ -233,49 +233,21 @@ export function ChapterImage({
                 </span>
             </div>
 
-            <div className="relative flex flex-1 flex-col justify-center">
+            <div className="relative mt-2 flex-1">
                 {/* Soft accent glow behind the illustration */}
                 <div
                     aria-hidden
-                    className={`pointer-events-none absolute left-1/2 top-4 h-44 w-44 -translate-x-1/2 rounded-full ${chapter.accentBg} blur-3xl`}
+                    className={`pointer-events-none absolute left-1/2 top-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full ${chapter.accentBg} blur-3xl`}
                 />
-
-                {/* Illustration */}
-                <div className="relative overflow-hidden rounded-2xl shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
-                    <div className="relative aspect-[4/3] w-full">
-                        <Image
-                            src={chapter.image}
-                            alt={`${chapter.title} illustration`}
-                            fill
-                            className="object-cover"
-                            sizes="(min-width: 1024px) 40vw, 80vw"
-                        />
-                    </div>
-                </div>
-
-                {/* "Why it's built" — three highlight blocks, overlapping the image */}
-                <div className="relative z-10 -mt-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
-                    <div className="grid grid-cols-3 divide-x divide-gray-100">
-                        {chapter.highlights.map((h) => {
-                            const Icon = h.icon
-                            return (
-                                <div
-                                    key={h.label}
-                                    className="flex flex-col items-center gap-2 px-2 text-center"
-                                >
-                                    <div
-                                        className={`flex h-9 w-9 items-center justify-center rounded-full ${chapter.accentBg} ${chapter.accentText}`}
-                                    >
-                                        <Icon className="h-4 w-4" strokeWidth={1.75} />
-                                    </div>
-                                    <span className="text-[11px] font-medium leading-tight text-gray-600">
-                                        {h.label}
-                                    </span>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
+                {/* Just the illustration — full, uncropped, non-interactive. */}
+                <Image
+                    src={chapter.image}
+                    alt={`${chapter.title} illustration`}
+                    fill
+                    draggable={false}
+                    className="object-contain pointer-events-none"
+                    sizes="(min-width: 1024px) 40vw, 80vw"
+                />
             </div>
         </div>
     )
