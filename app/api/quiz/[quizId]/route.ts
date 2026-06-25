@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { getQuizDetail, deleteQuiz } from "@/services/quiz.service"
+import { expensiveReadLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 interface RouteParams {
   params: Promise<{ quizId: string }>
@@ -12,6 +13,9 @@ export async function GET(_req: Request, { params }: RouteParams) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
 
+  const limited = await checkRateLimit(expensiveReadLimiter, `read:${session.user.id}`)
+  if (limited) return limited
+
   try {
     const { quizId } = await params
     const quiz = await getQuizDetail(quizId, session.user.id, session.user.role)
@@ -19,6 +23,9 @@ export async function GET(_req: Request, { params }: RouteParams) {
   } catch (error) {
     if (error instanceof Error && error.message === "QUIZ_NOT_FOUND") {
       return NextResponse.json({ message: "Quiz not found" }, { status: 404 })
+    }
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 })
     }
     console.error("GET /api/quiz/[quizId] error:", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })

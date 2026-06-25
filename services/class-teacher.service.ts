@@ -1,37 +1,38 @@
 import { prisma } from "@/lib/prisma"
 import { ensureTeacherForUser } from "@/services/teacher.service"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 
 // ─── Get admin's school ID from their user ID ──────────────────────────────
-
-export async function getAdminSchoolId(userId: string): Promise<string | null> {
-  const schoolUser = await prisma.schoolUser.findFirst({
-    where: { user_id: userId, role: "ADMIN" },
-    select: { school_id: true },
-  })
-  return schoolUser?.school_id ?? null
-}
+// Re-exported from the single source of truth in lib/school-access.
+export { getAdminSchoolId } from "@/lib/school-access"
 
 // ─── List all class-teacher assignments for a school ────────────────────────
 
 export async function getClassTeacherAssignments(schoolId: string) {
-  return prisma.classTeacher.findMany({
-    where: { school_id: schoolId },
-    select: {
-      id: true,
-      class: true,
-      section: true,
-      assigned_at: true,
-      teacher: {
+  return cached(
+    cacheKeys.classTeachers(schoolId, "assignments"),
+    { ttl: 900, tags: [cacheTags.classTeachers(schoolId)] },
+    () =>
+      prisma.classTeacher.findMany({
+        where: { school_id: schoolId },
         select: {
           id: true,
-          employee_id: true,
-          status: true,
-          user: { select: { name: true } },
+          class: true,
+          section: true,
+          assigned_at: true,
+          teacher: {
+            select: {
+              id: true,
+              employee_id: true,
+              status: true,
+              user: { select: { name: true } },
+            },
+          },
         },
-      },
-    },
-    orderBy: [{ class: "asc" }, { section: "asc" }],
-  })
+        orderBy: [{ class: "asc" }, { section: "asc" }],
+      })
+  )
 }
 
 // ─── Get available (unassigned) teachers for this school ────────────────────
@@ -40,20 +41,25 @@ export async function getClassTeacherAssignments(schoolId: string) {
 // can label them distinctly.
 
 export async function getAvailableTeachers(schoolId: string) {
-  return prisma.teacher.findMany({
-    where: {
-      school_id: schoolId,
-      status: "ACTIVE",
-      classTeacher: null,
-      user: { role: "TEACHER" },
-    },
-    select: {
-      id: true,
-      employee_id: true,
-      user: { select: { name: true } },
-    },
-    orderBy: { user: { name: "asc" } },
-  })
+  return cached(
+    cacheKeys.classTeachers(schoolId, "available-teachers"),
+    { ttl: 900, tags: [cacheTags.classTeachers(schoolId), cacheTags.teachers(schoolId)] },
+    () =>
+      prisma.teacher.findMany({
+        where: {
+          school_id: schoolId,
+          status: "ACTIVE",
+          classTeacher: null,
+          user: { role: "TEACHER" },
+        },
+        select: {
+          id: true,
+          employee_id: true,
+          user: { select: { name: true } },
+        },
+        orderBy: { user: { name: "asc" } },
+      })
+  )
 }
 
 // ─── Get admins who can be assigned as class teachers ───────────────────────
@@ -62,6 +68,14 @@ export async function getAvailableTeachers(schoolId: string) {
 // timetable assignment — that's fine.)
 
 export async function getAvailableAdmins(schoolId: string) {
+  return cached(
+    cacheKeys.classTeachers(schoolId, "available-admins"),
+    { ttl: 900, tags: [cacheTags.classTeachers(schoolId), cacheTags.admins(schoolId)] },
+    () => computeAvailableAdmins(schoolId),
+  )
+}
+
+async function computeAvailableAdmins(schoolId: string) {
   const adminUsers = await prisma.schoolUser.findMany({
     where: {
       school_id: schoolId,
@@ -99,6 +113,14 @@ export async function getAvailableAdmins(schoolId: string) {
 // ─── Get available (unassigned) class-sections for this school ──────────────
 
 export async function getAvailableClassSections(schoolId: string) {
+  return cached(
+    cacheKeys.classTeachers(schoolId, "available-class-sections"),
+    { ttl: 900, tags: [cacheTags.classTeachers(schoolId), cacheTags.classes(schoolId)] },
+    () => computeAvailableClassSections(schoolId),
+  )
+}
+
+async function computeAvailableClassSections(schoolId: string) {
   const allClassSections = await prisma.student.findMany({
     where: { school_id: schoolId, status: "ACTIVE" },
     select: { class: true, section: true },
@@ -123,20 +145,25 @@ export async function getAvailableClassSections(schoolId: string) {
 // ─── Get assigned class-sections (for the "Change" flow) ────────────────────
 
 export async function getAssignedClassSections(schoolId: string) {
-  return prisma.classTeacher.findMany({
-    where: { school_id: schoolId },
-    select: {
-      class: true,
-      section: true,
-      teacher: {
+  return cached(
+    cacheKeys.classTeachers(schoolId, "assigned-class-sections"),
+    { ttl: 900, tags: [cacheTags.classTeachers(schoolId)] },
+    () =>
+      prisma.classTeacher.findMany({
+        where: { school_id: schoolId },
         select: {
-          id: true,
-          user: { select: { name: true } },
+          class: true,
+          section: true,
+          teacher: {
+            select: {
+              id: true,
+              user: { select: { name: true } },
+            },
+          },
         },
-      },
-    },
-    orderBy: [{ class: "asc" }, { section: "asc" }],
-  })
+        orderBy: [{ class: "asc" }, { section: "asc" }],
+      })
+  )
 }
 
 // ─── Assign a class teacher ─────────────────────────────────────────────────
@@ -163,7 +190,7 @@ export async function assignClassTeacher(
 
   // All checks + insert run inside a transaction so concurrent requests can't
   // both pass the duplicate check and race to create the same assignment.
-  return prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx) => {
     // Verify teacher belongs to this school and is active
     const teacher = await tx.teacher.findFirst({
       where: { id: teacherId, school_id: schoolId, status: "ACTIVE" },
@@ -197,6 +224,9 @@ export async function assignClassTeacher(
       },
     })
   })
+
+  await invalidateTags(cacheTags.classTeachers(schoolId))
+  return created
 }
 
 // ─── Change the class teacher for a class-section ───────────────────────────
@@ -214,7 +244,7 @@ export async function changeClassTeacher(
 
   // All checks + update run inside a transaction so concurrent requests can't
   // both pass the duplicate check and race to assign the same teacher twice.
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const existing = await tx.classTeacher.findUnique({
       where: {
         school_id_class_section: {
@@ -246,6 +276,9 @@ export async function changeClassTeacher(
       },
     })
   })
+
+  await invalidateTags(cacheTags.classTeachers(schoolId))
+  return updated
 }
 
 // ─── Get class teacher for a student's class+section ────────────────────────
@@ -291,11 +324,22 @@ export async function getTeacherClassWithStudents(userId: string) {
     return { assigned: false as const }
   }
 
-  const { class: className, section } = teacher.classTeacher
+  return cached(
+    cacheKeys.classTeachers(teacher.school_id, `teacher-class:${userId}`),
+    { ttl: 900, tags: [cacheTags.classTeachers(teacher.school_id), cacheTags.students(teacher.school_id)] },
+    () => buildTeacherClassWithStudents(teacher.school_id, teacher.classTeacher!),
+  )
+}
+
+async function buildTeacherClassWithStudents(
+  schoolId: string,
+  classTeacher: { class: string; section: string },
+) {
+  const { class: className, section } = classTeacher
 
   const students = await prisma.student.findMany({
     where: {
-      school_id: teacher.school_id,
+      school_id: schoolId,
       class: className,
       section: section,
       status: "ACTIVE",
@@ -331,6 +375,18 @@ export async function getStudentClassTeacher(userId: string) {
   })
   if (!student) return null
 
+  return cached(
+    cacheKeys.classTeachers(student.school_id, `student-class:${userId}`),
+    { ttl: 900, tags: [cacheTags.classTeachers(student.school_id), cacheTags.students(student.school_id)] },
+    () => buildStudentClassTeacher(student),
+  )
+}
+
+async function buildStudentClassTeacher(student: {
+  school_id: string
+  class: string
+  section: string
+}) {
   const ct = await getClassTeacherForStudent(
     student.school_id,
     student.class,

@@ -3,11 +3,15 @@ import { NextResponse } from "next/server"
 import { ZodError } from "zod"
 import { arenaLeaderboardQuerySchema } from "@/schemas/quiz.schema"
 import { getMonthlyLeaderboard, getAccumulatedLeaderboard } from "@/services/quiz.service"
+import { expensiveReadLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 export async function GET(req: Request) {
   try {
     const session = await auth()
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    const limited = await checkRateLimit(expensiveReadLimiter, `read:${session.user.id}`)
+    if (limited) return limited
 
     const { searchParams } = new URL(req.url)
     const query = arenaLeaderboardQuerySchema.parse({

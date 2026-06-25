@@ -2,7 +2,8 @@
 
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
-import { LayoutDashboard, CalendarCheck, CalendarDays, Users, GraduationCap, Cake, ClipboardList, Bell, TableProperties, Compass, FolderCog, BarChart3, Settings, CreditCard, Wallet, ShieldCheck, Loader2, Swords, Trophy, PlusCircle, CalendarClock, ListChecks, BookOpen, ClipboardCheck } from "lucide-react"
+import { motion } from "motion/react"
+import { LayoutDashboard, CalendarCheck, CalendarDays, Users, GraduationCap, Cake, ClipboardList, Bell, TableProperties, Compass, FolderCog, BarChart3, Settings, CreditCard, Wallet, ShieldCheck, Loader2, Swords, Trophy, PlusCircle, CalendarClock, ListChecks, BookOpen, ClipboardCheck, IdCard } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   SidebarMenu,
@@ -32,6 +33,7 @@ const ADMIN_SECTIONS: NavSection[] = [
     headingIcon: "🧭",
     items: [
       { label: "Overview", icon: LayoutDashboard, slug: "" },
+      { label: "Digital ID", icon: IdCard, slug: "/digital-id" },
     ],
   },
   {
@@ -95,6 +97,7 @@ const TEACHER_SECTIONS: NavSection[] = [
     headingIcon: "🧭",
     items: [
       { label: "Overview", icon: LayoutDashboard, slug: "" },
+      { label: "Digital ID", icon: IdCard, slug: "/digital-id" },
     ],
   },
   {
@@ -148,6 +151,7 @@ const STUDENT_SECTIONS: NavSection[] = [
     headingIcon: "🧭",
     items: [
       { label: "Overview", icon: LayoutDashboard, slug: "" },
+      { label: "Digital ID", icon: IdCard, slug: "/digital-id" },
     ],
   },
   {
@@ -292,7 +296,7 @@ export function SidebarNav({ basePath, role }: SidebarNavProps) {
                       {({ pending }) => (
                         <span
                           className={cn(
-                            "flex w-full items-center gap-2.5 rounded-md transition-[background,opacity] duration-150",
+                            "flex w-full items-center gap-2.5 rounded-md transition-[background,opacity,transform] duration-150 active:scale-[0.98]",
                             pending && !isActive && "bg-accent/50",
                             pending && "opacity-70"
                           )}
@@ -304,9 +308,18 @@ export function SidebarNav({ basePath, role }: SidebarNavProps) {
                           )}
                           <span className="flex-1">{label}</span>
                           {label === "Notifications" && unreadCount > 0 && (
-                            <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
+                            // key={unreadCount} remounts the badge whenever the
+                            // count changes, firing a one-shot scale pop so a new
+                            // notification draws the eye (state-indication motion).
+                            <motion.span
+                              key={unreadCount}
+                              initial={{ scale: 0.6 }}
+                              animate={{ scale: 1 }}
+                              transition={{ type: "spring", stiffness: 500, damping: 18 }}
+                              className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white"
+                            >
                               {unreadCount > 99 ? "99+" : unreadCount}
-                            </span>
+                            </motion.span>
                           )}
                         </span>
                       )}

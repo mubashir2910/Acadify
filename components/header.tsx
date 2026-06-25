@@ -7,7 +7,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 
 const menuItems = [
-    { name: 'Featuresss', href: '/#features' },
+    { name: 'Features', href: '/#features' },
     { name: 'Pricing', href: '/#pricing' },
     { name: 'About', href: '/about' },
     { name: 'Contact', href: '/contact-us' },
@@ -29,7 +29,13 @@ export const HeroHeader = () => {
             <nav
                 data-state={menuState && 'active'}
                 className="fixed z-20 w-full px-2">
-                <div className={cn('mx-auto mt-2 max-w-6xl px-6 transition-all duration-300 lg:px-12', isScrolled && 'bg-background/50 max-w-4xl rounded-2xl border backdrop-blur-lg lg:px-5')}>
+                <div className={cn(
+                    'mx-auto mt-2 max-w-6xl px-6 transition-all duration-300 lg:px-12',
+                    // Mobile: show a light frosted bar from first load so the menu button + logo
+                    // stay visible over the dark hero video without needing to scroll.
+                    !isScrolled && 'max-lg:rounded-2xl max-lg:border max-lg:bg-background/25 max-lg:backdrop-blur-lg',
+                    isScrolled && 'bg-background/50 max-w-4xl rounded-2xl border backdrop-blur-lg lg:px-5'
+                )}>
                     <div className="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
                         <div className="flex w-full justify-between lg:w-auto">
                             <Link
@@ -37,8 +43,9 @@ export const HeroHeader = () => {
                                 aria-label="home"
                                 className="flex items-center space-x-2">
 
-                                {/* Over the dark hero video (top of page) the wordmark needs to be white */}
-                                <Logo textClassName={cn(!isScrolled && 'text-white')} />
+                                {/* At top: white over the dark video on desktop, but dark on mobile where
+                                    it now sits on the light frosted bar. Scrolled: default dark wordmark. */}
+                                <Logo textClassName={cn(!isScrolled && 'lg:text-white')} />
                             </Link>
 
                             <button
@@ -78,6 +85,7 @@ export const HeroHeader = () => {
                                         <li key={index}>
                                             <Link
                                                 href={item.href}
+                                                onClick={() => setMenuState(false)}
                                                 className="text-muted-foreground hover:text-accent-foreground relative block duration-150 after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:bg-blue-600 after:transition-all after:duration-200 hover:after:w-full">
                                                 <span>{item.name}</span>
                                             </Link>
@@ -89,7 +97,7 @@ export const HeroHeader = () => {
                                 <Button
                                     asChild
                                     size="sm">
-                                    <Link href="/login">
+                                    <Link href="/login" onClick={() => setMenuState(false)}>
                                         <span>Login</span>
                                     </Link>
                                 </Button>

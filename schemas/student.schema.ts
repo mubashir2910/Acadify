@@ -3,19 +3,20 @@ import { parseDDMMYYYY } from "@/lib/date-parser"
 
 // Schema for one row parsed from the CSV
 export const csvStudentRowSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "Name is required").max(100, "Name is too long"),
   email: z
     .string()
+    .max(254)
     .email("Invalid email format")
     .optional()
     .or(z.literal("")),
-  admission_no: z.string().optional().or(z.literal("")),
-  roll_no: z.string().min(1, "Roll number is required"),
-  class: z.string().min(1, "Class is required"),
-  section: z.string().min(1, "Section is required"),
-  phone: z.string().optional().or(z.literal("")),
-  guardian_name: z.string().min(1, "Guardian name is required"),
-  guardian_phone: z.string().min(1, "Guardian phone is required"),
+  admission_no: z.string().max(30).optional().or(z.literal("")),
+  roll_no: z.string().min(1, "Roll number is required").max(20, "Roll number is too long"),
+  class: z.string().min(1, "Class is required").max(30, "Class is too long"),
+  section: z.string().min(1, "Section is required").max(30, "Section is too long"),
+  phone: z.string().max(20).optional().or(z.literal("")),
+  guardian_name: z.string().min(1, "Guardian name is required").max(100, "Guardian name is too long"),
+  guardian_phone: z.string().min(1, "Guardian phone is required").max(20, "Guardian phone is too long"),
   date_of_birth: z
     .string()
     .min(1, "Date of birth is required")
@@ -79,15 +80,15 @@ export interface ImportErrorResponse {
 // ─── Single student creation (admin quick-add) ────────────────────────────────
 
 export const createStudentSchema = z.object({
-  name:           z.string().min(1, "Name is required"),
-  class:          z.string().min(1, "Class is required"),
-  section:        z.string().min(1, "Section is required"),
-  roll_no:        z.string().min(1, "Roll number is required"),
-  guardian_name:  z.string().min(1, "Guardian name is required"),
-  guardian_phone: z.string().min(1, "Guardian phone is required"),
-  email:          z.string().email("Invalid email").optional().or(z.literal("")),
-  phone:          z.string().optional().or(z.literal("")),
-  admission_no:   z.string().optional().or(z.literal("")),
+  name:           z.string().min(1, "Name is required").max(100, "Name is too long"),
+  class:          z.string().min(1, "Class is required").max(30, "Class is too long"),
+  section:        z.string().min(1, "Section is required").max(30, "Section is too long"),
+  roll_no:        z.string().min(1, "Roll number is required").max(20, "Roll number is too long"),
+  guardian_name:  z.string().min(1, "Guardian name is required").max(100, "Guardian name is too long"),
+  guardian_phone: z.string().min(1, "Guardian phone is required").max(20, "Guardian phone is too long"),
+  email:          z.string().max(254).email("Invalid email").optional().or(z.literal("")),
+  phone:          z.string().max(20).optional().or(z.literal("")),
+  admission_no:   z.string().max(30).optional().or(z.literal("")),
   date_of_birth:  z.string().optional().or(z.literal("")), // DD-MM-YYYY
 })
 

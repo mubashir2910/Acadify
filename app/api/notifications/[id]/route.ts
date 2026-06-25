@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { auth } from "@/auth"
 import { deleteNotification } from "@/services/notifications.service"
 import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
@@ -27,6 +28,9 @@ export async function DELETE(
     if (limited) return limited
 
     const { id } = await params
+    if (!z.string().uuid().safeParse(id).success) {
+      return NextResponse.json({ error: "Invalid notification id" }, { status: 422 })
+    }
     await deleteNotification(id, userId, role)
     return NextResponse.json({ success: true })
   } catch (error) {

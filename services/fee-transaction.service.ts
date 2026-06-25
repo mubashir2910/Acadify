@@ -11,6 +11,8 @@ import type {
 import { logFeeAction } from "./fee-audit.service"
 import { recomputeLedgerStatus } from "./fee-ledger.service"
 import { recomputeMonthlyLateFeeStatus } from "./fee-monthly-late-fee.service"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags, serializeParams } from "@/lib/cache-keys"
 
 const EDIT_WINDOW_MS = 24 * 60 * 60 * 1000
 
@@ -204,7 +206,7 @@ export async function recordManualPayment(
   actorUserId: string,
   data: ManualPaymentInput,
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const student = await tx.student.findFirst({
       where: { id: data.studentId, school_id: schoolId },
       select: { id: true },
@@ -260,6 +262,9 @@ export async function recordManualPayment(
 
     return created
   })
+
+  await invalidateTags(cacheTags.fees(schoolId), cacheTags.feesStudent(data.studentId))
+  return result
 }
 
 /**
@@ -272,7 +277,7 @@ export async function submitHybridProof(
   studentId: string,
   data: HybridUploadInput,
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const student = await tx.student.findFirst({
       where: { id: studentId, school_id: schoolId },
       select: { id: true },
@@ -360,6 +365,9 @@ export async function submitHybridProof(
 
     return created
   })
+
+  await invalidateTags(cacheTags.fees(schoolId), cacheTags.feesStudent(studentId))
+  return result
 }
 
 /**
@@ -372,7 +380,7 @@ export async function verifyTransaction(
   transactionId: string,
   notes?: string | null,
 ) {
-  return prisma.$transaction(async (tx) => {
+  const verifyResult = await prisma.$transaction(async (tx) => {
     const existing = await tx.feeTransaction.findFirst({
       where: { id: transactionId, school_id: schoolId },
       include: {
@@ -409,6 +417,9 @@ export async function verifyTransaction(
 
     return tx.feeTransaction.findUnique({ where: { id: transactionId } })
   })
+
+  await invalidateTags(cacheTags.fees(schoolId))
+  return verifyResult
 }
 
 export async function rejectTransaction(
@@ -417,7 +428,7 @@ export async function rejectTransaction(
   transactionId: string,
   data: RejectTransactionInput,
 ) {
-  return prisma.$transaction(async (tx) => {
+  const txResult = await prisma.$transaction(async (tx) => {
     const existing = await tx.feeTransaction.findFirst({
       where: { id: transactionId, school_id: schoolId },
     })
@@ -449,6 +460,9 @@ export async function rejectTransaction(
 
     return tx.feeTransaction.findUnique({ where: { id: transactionId } })
   })
+
+  await invalidateTags(cacheTags.fees(schoolId))
+  return txResult
 }
 
 export async function editTransaction(
@@ -478,7 +492,7 @@ export async function editTransaction(
   const isSuperAdmin = actor.role === "SUPER_ADMIN"
   if (isExpired && !isSuperAdmin) throw new Error("EDIT_WINDOW_EXPIRED")
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     if (data.externalTxnRef && data.externalTxnRef !== existing.external_txn_ref) {
       await assertNoDuplicateRef(tx, schoolId, data.externalTxnRef, transactionId)
     }
@@ -550,9 +564,20 @@ export async function editTransaction(
 
     return updated
   })
+
+  await invalidateTags(cacheTags.fees(schoolId), cacheTags.feesStudent(existing.student_id))
+  return result
 }
 
 export async function getTransaction(schoolId: string, transactionId: string) {
+  return cached(
+    cacheKeys.feesTransactions(schoolId, `id:${transactionId}`),
+    { ttl: 60, tags: [cacheTags.fees(schoolId)] },
+    () => computeGetTransaction(schoolId, transactionId),
+  )
+}
+
+async function computeGetTransaction(schoolId: string, transactionId: string) {
   return prisma.feeTransaction.findFirst({
     where: { id: transactionId, school_id: schoolId },
     include: {
@@ -594,6 +619,14 @@ export async function getTransaction(schoolId: string, transactionId: string) {
 }
 
 export async function listSchoolTransactions(schoolId: string, query: TransactionQuery) {
+  return cached(
+    cacheKeys.feesTransactions(schoolId, `list:${serializeParams({ ...query })}`),
+    { ttl: 60, tags: [cacheTags.fees(schoolId)] },
+    () => computeListSchoolTransactions(schoolId, query),
+  )
+}
+
+async function computeListSchoolTransactions(schoolId: string, query: TransactionQuery) {
   const where: Prisma.FeeTransactionWhereInput = {
     school_id: schoolId,
     ...(query.status ? { status: query.status } : {}),
@@ -662,6 +695,17 @@ export async function listPendingVerifications(
   schoolId: string,
   query: { class?: string; section?: string; page?: number; pageSize?: number } = {},
 ) {
+  return cached(
+    cacheKeys.feesPending(schoolId) + `:${serializeParams({ ...query })}`,
+    { ttl: 60, tags: [cacheTags.fees(schoolId)] },
+    () => computeListPendingVerifications(schoolId, query),
+  )
+}
+
+async function computeListPendingVerifications(
+  schoolId: string,
+  query: { class?: string; section?: string; page?: number; pageSize?: number } = {},
+) {
   const page = Math.max(1, query.page ?? 1)
   const pageSize = Math.min(500, Math.max(10, query.pageSize ?? 50))
 
@@ -713,6 +757,14 @@ export async function listPendingVerifications(
 }
 
 export async function countPendingVerifications(schoolId: string): Promise<number> {
+  return cached(
+    cacheKeys.feesPending(schoolId) + ":count",
+    { ttl: 60, tags: [cacheTags.fees(schoolId)] },
+    () => computeCountPendingVerifications(schoolId),
+  )
+}
+
+async function computeCountPendingVerifications(schoolId: string): Promise<number> {
   return prisma.feeTransaction.count({
     where: { school_id: schoolId, status: "PENDING_VERIFICATION" },
   })

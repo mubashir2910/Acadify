@@ -2,15 +2,11 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { uploadImportLimiter, checkRateLimit } from "@/lib/rate-limit"
-import { uploadToSpaces } from "@/lib/spaces"
+import { uploadToSpaces, CONTENT_TYPES } from "@/lib/spaces"
+import { magicMatchesExtension } from "@/lib/file-signature"
+import { IMAGE_MIME_TO_EXT as IMAGE_EXT } from "@/lib/attachment"
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
-// MIME → file extension for the image formats we accept.
-const IMAGE_EXT: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-}
 
 /**
  * Uploads a school logo to Spaces under `school-logos/`.
@@ -76,10 +72,18 @@ export async function POST(req: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer())
 
+    // Defense-in-depth: verify the bytes are a real image of the claimed type.
+    if (!magicMatchesExtension(buffer, ext)) {
+      return NextResponse.json(
+        { message: "File content does not match its type" },
+        { status: 400 },
+      )
+    }
+
     // Unique key per upload so a re-uploaded logo never serves a stale CDN cache.
     const url = await uploadToSpaces(buffer, {
       key: `school-logos/school_${school.id}_${Date.now()}.${ext}`,
-      contentType: file.type,
+      contentType: CONTENT_TYPES[ext],
     })
 
     return NextResponse.json({ url })

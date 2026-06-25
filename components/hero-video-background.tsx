@@ -24,8 +24,8 @@ type HeroVideoBackgroundProps = {
  *   clip is never downloaded and the still poster is shown instead.
  */
 export function HeroVideoBackground({
-    src = '/pc3-opt.mp4',
-    poster = '/hero-poster.jpg',
+    src = '/assets/landing/bg.webm',
+    poster = '/assets/landing/bg_poster.jpg',
     className,
 }: HeroVideoBackgroundProps) {
     const videoRef = useRef<HTMLVideoElement>(null)
@@ -88,7 +88,7 @@ export function HeroVideoBackground({
         <div
             aria-hidden="true"
             className={cn(
-                'absolute inset-0 -z-20 overflow-hidden bg-neutral-950',
+                'absolute inset-0 -z-20 overflow-hidden bg-neutral-250',
                 className
             )}>
             <video
@@ -101,7 +101,7 @@ export function HeroVideoBackground({
                 preload="none"
                 poster={poster}
                 className="absolute inset-0 h-full w-full object-cover">
-                <source src={src} type="video/mp4" />
+                <source src={src} type="video/webm" />
             </video>
         </div>
     )

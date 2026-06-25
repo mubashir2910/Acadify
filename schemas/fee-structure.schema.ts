@@ -39,7 +39,7 @@ export const feeHeadSchema = z
     isOptional: z.boolean().optional().default(false),
     sortOrder: z.coerce.number().int().min(0).default(0),
     // When non-empty, overrides frequency-based period expansion.
-    appliedMonths: z.array(appliedMonthSchema).optional().default([]),
+    appliedMonths: z.array(appliedMonthSchema).max(24, "Too many months").optional().default([]),
   })
   .superRefine((head, ctx) => {
     const hasApplied = (head.appliedMonths?.length ?? 0) > 0
@@ -74,12 +74,13 @@ export const createFeeStructureSchema = z
     classes: z
       .array(z.string().min(1).max(20))
       .min(1, "Pick at least one class")
+      .max(50, "Too many classes")
       .transform((arr) => Array.from(new Set(arr))),
     section: z.string().min(1).max(10).optional().nullable(),
     name: z.string().min(2, "Name must be at least 2 characters").max(100),
     effectiveFrom: z.string().min(1, "Effective from is required"),
     effectiveTo: z.string().optional().nullable(),
-    feeHeads: z.array(feeHeadSchema).min(1, "At least one fee head is required"),
+    feeHeads: z.array(feeHeadSchema).min(1, "At least one fee head is required").max(50, "Too many fee heads"),
   })
   .superRefine((data, ctx) => {
     if (data.effectiveTo && new Date(data.effectiveTo) <= new Date(data.effectiveFrom)) {

@@ -6,6 +6,8 @@ import type {
 } from "@/schemas/fee-structure.schema"
 import { logFeeAction } from "./fee-audit.service"
 import { assertSessionBelongsToSchool } from "./session.service"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags, serializeParams } from "@/lib/cache-keys"
 
 function dateAtUTC(s: string): Date {
   const d = new Date(s.length === 10 ? `${s}T00:00:00.000Z` : s)
@@ -25,7 +27,7 @@ export async function createFeeStructure(
 
   // One transaction wraps all per-class creates so a partial failure can't
   // leave half-created structures across the selected classes.
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const createdStructures: Awaited<ReturnType<typeof tx.feeStructure.create>>[] = []
 
     for (const className of data.classes) {
@@ -123,9 +125,23 @@ export async function createFeeStructure(
     // single class) by returning the lone object when only one was created.
     return createdStructures.length === 1 ? createdStructures[0] : createdStructures
   })
+
+  await invalidateTags(cacheTags.fees(schoolId))
+  return result
 }
 
 export async function listFeeStructures(
+  schoolId: string,
+  opts: { sessionId?: string; class?: string; includeArchived?: boolean } = {},
+) {
+  return cached(
+    cacheKeys.feesStructures(schoolId, serializeParams({ ...opts })),
+    { ttl: 60, tags: [cacheTags.fees(schoolId)] },
+    () => computeListFeeStructures(schoolId, opts),
+  )
+}
+
+async function computeListFeeStructures(
   schoolId: string,
   opts: { sessionId?: string; class?: string; includeArchived?: boolean } = {},
 ) {
@@ -145,43 +161,70 @@ export async function listFeeStructures(
 
   // Per-structure stats drive the UI: "Lock Structure for Session" availability
   // and the Delete-modal safety logic (refusing to delete ledger rows that have
-  // been paid or waived).
-  const stats = await Promise.all(
-    structures.map(async (s) => {
-      const [ledgerRowCount, paidLedgerCount, waiverCount] = await Promise.all([
-        prisma.studentFeeLedger.count({
-          where: { school_id: schoolId, fee_head: { structure_id: s.id } },
-        }),
-        prisma.studentFeeLedger.count({
-          where: {
-            school_id: schoolId,
-            fee_head: { structure_id: s.id },
-            OR: [
-              { paid_amount: { gt: 0 } },
-              { status: { in: ["PARTIAL", "PAID"] } },
-            ],
-          },
-        }),
-        prisma.studentFeeWaiver.count({
-          where: {
-            school_id: schoolId,
-            revoked_at: null,
-            fee_head: { structure_id: s.id },
-          },
-        }),
-      ])
-      return { ledgerRowCount, paidLedgerCount, waiverCount }
+  // been paid or waived). These counts are keyed by fee_head, so we resolve them
+  // in 3 grouped queries total (grouped by fee_head_id) and fold the results back
+  // onto each structure — instead of running 3 count queries per structure (N+1).
+  const headToStructure = new Map<string, string>()
+  for (const s of structures) {
+    for (const h of s.fee_heads) headToStructure.set(h.id, s.id)
+  }
+  const allHeadIds = Array.from(headToStructure.keys())
+
+  const [ledgerGroups, paidLedgerGroups, waiverGroups] = await Promise.all([
+    prisma.studentFeeLedger.groupBy({
+      by: ["fee_head_id"],
+      where: { school_id: schoolId, fee_head_id: { in: allHeadIds } },
+      _count: { _all: true },
     }),
-  )
-  return structures.map((s, i) => ({
+    prisma.studentFeeLedger.groupBy({
+      by: ["fee_head_id"],
+      where: {
+        school_id: schoolId,
+        fee_head_id: { in: allHeadIds },
+        OR: [{ paid_amount: { gt: 0 } }, { status: { in: ["PARTIAL", "PAID"] } }],
+      },
+      _count: { _all: true },
+    }),
+    prisma.studentFeeWaiver.groupBy({
+      by: ["fee_head_id"],
+      where: { school_id: schoolId, revoked_at: null, fee_head_id: { in: allHeadIds } },
+      _count: { _all: true },
+    }),
+  ])
+
+  // Fold per-fee-head group counts up to their owning structure.
+  const foldByStructure = (
+    groups: { fee_head_id: string | null; _count: { _all: number } }[],
+  ): Map<string, number> => {
+    const acc = new Map<string, number>()
+    for (const g of groups) {
+      const structureId = g.fee_head_id ? headToStructure.get(g.fee_head_id) : undefined
+      if (!structureId) continue
+      acc.set(structureId, (acc.get(structureId) ?? 0) + g._count._all)
+    }
+    return acc
+  }
+  const ledgerByStructure = foldByStructure(ledgerGroups)
+  const paidByStructure = foldByStructure(paidLedgerGroups)
+  const waiverByStructure = foldByStructure(waiverGroups)
+
+  return structures.map((s) => ({
     ...s,
-    ledger_row_count: stats[i].ledgerRowCount,
-    paid_ledger_count: stats[i].paidLedgerCount,
-    waiver_count: stats[i].waiverCount,
+    ledger_row_count: ledgerByStructure.get(s.id) ?? 0,
+    paid_ledger_count: paidByStructure.get(s.id) ?? 0,
+    waiver_count: waiverByStructure.get(s.id) ?? 0,
   }))
 }
 
 export async function getFeeStructure(schoolId: string, structureId: string) {
+  return cached(
+    cacheKeys.feesStructure(structureId),
+    { ttl: 60, tags: [cacheTags.fees(schoolId)] },
+    () => computeGetFeeStructure(schoolId, structureId),
+  )
+}
+
+async function computeGetFeeStructure(schoolId: string, structureId: string) {
   return prisma.feeStructure.findFirst({
     where: { id: structureId, school_id: schoolId },
     include: {
@@ -218,6 +261,8 @@ export async function archiveFeeStructure(
       newValue: { is_active: false },
     })
   })
+
+  await invalidateTags(cacheTags.fees(schoolId))
 }
 
 /**
@@ -360,6 +405,8 @@ export async function deleteFeeStructure(
       reason: options.deleteLedgers ? "Deleted structure + ledger rows" : "Deleted structure, kept ledger rows",
     })
   })
+
+  await invalidateTags(cacheTags.fees(schoolId))
 }
 
 export async function updateFeeStructure(

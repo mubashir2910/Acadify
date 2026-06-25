@@ -3,6 +3,8 @@ import { z } from "zod"
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
+  // "Remember me" — no .default() (breaks RHF inference); defaulted in useForm.
+  remember: z.boolean(),
 })
 
 export type LoginInput = z.infer<typeof loginSchema>

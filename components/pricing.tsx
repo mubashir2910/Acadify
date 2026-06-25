@@ -33,7 +33,7 @@ const pills: Pill[] = [
         icon: Rocket,
         tileBg: 'bg-violet-100',
         tileText: 'text-violet-600',
-        title: 'Free onboar ding & migration',
+        title: 'Free onboarding & migration',
     },
     {
         label: 'AI',
@@ -143,8 +143,8 @@ export default function Pricing() {
                             />
                         </div>
 
-                        {/* 3. Feature pills */}
-                        <div className="lg:col-start-1 lg:row-start-2">
+                        {/* 3. Feature pills (hidden on mobile) */}
+                        <div className="hidden sm:block lg:col-start-1 lg:row-start-2">
                             <div className="grid grid-cols-2 gap-3">
                                 {pills.map((pill) => (
                                     <PillCard key={pill.title} pill={pill} />

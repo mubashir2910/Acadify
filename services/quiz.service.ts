@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma"
 import type { CreateQuizInput } from "@/schemas/quiz.schema"
 import { computeEffectiveStatus } from "@/lib/quiz-status"
 import { getSchoolClassSections as fetchClassSections } from "@/services/class.service"
+import { cached } from "@/lib/cache"
+import { cacheKeys, cacheTags, serializeParams } from "@/lib/cache-keys"
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -25,6 +27,33 @@ async function resolveCreatorSchoolId(userId: string, role: string): Promise<str
   }
 
   throw new Error("UNAUTHORIZED")
+}
+
+// Aggregate submitted-attempt stats (avg score + count) for a set of quizzes in
+// ONE grouped query, keyed by quiz_id. Used by the admin list / leaderboard
+// overview so we never load every attempt row just to summarise it.
+// avgScore uses sum/count (null score treated as 0) to match the prior in-JS math.
+async function aggregateSubmittedStats(
+  quizIds: string[],
+): Promise<Map<string, { count: number; avgScore: number | null }>> {
+  const map = new Map<string, { count: number; avgScore: number | null }>()
+  if (quizIds.length === 0) return map
+
+  const groups = await prisma.quizAttempt.groupBy({
+    by: ["quiz_id"],
+    where: { quiz_id: { in: quizIds }, status: { in: ["SUBMITTED", "AUTO_SUBMITTED"] } },
+    _sum: { score: true },
+    _count: { _all: true },
+  })
+
+  for (const g of groups) {
+    const count = g._count._all
+    map.set(g.quiz_id, {
+      count,
+      avgScore: count > 0 ? Math.round((g._sum.score ?? 0) / count) : null,
+    })
+  }
+  return map
 }
 
 // ─── Create Quiz ───────────────────────────────────────────────────────────
@@ -170,25 +199,20 @@ export async function getAdminQuizzes(adminUserId: string) {
       created_at: true,
       creator: { select: { name: true } },
       _count: { select: { questions: true, attempts: true } },
-      attempts: {
-        where: { status: { in: ["SUBMITTED", "AUTO_SUBMITTED"] } },
-        select: { score: true },
-      },
     },
   })
 
+  // Avg score + submitted count via one grouped query instead of loading every
+  // submitted attempt inline per quiz (previously unbounded).
+  const statsByQuiz = await aggregateSubmittedStats(quizzes.map((q) => q.id))
+
   return quizzes.map((q) => {
-    const submitted = q.attempts
-    const avgScore =
-      submitted.length > 0
-        ? Math.round(submitted.reduce((s: number, a: { score: number | null }) => s + (a.score ?? 0), 0) / submitted.length)
-        : null
-    const { attempts, ...rest } = q
+    const st = statsByQuiz.get(q.id)
     return {
-      ...rest,
-      submittedCount: submitted.length,
-      avgScore,
-      effectiveStatus: computeEffectiveStatus(rest.status, rest.start_time, rest.end_time),
+      ...q,
+      submittedCount: st?.count ?? 0,
+      avgScore: st?.avgScore ?? null,
+      effectiveStatus: computeEffectiveStatus(q.status, q.start_time, q.end_time),
     }
   })
 }
@@ -282,6 +306,39 @@ export async function getQuizDetail(quizId: string, userId: string, role: string
 
   if (!quiz) throw new Error("QUIZ_NOT_FOUND")
 
+  // ── Tenant / ownership gate ────────────────────────────────────────────────
+  // Without this, any authenticated user could read another school's quiz (and,
+  // for staff, its full questions + answer key) just by knowing the id. Mirrors
+  // the checks in updateQuizStatus / getQuizLeaderboard. Deny-by-default for any
+  // role not handled below.
+  let studentAttempt: { status: string } | null = null
+  if (role === "STUDENT") {
+    const student = await prisma.student.findFirst({
+      where: { user_id: userId },
+      select: { school_id: true, class: true, section: true },
+    })
+    if (!student || student.school_id !== quiz.school_id) throw new Error("FORBIDDEN")
+    // A student may view a quiz available to their class/section, or any quiz they
+    // have already attempted (so result review keeps working if they later change
+    // class/section). Question content stays gated behind having an attempt below.
+    studentAttempt = await prisma.quizAttempt.findUnique({
+      where: { quiz_id_student_id: { quiz_id: quizId, student_id: userId } },
+      select: { status: true },
+    })
+    const inClassSection = student.class === quiz.class && student.section === quiz.section
+    if (!inClassSection && !studentAttempt) throw new Error("FORBIDDEN")
+  } else if (role === "TEACHER") {
+    if (quiz.created_by !== userId) throw new Error("FORBIDDEN")
+  } else if (role === "ADMIN") {
+    const su = await prisma.schoolUser.findFirst({
+      where: { user_id: userId, role: "ADMIN", school_id: quiz.school_id, status: "ACTIVE" },
+      select: { id: true },
+    })
+    if (!su) throw new Error("FORBIDDEN")
+  } else {
+    throw new Error("FORBIDDEN")
+  }
+
   // Real quiz length = sum of per-question time limits (cheap aggregate, no content)
   const timeAgg = await prisma.question.aggregate({
     where: { quiz_id: quizId },
@@ -297,14 +354,7 @@ export async function getQuizDetail(quizId: string, userId: string, role: string
   // Question content is served to staff always, but to a student only once they
   // actually have an attempt (so the attempt screen + result review work). Before
   // starting, a student gets aggregates only — they can't pre-read the questions.
-  let includeQuestions = role !== "STUDENT"
-  if (role === "STUDENT") {
-    const attempt = await prisma.quizAttempt.findUnique({
-      where: { quiz_id_student_id: { quiz_id: quizId, student_id: userId } },
-      select: { status: true },
-    })
-    includeQuestions = !!attempt
-  }
+  const includeQuestions = role !== "STUDENT" || !!studentAttempt
 
   if (!includeQuestions) {
     return { ...base, questions: [] as const }
@@ -429,12 +479,36 @@ export async function getQuizLeaderboard(quizId: string, userId: string, role: s
     if (!su) throw new Error("FORBIDDEN")
   }
 
+  // Cache the per-quiz ranked rows (shared across viewers). The per-viewer
+  // `isCurrentUser` flag is applied AFTER the cache so one student's request can't
+  // poison another's. Busted when any attempt for this quiz is submitted.
+  const ranked = await cached(
+    cacheKeys.leaderboardQuiz(quizId),
+    {
+      ttl: 300,
+      tags: [cacheTags.leaderboardQuiz(quizId), cacheTags.leaderboard(quiz.school_id)],
+    },
+    () => buildQuizLeaderboardRows(quizId, quiz.total_marks),
+  )
+
+  return ranked.map((row) => ({
+    rank: row.rank,
+    name: row.name,
+    avatarUrl: row.avatarUrl,
+    isCurrentUser: row.studentId === userId,
+    score: row.score,
+    totalMarks: row.totalMarks,
+    submittedAt: row.submittedAt,
+    timeTakenMs: row.timeTakenMs,
+  }))
+}
+
+async function buildQuizLeaderboardRows(quizId: string, totalMarks: number) {
   const attempts = await prisma.quizAttempt.findMany({
     where: {
       quiz_id: quizId,
       status: { in: ["SUBMITTED", "AUTO_SUBMITTED"] },
     },
-    orderBy: [{ score: "desc" }, { submitted_at: "asc" }],
     select: {
       score: true,
       started_at: true,
@@ -443,27 +517,39 @@ export async function getQuizLeaderboard(quizId: string, userId: string, role: s
     },
   })
 
+  // Rank by score desc, then by total time-taken asc (ties broken by who finished
+  // faster) — same rule as the monthly/accumulated arena leaderboard. Missing
+  // timing sorts last. Prisma can't order by the computed duration, so sort in JS.
+  const ranked = attempts
+    .map((a) => ({
+      ...a,
+      timeTakenMs:
+        a.submitted_at && a.started_at
+          ? a.submitted_at.getTime() - a.started_at.getTime()
+          : Number.POSITIVE_INFINITY,
+    }))
+    .sort((x, y) => {
+      if ((y.score ?? 0) !== (x.score ?? 0)) return (y.score ?? 0) - (x.score ?? 0)
+      return x.timeTakenMs - y.timeTakenMs
+    })
+
   let rank = 1
-  return attempts.map((a, i) => {
+  return ranked.map((a, i) => {
     if (i > 0) {
-      const prev = attempts[i - 1]
-      if (a.score !== prev.score || a.submitted_at?.getTime() !== prev.submitted_at?.getTime()) {
+      const prev = ranked[i - 1]
+      if ((a.score ?? 0) !== (prev.score ?? 0) || a.timeTakenMs !== prev.timeTakenMs) {
         rank = i + 1
       }
     }
-    const timeTakenMs =
-      a.submitted_at && a.started_at
-        ? a.submitted_at.getTime() - a.started_at.getTime()
-        : null
     return {
       rank,
+      studentId: a.student.id,
       name: a.student.name,
       avatarUrl: a.student.profile_picture ?? null,
-      isCurrentUser: a.student.id === userId,
       score: a.score ?? 0,
-      totalMarks: quiz.total_marks,
+      totalMarks,
       submittedAt: a.submitted_at,
-      timeTakenMs,
+      timeTakenMs: Number.isFinite(a.timeTakenMs) ? a.timeTakenMs : null,
     }
   })
 }
@@ -477,8 +563,16 @@ export async function getAdminLeaderboardOverview(adminUserId: string) {
   })
   if (!su) throw new Error("ADMIN_NOT_FOUND")
 
+  return cached(
+    cacheKeys.leaderboardOverview(su.school_id),
+    { ttl: 300, tags: [cacheTags.leaderboard(su.school_id)] },
+    () => buildAdminLeaderboardOverview(su.school_id),
+  )
+}
+
+async function buildAdminLeaderboardOverview(schoolId: string) {
   const quizzes = await prisma.quiz.findMany({
-    where: { school_id: su.school_id, status: { in: ["ACTIVE", "CLOSED"] } },
+    where: { school_id: schoolId, status: { in: ["ACTIVE", "CLOSED"] } },
     orderBy: { created_at: "desc" },
     select: {
       id: true,
@@ -493,27 +587,31 @@ export async function getAdminLeaderboardOverview(adminUserId: string) {
       end_time: true,
       creator: { select: { name: true } },
       _count: { select: { attempts: true } },
+      // Only the single top-scoring attempt is needed for the overview card, so
+      // bound the nested load with take:1 instead of pulling every submitted row.
       attempts: {
         where: { status: { in: ["SUBMITTED", "AUTO_SUBMITTED"] } },
         select: { score: true, student: { select: { name: true } } },
         orderBy: { score: "desc" },
+        take: 1,
       },
     },
   })
 
+  // Avg score + submitted count come from one grouped query (the nested take:1
+  // above only supplies the top scorer).
+  const statsByQuiz = await aggregateSubmittedStats(quizzes.map((q) => q.id))
+
   return quizzes.map((q) => {
-    const submitted = q.attempts
-    const scores = submitted.map((a: { score: number | null }) => a.score ?? 0)
-    const avgScore = scores.length > 0 ? Math.round(scores.reduce((s: number, v: number) => s + v, 0) / scores.length) : null
-    const topScore = scores.length > 0 ? scores[0] : null
-    const topScorer = submitted.length > 0 ? submitted[0].student.name : null
+    const top = q.attempts[0] ?? null
+    const st = statsByQuiz.get(q.id)
     const { attempts, ...rest } = q
     return {
       ...rest,
-      submittedCount: submitted.length,
-      avgScore,
-      topScore,
-      topScorer,
+      submittedCount: st?.count ?? 0,
+      avgScore: st?.avgScore ?? null,
+      topScore: top?.score ?? null,
+      topScorer: top?.student.name ?? null,
       effectiveStatus: computeEffectiveStatus(rest.status, rest.start_time, rest.end_time),
     }
   })
@@ -539,7 +637,13 @@ export async function getMonthlyLeaderboard(
   const monthStart = new Date(year, mon - 1, 1)
   const monthEnd = new Date(year, mon, 1) // exclusive
 
-  return buildLeaderboard(schoolId, effectiveClassFilter, { gte: monthStart, lt: monthEnd }, userId)
+  const scope = serializeParams({ kind: "monthly", month, ...effectiveClassFilter })
+  const rows = await cached(
+    cacheKeys.leaderboard(schoolId, scope),
+    { ttl: 300, tags: [cacheTags.leaderboard(schoolId)] },
+    () => buildLeaderboard(schoolId, effectiveClassFilter, { gte: monthStart, lt: monthEnd }),
+  )
+  return applyCurrentUser(rows, userId)
 }
 
 // ─── Accumulated Arena Leaderboard ───────────────────────────────────────
@@ -557,7 +661,13 @@ export async function getAccumulatedLeaderboard(
     ? { class: classSection.class, section: classSection.section }
     : (classFilter ?? {})
 
-  return buildLeaderboard(schoolId, effectiveClassFilter, null, userId)
+  const scope = serializeParams({ kind: "accumulated", ...effectiveClassFilter })
+  const rows = await cached(
+    cacheKeys.leaderboard(schoolId, scope),
+    { ttl: 300, tags: [cacheTags.leaderboard(schoolId)] },
+    () => buildLeaderboard(schoolId, effectiveClassFilter, null),
+  )
+  return applyCurrentUser(rows, userId)
 }
 
 // ─── Arena Available Months (from School.session_started_on) ──────────────
@@ -571,6 +681,16 @@ export async function getAccumulatedLeaderboard(
 
 export async function getArenaAvailableMonths(userId: string, role: string) {
   const { schoolId } = await resolveArenaScope(userId, role)
+  // Pure-TTL cache: this list only shifts on month rollover or a super-admin
+  // changing session_started_on, so a short TTL is enough (no event wiring).
+  return cached(
+    cacheKeys.arenaMonths(schoolId),
+    { ttl: 600 },
+    () => buildArenaAvailableMonths(schoolId),
+  )
+}
+
+async function buildArenaAvailableMonths(schoolId: string) {
   const school = await prisma.school.findUnique({
     where: { id: schoolId },
     select: { session_started_on: true },
@@ -664,7 +784,6 @@ async function buildLeaderboard(
   schoolId: string,
   classFilter: Record<string, string>,
   timeRange: { gte: Date; lt: Date } | null,
-  currentUserId?: string
 ) {
   // Step 1: Resolve quiz IDs matching school/class/time filter.
   // Include both ACTIVE and CLOSED — `QuizAttempt.status` filter below already
@@ -751,13 +870,25 @@ async function buildLeaderboard(
     }
     return {
       rank,
+      studentId: entry.studentId,
       name: entry.name,
       avatarUrl: entry.avatarUrl,
       totalPoints: entry.totalPoints,
       totalTimeMs: entry.totalTimeMs,
-      isCurrentUser: currentUserId ? entry.studentId === currentUserId : false,
     }
   })
+}
+
+/** Applies the per-viewer `isCurrentUser` flag to cached, shared leaderboard rows
+ *  and strips the internal studentId. Keeps the cache tenant/user-agnostic. */
+function applyCurrentUser(
+  rows: Awaited<ReturnType<typeof buildLeaderboard>>,
+  currentUserId?: string,
+) {
+  return rows.map(({ studentId, ...rest }) => ({
+    ...rest,
+    isCurrentUser: currentUserId ? studentId === currentUserId : false,
+  }))
 }
 
 // ─── Student Quiz Result (per-question breakdown) ─────────────────────────

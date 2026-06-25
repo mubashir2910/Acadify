@@ -8,6 +8,16 @@ const isRateLimitEnabled =
   !!process.env.UPSTASH_REDIS_REST_URL &&
   !!process.env.UPSTASH_REDIS_REST_TOKEN
 
+// Fail fast in production: a deploy missing the Upstash vars would otherwise run
+// with EVERY rate limit silently disabled — including login/password-reset
+// brute-force protection — with no signal. Local/dev intentionally no-ops.
+if (!isRateLimitEnabled && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "Rate limiting is disabled in production: set UPSTASH_REDIS_REST_URL and " +
+      "UPSTASH_REDIS_REST_TOKEN. Refusing to start without rate limiting.",
+  )
+}
+
 let redis: Redis | null = null
 if (isRateLimitEnabled) {
   redis = new Redis({
@@ -168,7 +178,18 @@ export async function checkRateLimit(
   // Rate limiting disabled in development (no Upstash env vars configured)
   if (!isRateLimitEnabled || !limiter) return null
 
-  const { success, limit, remaining, reset } = await limiter.limit(identifier)
+  let result: Awaited<ReturnType<typeof limiter.limit>>
+  try {
+    result = await limiter.limit(identifier)
+  } catch (err) {
+    // Transient Upstash/network failure. Fail OPEN (allow) so a Redis blip can't
+    // lock everyone out — including login, which runs through middleware — but log
+    // loudly so the outage is visible instead of surfacing as a 500.
+    console.error("[rate-limit] limiter error, failing open:", err)
+    return null
+  }
+
+  const { success, limit, remaining, reset } = result
 
   if (!success) {
     const retryAfterSeconds = Math.max(0, Math.ceil((reset - Date.now()) / 1000))

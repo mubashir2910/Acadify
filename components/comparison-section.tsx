@@ -117,7 +117,7 @@ export default function ComparisonSection() {
                             className={`rounded-full px-5 py-1.5 text-sm font-medium transition-colors ${
                                 view === 'with'
                                     ? 'bg-primary text-primary-foreground'
-                                    : 'text-muted-foreground'
+                                    : 'text-muted-foreground animate-brand-glow'
                             }`}
                         >
                             With Acadify

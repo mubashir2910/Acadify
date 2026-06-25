@@ -7,6 +7,7 @@ import { AlertCircle, Swords, ChevronLeft, BookOpen, Loader2 } from "lucide-reac
 import { motion } from "motion/react"
 import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
 import { ArenaSpinner } from "@/app/student/arena/components/ArenaSpinner"
+import { friendlyAttemptError } from "@/lib/error-messages"
 
 interface Quiz {
   id: string
@@ -86,7 +87,7 @@ export default function ArenaQuizInstructionsPage() {
           router.replace(`/student/arena?result=${quizId}`)
           return
         }
-        toast.error(json.message ?? "Cannot start quiz")
+        toast.error(friendlyAttemptError(json.message))
         return
       }
       router.push(`/student/arena/quiz/${quizId}/attempt`)

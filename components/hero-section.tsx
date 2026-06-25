@@ -42,13 +42,13 @@ export default function HeroSection() {
                     {/* Dimming overlay so white typography stays readable over the video */}
                     <div
                         aria-hidden
-                        className="absolute inset-0 -z-10 bg-gradient-to-b from-black/55 via-black/35 to-black/60"
+                        className="absolute inset-0 -z-10 bg-gradient-to-b from-black/30 via-black/25 to-black/60"
                     />
 
                     {/* Bottom blend — melts the dark hero into the light page section below */}
                     <div
                         aria-hidden
-                        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-b from-transparent to-[var(--color-background)]"
+                        className="pointer-events-none absolute inset-x-0 bottom-0 -z-6 h-10 bg-gradient-to-b from-transparent to-[var(--color-background)]"
                     />
 
                     {/* Mobile-only readability scrim: darkens the upper third where the
@@ -56,7 +56,7 @@ export default function HeroSection() {
                         and clear of the ACADIFY building logo that appears later in the clip */}
                     <div
                         aria-hidden
-                        className="md:hidden pointer-events-none absolute inset-x-0 top-0 -z-10 h-[80%] bg-gradient-to-b from-black/55 via-black/55 to-transparent"
+                        className="md:hidden pointer-events-none absolute inset-x-0 top-0 -z-10 h-[80%] bg-gradient-to-b from-black/40 via-black/30 to-transparent"
                     />
 
                     <div className="relative z-10 mx-auto flex min-h-svh max-w-7xl flex-col items-center justify-end px-6 pb-[43vh] md:justify-center md:pb-0 md:pt-20 md:-mt-16">

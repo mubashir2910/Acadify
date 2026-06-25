@@ -1,5 +1,7 @@
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
+import { cached } from "@/lib/cache"
+import { cacheKeys } from "@/lib/cache-keys"
 
 export interface AuthUser {
   id: string
@@ -77,6 +79,18 @@ export async function verifyCredentials(
  * Called at login and periodically during JWT refresh.
  */
 export async function isUserSchoolSuspended(userId: string, role: string): Promise<boolean> {
+  // Cached (120s, fail-open) — the Node `jwt` callback can call this per server-side
+  // auth(), so this collapses the per-request hit to one DB read per user / 2 min.
+  // Login (verifyCredentials) is the hard gate and the token re-checks on refresh,
+  // so ≤120s staleness on a billing suspension is acceptable.
+  return cached(
+    cacheKeys.suspension(userId),
+    { ttl: 120 },
+    () => computeUserSchoolSuspended(userId, role),
+  )
+}
+
+async function computeUserSchoolSuspended(userId: string, role: string): Promise<boolean> {
   // Resolve the user's school based on their role
   let school: {
     id: string

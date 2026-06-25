@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Send, Lock, Loader2 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { ArenaSpinner } from "@/app/student/arena/components/ArenaSpinner"
 import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
+import { friendlyAttemptError } from "@/lib/error-messages"
 
 interface Option {
   id: string
@@ -214,7 +215,7 @@ export default function ArenaAttemptPage() {
           window.location.href = `/student/arena?result=${quizId}`
           return
         }
-        if (!isAuto) toast.error("Failed to submit — please try again")
+        if (!isAuto) toast.error(friendlyAttemptError(json.message))
         return
       }
       window.location.href = `/student/arena?result=${quizId}`

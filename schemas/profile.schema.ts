@@ -26,13 +26,13 @@ const aadhaarField = z
 // ─── Student: profile completion (mandatory fields for first login) ─────────
 export const studentProfileCompleteSchema = z.object({
   aadhaar_number: aadhaarField,
-  address: z.string().min(5, "Address is required (minimum 5 characters)"),
-  father_name: z.string().min(1, "Father's name is required"),
-  mother_name: z.string().min(1, "Mother's name is required"),
+  address: z.string().min(5, "Address is required (minimum 5 characters)").max(300, "Address is too long"),
+  father_name: z.string().min(1, "Father's name is required").max(100, "Name is too long"),
+  mother_name: z.string().min(1, "Mother's name is required").max(100, "Name is too long"),
   // Optional fields
-  house_name: z.string().optional().nullable(),
+  house_name: z.string().max(100).optional().nullable(),
   blood_group: z.enum(BLOOD_GROUPS).optional().nullable(),
-  profile_picture: z.string().url().optional().nullable(),
+  profile_picture: z.string().url().max(500).optional().nullable(),
 })
 
 export type StudentProfileCompleteInput = z.infer<typeof studentProfileCompleteSchema>
@@ -42,7 +42,7 @@ export const teacherProfileCompleteSchema = z.object({
   aadhaar_number: aadhaarField,
   blood_group: z.enum(BLOOD_GROUPS).optional().nullable(),
   date_of_birth: optionalDateField,
-  profile_picture: z.string().url().optional().nullable(),
+  profile_picture: z.string().url().max(500).optional().nullable(),
 })
 
 export type TeacherProfileCompleteInput = z.infer<typeof teacherProfileCompleteSchema>
@@ -57,21 +57,21 @@ export const adminProfileCompleteSchema = z.object({
   email: z.string().email("Enter a valid email address"),
   // Optional fields
   blood_group: z.enum(BLOOD_GROUPS).optional().nullable(),
-  profile_picture: z.string().url().optional().nullable(),
+  profile_picture: z.string().url().max(500).optional().nullable(),
 })
 
 export type AdminProfileCompleteInput = z.infer<typeof adminProfileCompleteSchema>
 
 // ─── Student: profile update (edit mode) ────────────────────────────────────
 export const studentProfileUpdateSchema = z.object({
-  house_name: z.string().optional().nullable(),
+  house_name: z.string().max(100).optional().nullable(),
   blood_group: z.enum(BLOOD_GROUPS).optional().nullable(),
   date_of_birth: optionalDateField,
   aadhaar_number: aadhaarField.optional(),
-  address: z.string().min(5, "Address must be at least 5 characters").optional(),
-  profile_picture: z.string().url().optional().nullable(),
-  father_name: z.string().min(1, "Father's name is required").optional(),
-  mother_name: z.string().min(1, "Mother's name is required").optional(),
+  address: z.string().min(5, "Address must be at least 5 characters").max(300, "Address is too long").optional(),
+  profile_picture: z.string().url().max(500).optional().nullable(),
+  father_name: z.string().min(1, "Father's name is required").max(100, "Name is too long").optional(),
+  mother_name: z.string().min(1, "Mother's name is required").max(100, "Name is too long").optional(),
 })
 
 export type StudentProfileUpdateInput = z.infer<typeof studentProfileUpdateSchema>
@@ -81,7 +81,7 @@ export const teacherProfileUpdateSchema = z.object({
   aadhaar_number: aadhaarField.optional(),
   blood_group: z.enum(BLOOD_GROUPS).optional().nullable(),
   date_of_birth: optionalDateField,
-  profile_picture: z.string().url().optional().nullable(),
+  profile_picture: z.string().url().max(500).optional().nullable(),
 })
 
 export type TeacherProfileUpdateInput = z.infer<typeof teacherProfileUpdateSchema>
@@ -92,7 +92,7 @@ export const adminProfileUpdateSchema = z.object({
   phone: z.string().min(7, "Phone number is required").optional(),
   email: z.string().email("Enter a valid email address").optional(),
   blood_group: z.enum(BLOOD_GROUPS).optional().nullable(),
-  profile_picture: z.string().url().optional().nullable(),
+  profile_picture: z.string().url().max(500).optional().nullable(),
 })
 
 export type AdminProfileUpdateInput = z.infer<typeof adminProfileUpdateSchema>

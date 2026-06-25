@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -30,7 +29,6 @@ interface Props {
 }
 
 export function StudentCompleteProfileForm({ userName }: Props) {
-  const router = useRouter()
   const { data: session, update: updateSession } = useSession()
   const [serverError, setServerError] = useState("")
 
@@ -60,9 +58,13 @@ export function StudentCompleteProfileForm({ userName }: Props) {
         return
       }
 
-      // Update session so middleware knows profile is complete
-      await updateSession({ isProfileComplete: true })
-      router.push(getDashboardPath(session?.user?.role ?? ""))
+      // Mark the profile complete in the session, then HARD-navigate. A soft
+      // router.push reuses the pre-update session cookie, so middleware still sees
+      // isProfileComplete=false and bounces back here. A full page load sends the
+      // refreshed cookie and lands on the dashboard.
+      const updated = await updateSession({ isProfileComplete: true })
+      const role = updated?.user?.role ?? session?.user?.role ?? ""
+      window.location.assign(getDashboardPath(role))
     } catch {
       setServerError("Network error — please try again")
     }

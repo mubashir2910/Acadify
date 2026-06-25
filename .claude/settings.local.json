@@ -50,7 +50,12 @@
       "Bash(node -e 'const fs=require\\(\"fs\"\\);const b=fs.readFileSync\\(\"/tmp/acadify-screens/mobile_fix.png\"\\);console.log\\(\"PNG mobile_fix:\", b.readUInt32BE\\(16\\)+\"x\"+b.readUInt32BE\\(20\\)\\);')",
       "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --no-first-run --hide-scrollbars --force-device-scale-factor=1 --remote-debugging-port=9223 --user-data-dir=/tmp/cdp-profile2 --window-size=390,844 http://localhost:3000)",
       "Bash(curl -s http://localhost:9223/json/version)",
-      "Bash(break)"
+      "Bash(break)",
+      "Bash(node scripts/about-shot.mjs)",
+      "PowerShell($ok=$false; for\\($i=0;$i -lt 40;$i++\\){ try { $r=Invoke-WebRequest -Uri \"http://localhost:3000/login\" -UseBasicParsing -TimeoutSec 5; if\\($r.StatusCode -eq 200\\){ Write-Output \"READY\"; $ok=$true; break } } catch { Start-Sleep -Seconds 3 } }; if\\(-not $ok\\){ Write-Output \"NOT READY\" })",
+      "Bash(node scripts/login-shot.mjs)",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $i=[System.Drawing.Image]::FromFile\\('e:\\\\Projects\\\\acadify\\\\public\\\\assets\\\\landing\\\\login_mobile.png'\\); Write-Output \"login_mobile $\\($i.Width\\)x$\\($i.Height\\) ratio=$\\([math]::Round\\($i.Width/$i.Height,3\\)\\)\"; $i.Dispose\\(\\))",
+      "Bash(netstat -ano)"
     ]
   }
 }

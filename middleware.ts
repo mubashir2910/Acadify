@@ -2,7 +2,7 @@ import NextAuth from "next-auth"
 import { NextRequest, NextResponse } from "next/server"
 import { authConfig } from "./auth.config"
 import { getDashboardPath } from "@/lib/auth-redirect"
-import { authLimiter, publicLimiter, getIp, checkRateLimit } from "@/lib/rate-limit"
+import { authLimiter, publicLimiter, expensiveReadLimiter, getIp, checkRateLimit } from "@/lib/rate-limit"
 
 // Lightweight edge-compatible auth — only verifies the JWT, no bcrypt/prisma imported.
 const { auth } = NextAuth(authConfig)
@@ -36,10 +36,48 @@ async function rateLimitGuard(req: NextRequest): Promise<NextResponse | null> {
     return checkRateLimit(publicLimiter, `contact:${ip}`)
   }
 
+  // Public Digital ID cards: IP-rate-limit to deter scraping/enumeration.
+  // (Tokens are unguessable UUIDs; this is defence-in-depth, hence the generous limit.)
+  if (pathname.startsWith("/id/") && req.method === "GET") {
+    const ip = getIp(req)
+    return checkRateLimit(expensiveReadLimiter, `digital-id-public:${ip}`)
+  }
+
+  return null
+}
+
+/**
+ * Reject oversized request bodies early (LPDoS defence). Pure Content-Length
+ * header check — no body is read or buffered, so the cost is negligible. Upload
+ * and CSV-import routes legitimately send large multipart files and enforce their
+ * own per-file size caps, so they are excluded. (Set client_max_body_size at the
+ * reverse proxy as the authoritative backstop for chunked requests with no
+ * Content-Length.)
+ */
+const MAX_JSON_BODY_BYTES = 1_000_000 // ~1 MB for JSON / mutation routes
+
+function bodySizeGuard(req: NextRequest): NextResponse | null {
+  const { method } = req
+  if (method !== "POST" && method !== "PUT" && method !== "PATCH" && method !== "DELETE") {
+    return null
+  }
+  const { pathname } = req.nextUrl
+  if (!pathname.startsWith("/api/")) return null
+  // Multipart uploads / CSV imports cap file size in their own handlers.
+  if (pathname.startsWith("/api/upload/") || pathname.includes("/import/")) return null
+
+  const len = Number(req.headers.get("content-length") ?? "0")
+  if (Number.isFinite(len) && len > MAX_JSON_BODY_BYTES) {
+    return NextResponse.json({ message: "Request body too large" }, { status: 413 })
+  }
   return null
 }
 
 export default async function middleware(req: NextRequest) {
+  // 0. Reject oversized request bodies up front (cheap header check, no body read)
+  const oversize = bodySizeGuard(req)
+  if (oversize) return oversize
+
   // 1. Apply rate limiting for the paths excluded from the auth matcher
   const rateLimitResponse = await rateLimitGuard(req)
   if (rateLimitResponse) return rateLimitResponse
@@ -56,6 +94,7 @@ export default async function middleware(req: NextRequest) {
       pathname.startsWith("/api/health") ||
       pathname === "/login" ||
       pathname === "/" ||
+      pathname.startsWith("/id/") ||
       pathname.startsWith("/about") ||
       pathname.startsWith("/contact-us") ||
       pathname.startsWith("/terms-of-service") ||
@@ -105,6 +144,28 @@ export default async function middleware(req: NextRequest) {
       !pathname.startsWith("/api/")
     ) {
       return NextResponse.redirect(new URL("/complete-profile", req.url))
+    }
+
+    // Same gate for API routes: an incomplete-profile user gets a 403 JSON (not a
+    // redirect — API clients can't follow one to an HTML page). The completion
+    // flow's own endpoints stay reachable so it can finish. (/api/auth/* and
+    // other public APIs already returned via the public-routes block above.)
+    const PROFILE_EXEMPT_API = [
+      "/api/profile/complete",
+      "/api/profile",
+      "/api/upload/profile-picture",
+    ]
+    if (
+      ROLES_REQUIRING_PROFILE.includes(role) &&
+      !session.user?.isProfileComplete &&
+      !session.user?.mustResetPassword &&
+      pathname.startsWith("/api/") &&
+      !PROFILE_EXEMPT_API.some((p) => pathname === p)
+    ) {
+      return NextResponse.json(
+        { message: "Profile completion required" },
+        { status: 403 }
+      )
     }
 
     // Block already-completed users from /complete-profile

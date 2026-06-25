@@ -1,27 +1,41 @@
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { generateTemporaryPassword } from "@/lib/student-id"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 
 const BCRYPT_SALT_ROUNDS = 10
 
 export async function getAdminsBySchoolCode(schoolCode: string) {
-  const schoolUsers = await prisma.schoolUser.findMany({
-    where: { school: { schoolCode }, role: "ADMIN" },
-    select: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          username: true,
-          is_active: true,
-          must_reset_password: true,
-          created_at: true,
-        },
-      },
-    },
-    orderBy: { created_at: "asc" },
+  const school = await prisma.school.findUnique({
+    where: { schoolCode },
+    select: { id: true },
   })
-  return schoolUsers.map((su) => su.user)
+  if (!school) return []
+
+  return cached(
+    cacheKeys.admins(school.id),
+    { ttl: 120, tags: [cacheTags.admins(school.id)] },
+    async () => {
+      const schoolUsers = await prisma.schoolUser.findMany({
+        where: { school_id: school.id, role: "ADMIN" },
+        select: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              is_active: true,
+              must_reset_password: true,
+              created_at: true,
+            },
+          },
+        },
+        orderBy: { created_at: "asc" },
+      })
+      return schoolUsers.map((su) => su.user)
+    }
+  )
 }
 
 /**
@@ -63,6 +77,12 @@ export async function createAdmin(
       },
     })
   })
+
+  await invalidateTags(
+    cacheTags.admins(school.id),
+    cacheTags.schoolStats(school.id),
+    cacheTags.platformStats(),
+  )
 
   return { username, tempPassword }
 }

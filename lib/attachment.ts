@@ -20,6 +20,13 @@ export const SPACES_HOSTS = [
 /** Accepted image extensions for attachment uploads. */
 export const ALLOWED_IMAGE_FORMATS: string[] = ["jpg", "png", "webp"]
 
+/** MIME type → file extension for the image formats accepted by upload routes. */
+export const IMAGE_MIME_TO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+}
+
 /** Accepted document extensions for attachment uploads. */
 export const ALLOWED_DOC_FORMATS: string[] = ["pdf", "docx", "xlsx", "pptx", "doc", "xls", "ppt"]
 
