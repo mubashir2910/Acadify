@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 import type { CreateSessionInput } from "@/schemas/session.schema"
 import { logFeeAction } from "./fee-audit.service"
 
@@ -49,6 +51,7 @@ export async function createSession(
 
       return created
     })
+    await invalidateTags(cacheTags.sessions(schoolId))
     return session
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -59,10 +62,15 @@ export async function createSession(
 }
 
 export async function listSessions(schoolId: string) {
-  return prisma.session.findMany({
-    where: { school_id: schoolId },
-    orderBy: [{ is_current: "desc" }, { start_date: "desc" }],
-  })
+  return cached(
+    cacheKeys.sessions(schoolId),
+    { ttl: 1800, tags: [cacheTags.sessions(schoolId)] },
+    () =>
+      prisma.session.findMany({
+        where: { school_id: schoolId },
+        orderBy: [{ is_current: "desc" }, { start_date: "desc" }],
+      })
+  )
 }
 
 export async function getCurrentSession(schoolId: string) {
@@ -102,6 +110,9 @@ export async function setCurrentSession(
       newValue: { name: updated.name },
     })
 
+    return updated
+  }).then(async (updated) => {
+    await invalidateTags(cacheTags.sessions(schoolId))
     return updated
   })
 }

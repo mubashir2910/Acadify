@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { ZodError } from "zod"
+import { z, ZodError } from "zod"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import {
@@ -17,6 +17,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   }
   const role = session.user.role ?? ""
   const { id } = await ctx.params
+  if (!z.string().uuid().safeParse(id).success) {
+    return NextResponse.json({ message: "Invalid transaction id" }, { status: 422 })
+  }
 
   let schoolId: string | null = null
   if (role === "ADMIN") schoolId = await getAdminSchoolId(session.user.id)
@@ -50,12 +53,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const limited = await checkRateLimit(feeWriteLimiter, `fee-write:${session.user.id}`)
   if (limited) return limited
 
+  const { id } = await ctx.params
+  if (!z.string().uuid().safeParse(id).success) {
+    return NextResponse.json({ message: "Invalid transaction id" }, { status: 422 })
+  }
+
   let schoolId: string | null = null
   if (session.user.role === "ADMIN") {
     schoolId = await getAdminSchoolId(session.user.id)
   } else {
     // SUPER_ADMIN: derive school from the transaction itself
-    const { id } = await ctx.params
     const txn = await prisma.feeTransaction.findUnique({
       where: { id },
       select: { school_id: true },
@@ -63,8 +70,6 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     schoolId = txn?.school_id ?? null
   }
   if (!schoolId) return NextResponse.json({ message: "Forbidden" }, { status: 403 })
-
-  const { id } = await ctx.params
 
   try {
     const body = await req.json()

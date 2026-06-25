@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { uploadImportLimiter, checkRateLimit } from "@/lib/rate-limit"
 import { MAX_ATTACHMENT_SIZE, ALLOWED_IMAGE_FORMATS, ALLOWED_DOC_FORMATS } from "@/lib/attachment"
 import { uploadToSpaces, getExtension, CONTENT_TYPES } from "@/lib/spaces"
+import { magicMatchesExtension } from "@/lib/file-signature"
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -49,6 +50,15 @@ export async function POST(req: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
+
+    // Defense-in-depth: confirm the bytes match the claimed type (Spaces can't
+    // sniff after upload), so a renamed payload can't slip past the extension check.
+    if (!magicMatchesExtension(buffer, ext)) {
+      return NextResponse.json(
+        { message: "File content does not match its type" },
+        { status: 400 }
+      )
+    }
 
     const url = await uploadToSpaces(buffer, {
       key: `class-log-attachments/att_${session.user.id}_${Date.now()}.${ext}`,

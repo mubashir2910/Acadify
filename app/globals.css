@@ -49,6 +49,11 @@
 
 :root {
   --radius: 0.625rem;
+  /* Strong custom easing curves (Emil Kowalski). Built-in CSS easings are too
+     weak; these add the punch that makes UI motion feel intentional. Defined as
+     raw custom properties (like --radius) so they resolve in ease-[var(--ease-*)]. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -326,6 +331,18 @@
   background-size: 200% 100%;
 }
 
+/* Gentle brand glow that breathes on/off — used to nudge the inactive
+   "With Acadify" toggle on the comparison section (mobile). Kept subtle on
+   purpose; the global reduce-motion rule above collapses it automatically. */
+@keyframes brand-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50%      { box-shadow: 0 0 10px 1px color-mix(in oklch, var(--color-primary) 38%, transparent); }
+}
+
+.animate-brand-glow {
+  animation: brand-glow-pulse 2s ease-in-out infinite;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -335,6 +352,20 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Accessibility: honor the OS "reduce motion" setting globally. Reduced motion
+   means fewer/gentler animations, not zero — opacity and color transitions that
+   aid comprehension stay; movement/transform-based motion is collapsed. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

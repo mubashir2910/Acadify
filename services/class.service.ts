@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma"
+import { cached } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 
 export type ClassSectionPair = { class: string; section: string }
 export type GroupedClass = { class: string; sections: string[] }
@@ -8,12 +10,17 @@ export type GroupedClass = { class: string; sections: string[] }
  * Single source of truth — wrappers in quiz.service / attendance.service delegate here.
  */
 export async function getSchoolClassSections(schoolId: string): Promise<ClassSectionPair[]> {
-  return prisma.student.findMany({
-    where: { school_id: schoolId, status: "ACTIVE" },
-    select: { class: true, section: true },
-    distinct: ["class", "section"],
-    orderBy: [{ class: "asc" }, { section: "asc" }],
-  })
+  return cached(
+    cacheKeys.classes(schoolId),
+    { ttl: 900, tags: [cacheTags.classes(schoolId)] },
+    () =>
+      prisma.student.findMany({
+        where: { school_id: schoolId, status: "ACTIVE" },
+        select: { class: true, section: true },
+        distinct: ["class", "section"],
+        orderBy: [{ class: "asc" }, { section: "asc" }],
+      })
+  )
 }
 
 /**

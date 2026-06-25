@@ -9,19 +9,19 @@ const classSectionSchema = z.object({
 
 export const createGroupSchema = z.object({
   name: z.string().trim().min(1, "Group name is required").max(60, "Group name too long"),
-  classes: z.array(classSectionSchema).default([]),
+  classes: z.array(classSectionSchema).max(100, "Too many classes").default([]),
 })
 
 export const updateGroupSchema = z.object({
   name: z.string().trim().min(1).max(60).optional(),
   /** Classes to add to the group in this edit. */
-  addClasses: z.array(classSectionSchema).optional(),
+  addClasses: z.array(classSectionSchema).max(100, "Too many classes").optional(),
   /** Classes to remove from the group in this edit (must have zero entries). */
-  removeClasses: z.array(classSectionSchema).optional(),
+  removeClasses: z.array(classSectionSchema).max(100, "Too many classes").optional(),
 })
 
 export const addClassesSchema = z.object({
-  classes: z.array(classSectionSchema).min(1, "At least one class required"),
+  classes: z.array(classSectionSchema).min(1, "At least one class required").max(100, "Too many classes"),
 })
 
 export const removeClassSchema = classSectionSchema

@@ -23,6 +23,10 @@ model User {
   aadhaar_number              String?                     @unique
   address                     String?
   profile_picture             String?
+  digital_id_photo            String?
+  digital_id_token            String?                     @unique
+  digital_id_photo_changes    Int                         @default(0)
+  digital_id_photo_period     String?
   created_at                  DateTime                    @default(now())
   updated_at                  DateTime                    @updatedAt
   attendancesEdited           Attendance[]                @relation("AttendanceLastEditedBy")
@@ -160,7 +164,6 @@ model Teacher {
   timetables         Timetable[]
 
   @@unique([school_id, employee_id])
-  @@index([school_id])
   @@index([user_id])
 }
 
@@ -255,7 +258,6 @@ model SchoolCalendar {
   school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
 
   @@unique([school_id, date])
-  @@index([school_id, date])
 }
 
 model Notification {
@@ -303,7 +305,6 @@ model TimetableGroup {
   timetables Timetable[]
 
   @@unique([school_id, name])
-  @@index([school_id])
 }
 
 model TimetableGroupClass {
@@ -386,7 +387,6 @@ model ClassLog {
 
   @@unique([timetable_id, date])
   @@index([school_id, class, section, date])
-  @@index([school_id, date])
   @@index([teacher_id])
 }
 
@@ -438,7 +438,6 @@ model FeeHeadAppliedMonth {
   fee_head     FeeHead  @relation(fields: [fee_head_id], references: [id], onDelete: Cascade)
 
   @@id([fee_head_id, period_year, period_month])
-  @@index([fee_head_id])
 }
 
 model FeePaymentAllocation {
@@ -505,7 +504,6 @@ model FeeStructure {
   session        Session   @relation(fields: [session_id], references: [id])
 
   @@index([school_id, session_id, class, section, is_active])
-  @@index([school_id, session_id])
 }
 
 model FeeTransaction {
@@ -546,7 +544,6 @@ model FeeTransaction {
 
   @@unique([school_id, receipt_no])
   @@index([school_id, external_txn_ref])
-  @@index([school_id, status])
   @@index([school_id, status, paid_at])
   @@index([student_id, paid_at])
 }
@@ -614,7 +611,6 @@ model QuizAnswer {
   question        Question    @relation(fields: [question_id], references: [id])
 
   @@unique([attempt_id, question_id])
-  @@index([attempt_id])
 }
 
 model QuizAttempt {
@@ -636,7 +632,6 @@ model QuizAttempt {
   @@index([quiz_id, score])
   @@index([quiz_id, status])
   @@index([quiz_id, submitted_at])
-  @@index([student_id])
   @@index([student_id, submitted_at])
 }
 
@@ -829,8 +824,6 @@ model StudentFeeWaiver {
   session      Session    @relation(fields: [session_id], references: [id])
   student      Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
 
-  @@index([school_id, session_id])
-  @@index([student_id, session_id])
   @@index([school_id, session_id, period_year, period_month])
   @@index([student_id, session_id, fee_head_id, period_year, period_month])
 }

@@ -2,9 +2,9 @@ import { z } from "zod"
 import { parseDDMMYYYY } from "@/lib/date-parser"
 
 export const csvTeacherRowSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().min(1, "Email is required").email("Invalid email format"),
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
+  name: z.string().min(1, "Name is required").max(100, "Name is too long"),
+  email: z.string().min(1, "Email is required").max(254).email("Invalid email format"),
+  phone: z.string().min(10, "Phone number must be at least 10 digits").max(20, "Phone number is too long"),
   joining_date: z
     .string()
     .optional()
@@ -62,9 +62,9 @@ export interface ImportTeachersResult {
 // ─── Single teacher creation (admin quick-add) ────────────────────────────────
 
 export const createTeacherSchema = z.object({
-  name:          z.string().min(1, "Name is required"),
-  email:         z.string().min(1, "Email is required").email("Invalid email"),
-  phone:         z.string().min(10, "Phone must be at least 10 digits"),
+  name:          z.string().min(1, "Name is required").max(100, "Name is too long"),
+  email:         z.string().min(1, "Email is required").max(254).email("Invalid email"),
+  phone:         z.string().min(10, "Phone must be at least 10 digits").max(20, "Phone is too long"),
   joining_date:  z.string().optional().or(z.literal("")), // YYYY-MM-DD
   date_of_birth: z.string().optional().or(z.literal("")), // DD-MM-YYYY
 })

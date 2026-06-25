@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { accrueMonthlyLateFees } from "./fee-monthly-late-fee.service"
+import { cached } from "@/lib/cache"
+import { cacheKeys, cacheTags, serializeParams } from "@/lib/cache-keys"
 
 export type AdminMonthlyBlockRow = {
   studentId: string
@@ -91,6 +93,18 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
  * matching monthly late fee. Accrues late fees first so numbers are fresh.
  */
 export async function getStudentMonthlyBlocks(
+  schoolId: string,
+  studentId: string,
+  sessionId?: string,
+): Promise<MonthlyBlock[]> {
+  return cached(
+    cacheKeys.feesMonthlyBlocks(schoolId, `student:${studentId}:${serializeParams({ sessionId })}`),
+    { ttl: 60, tags: [cacheTags.fees(schoolId), cacheTags.feesStudent(studentId)] },
+    () => computeStudentMonthlyBlocks(schoolId, studentId, sessionId),
+  )
+}
+
+async function computeStudentMonthlyBlocks(
   schoolId: string,
   studentId: string,
   sessionId?: string,
@@ -287,6 +301,25 @@ const MONTH_LABELS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Au
  * UI no longer relies on summing the paginated page (which truncated to 100 rows).
  */
 export async function getSchoolMonthlyBlocks(
+  schoolId: string,
+  opts: {
+    sessionId?: string
+    class?: string
+    section?: string
+    status?: "PAID" | "PARTIAL" | "PENDING" | "OVERDUE"
+    search?: string
+    page?: number
+    pageSize?: number
+  } = {},
+): Promise<AdminMonthlyBlocksResult> {
+  return cached(
+    cacheKeys.feesMonthlyBlocks(schoolId, `school:${serializeParams({ ...opts })}`),
+    { ttl: 60, tags: [cacheTags.fees(schoolId)] },
+    () => computeSchoolMonthlyBlocks(schoolId, opts),
+  )
+}
+
+async function computeSchoolMonthlyBlocks(
   schoolId: string,
   opts: {
     sessionId?: string

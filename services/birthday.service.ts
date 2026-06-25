@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { getNowIST } from "@/lib/working-days"
+import { cached } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 import type {
   BirthdayEntry,
   UpcomingBirthdayEntry,
@@ -15,6 +17,11 @@ function getTodayIST(): Date {
   return ist
 }
 
+/** YYYY-MM-DD of "today" in IST — used as a cache scope so entries roll over daily. */
+function todayKeyIST(): string {
+  return getTodayIST().toISOString().split("T")[0]
+}
+
 const DAY_LABELS = [
   "Sunday",
   "Monday",
@@ -26,6 +33,16 @@ const DAY_LABELS = [
 ] as const
 
 export async function getTodaysBirthdays(
+  schoolId: string
+): Promise<BirthdayEntry[]> {
+  return cached(
+    cacheKeys.birthdays(schoolId, `${todayKeyIST()}:today`),
+    { ttl: 3600, tags: [cacheTags.birthdays(schoolId)] },
+    () => computeTodaysBirthdays(schoolId)
+  )
+}
+
+async function computeTodaysBirthdays(
   schoolId: string
 ): Promise<BirthdayEntry[]> {
   const today = getTodayIST()
@@ -163,6 +180,16 @@ export async function getTodaysBirthdays(
  *     If matched, record days_until + weekday label using the actual date in range.
  */
 export async function getUpcomingWeekBirthdays(
+  schoolId: string
+): Promise<UpcomingBirthdayEntry[]> {
+  return cached(
+    cacheKeys.birthdays(schoolId, `${todayKeyIST()}:week`),
+    { ttl: 3600, tags: [cacheTags.birthdays(schoolId)] },
+    () => computeUpcomingWeekBirthdays(schoolId)
+  )
+}
+
+async function computeUpcomingWeekBirthdays(
   schoolId: string
 ): Promise<UpcomingBirthdayEntry[]> {
   const today = getTodayIST()

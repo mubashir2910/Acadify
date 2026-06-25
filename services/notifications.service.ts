@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags, serializeParams } from "@/lib/cache-keys"
 import {
   CreateNotificationInput,
   NotificationItem,
@@ -43,6 +45,23 @@ async function resolveSchoolId(userId: string, role: string): Promise<string> {
   })
   if (!schoolUser) fail("SCHOOL_NOT_FOUND")
   return schoolUser.school_id
+}
+
+/** Like resolveSchoolId but returns null instead of throwing — used only to pick a
+ *  cache tag. A null result means "no school", so we skip caching and read live. */
+async function resolveSchoolIdSafe(userId: string, role: string): Promise<string | null> {
+  if (role === "STUDENT") {
+    const student = await prisma.student.findFirst({
+      where: { user_id: userId, status: "ACTIVE" },
+      select: { school_id: true },
+    })
+    return student?.school_id ?? null
+  }
+  const schoolUser = await prisma.schoolUser.findFirst({
+    where: { user_id: userId, status: "ACTIVE" },
+    select: { school_id: true },
+  })
+  return schoolUser?.school_id ?? null
 }
 
 /**
@@ -151,10 +170,30 @@ export async function createNotification(
     select: { id: true },
   })
 
+  // A new notification changes every recipient's inbox + unread count in this
+  // school — one school-scoped bust clears them all.
+  await invalidateTags(cacheTags.notifSchool(schoolId))
+
   return { id: notification.id }
 }
 
 export async function getNotificationsForUser(
+  userId: string,
+  role: string,
+  page: number,
+  limit: number
+): Promise<NotificationListResponse> {
+  const schoolId = await resolveSchoolIdSafe(userId, role)
+  if (!schoolId) return computeNotificationsForUser(userId, role, page, limit)
+
+  return cached(
+    cacheKeys.notifInbox(userId, serializeParams({ kind: "inbox", role, page, limit })),
+    { ttl: 60, tags: [cacheTags.notif(userId), cacheTags.notifSchool(schoolId)] },
+    () => computeNotificationsForUser(userId, role, page, limit),
+  )
+}
+
+async function computeNotificationsForUser(
   userId: string,
   role: string,
   page: number,
@@ -219,6 +258,19 @@ export async function getNotificationsCreatedByUser(
 ): Promise<NotificationListResponse> {
   const schoolId = await resolveSchoolId(userId, role)
 
+  return cached(
+    cacheKeys.notifInbox(userId, serializeParams({ kind: "created", page, limit })),
+    { ttl: 60, tags: [cacheTags.notif(userId), cacheTags.notifSchool(schoolId)] },
+    () => computeNotificationsCreatedByUser(userId, schoolId, page, limit),
+  )
+}
+
+async function computeNotificationsCreatedByUser(
+  userId: string,
+  schoolId: string,
+  page: number,
+  limit: number
+): Promise<NotificationListResponse> {
   const where = { school_id: schoolId, created_by: userId }
 
   const [total, notifications] = await Promise.all([
@@ -290,6 +342,9 @@ export async function markAsRead(
     create: { notification_id: notificationId, user_id: userId },
     update: {}, // already read — no-op
   })
+
+  // Only this user's inbox is_read flags + unread count changed.
+  await invalidateTags(cacheTags.notif(userId))
 }
 
 export async function deleteNotification(
@@ -319,9 +374,26 @@ export async function deleteNotification(
 
   // Cascade on NotificationRead is handled by onDelete: Cascade in schema
   await prisma.notification.delete({ where: { id: notificationId } })
+
+  // Removal changes every recipient's inbox + unread count in this school.
+  await invalidateTags(cacheTags.notifSchool(notification.school_id))
 }
 
 export async function getUnreadCount(
+  userId: string,
+  role: string
+): Promise<number> {
+  const schoolId = await resolveSchoolIdSafe(userId, role)
+  if (!schoolId) return computeUnreadCount(userId, role)
+
+  return cached(
+    cacheKeys.notifUnread(userId),
+    { ttl: 60, tags: [cacheTags.notif(userId), cacheTags.notifSchool(schoolId)] },
+    () => computeUnreadCount(userId, role),
+  )
+}
+
+async function computeUnreadCount(
   userId: string,
   role: string
 ): Promise<number> {

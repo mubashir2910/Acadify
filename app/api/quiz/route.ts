@@ -8,6 +8,7 @@ import {
   getAdminQuizzes,
   getStudentAvailableQuizzes,
 } from "@/services/quiz.service"
+import { expensiveReadLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -44,6 +45,9 @@ export async function GET(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
+
+  const limited = await checkRateLimit(expensiveReadLimiter, `read:${session.user.id}`)
+  if (limited) return limited
 
   try {
     const role = session.user.role

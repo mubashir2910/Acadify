@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
         hostname: "acadify.sgp1.digitaloceanspaces.com",
       },
       {
+        // Legacy images uploaded to Cloudinary before the Spaces migration.
+        // Kept so old logo_url/profile_picture values still render; new uploads
+        // go to Spaces. Remove once these URLs are purged from the DB.
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
+      {
         protocol: "https",
         hostname: "ik.imagekit.io",
       },
@@ -32,6 +39,15 @@ const nextConfig: NextConfig = {
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
           // Restrict browser feature access
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+      {
+        // Static landing assets (hero video/poster + marketing imagery) rarely change.
+        // Cache them for 30 days so returning visitors serve them straight from cache
+        // (no revalidation round-trip). To push an update, rename the file.
+        source: "/assets/landing/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=2592000" },
         ],
       },
     ]

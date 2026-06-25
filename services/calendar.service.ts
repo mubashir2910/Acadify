@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { isWeekend } from "@/lib/working-days"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags, serializeParams } from "@/lib/cache-keys"
 import type { CalendarDayOverride, DayType } from "@/schemas/calendar.schema"
 
 // ─── Get Overrides for a Month ──────────────────────────────────────
@@ -9,23 +11,29 @@ export async function getMonthOverrides(
   year: number,
   month: number
 ): Promise<CalendarDayOverride[]> {
-  const startDate = new Date(Date.UTC(year, month - 1, 1))
-  const endDate = new Date(Date.UTC(year, month, 0)) // last day of month
+  return cached(
+    cacheKeys.calendar(schoolId, serializeParams({ year, month })),
+    { ttl: 1800, tags: [cacheTags.calendar(schoolId)] },
+    async () => {
+      const startDate = new Date(Date.UTC(year, month - 1, 1))
+      const endDate = new Date(Date.UTC(year, month, 0)) // last day of month
 
-  const entries = await prisma.schoolCalendar.findMany({
-    where: {
-      school_id: schoolId,
-      date: { gte: startDate, lte: endDate },
-    },
-    select: { date: true, type: true, reason: true },
-    orderBy: { date: "asc" },
-  })
+      const entries = await prisma.schoolCalendar.findMany({
+        where: {
+          school_id: schoolId,
+          date: { gte: startDate, lte: endDate },
+        },
+        select: { date: true, type: true, reason: true },
+        orderBy: { date: "asc" },
+      })
 
-  return entries.map((e) => ({
-    date: e.date.toISOString().split("T")[0],
-    type: e.type as CalendarDayOverride["type"],
-    reason: e.reason,
-  }))
+      return entries.map((e) => ({
+        date: e.date.toISOString().split("T")[0],
+        type: e.type as CalendarDayOverride["type"],
+        reason: e.reason,
+      }))
+    }
+  )
 }
 
 // ─── Upsert Day Override ────────────────────────────────────────────
@@ -66,6 +74,9 @@ export async function upsertDayOverride(
     },
   })
 
+  // A calendar change alters both the calendar view and attendance-rate math.
+  await invalidateTags(cacheTags.calendar(schoolId), cacheTags.attendance(schoolId))
+
   return { updated: true }
 }
 
@@ -85,6 +96,8 @@ export async function removeDayOverride(schoolId: string, dateStr: string) {
   await prisma.schoolCalendar.delete({
     where: { id: existing.id },
   })
+
+  await invalidateTags(cacheTags.calendar(schoolId), cacheTags.attendance(schoolId))
 
   return { deleted: true }
 }
@@ -151,11 +164,5 @@ export async function getSchoolHolidaysInRange(
 }
 
 // ─── Get Teacher's School ID ────────────────────────────────────────
-
-export async function getTeacherSchoolId(userId: string): Promise<string | null> {
-  const teacher = await prisma.teacher.findFirst({
-    where: { user_id: userId },
-    select: { school_id: true },
-  })
-  return teacher?.school_id ?? null
-}
+// Re-exported from the single source of truth in lib/school-access.
+export { getTeacherSchoolId } from "@/lib/school-access"

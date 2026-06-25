@@ -4,9 +4,22 @@ import { generateStudentUniqueId, generateTemporaryPassword } from "@/lib/studen
 import { generateCredentialsPdf } from "@/lib/pdf-generator"
 import { parseDDMMYYYY } from "@/lib/date-parser"
 import { getAdminSchoolId } from "@/services/class-teacher.service"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 import type { CsvStudentRow, EnrichedStudent, ImportSummary, ClassSectionPdf, CreateStudentInput, CreateStudentResult } from "@/schemas/student.schema"
 
 const BCRYPT_SALT_ROUNDS = 10
+
+/** Tags busted whenever a school's student roster changes (add/import/remove). */
+function studentRosterTags(schoolId: string) {
+  return [
+    cacheTags.students(schoolId),
+    cacheTags.classes(schoolId),
+    cacheTags.schoolStats(schoolId),
+    cacheTags.platformStats(),
+    cacheTags.birthdays(schoolId),
+  ]
+}
 
 // Escapes special regex characters — defensive for school codes that could contain dots etc.
 function escapeRegex(str: string): string {
@@ -22,45 +35,60 @@ export async function getStudentsBySchoolCode(schoolCode: string) {
   })
   if (!school) return null
 
-  return prisma.student.findMany({
-    where: { school_id: school.id },
-    select: {
-      id: true,
-      admission_no: true,
-      roll_no: true,
-      class: true,
-      section: true,
-      created_at: true,
-      user: {
-        select: { name: true, email: true, phone: true, username: true },
-      },
-    },
-    orderBy: { created_at: "desc" },
-  })
+  return cached(
+    cacheKeys.students(school.id, "by-code"),
+    { ttl: 120, tags: [cacheTags.students(school.id)] },
+    () =>
+      prisma.student.findMany({
+        where: { school_id: school.id },
+        select: {
+          id: true,
+          admission_no: true,
+          roll_no: true,
+          class: true,
+          section: true,
+          created_at: true,
+          user: {
+            select: { name: true, email: true, phone: true, username: true },
+          },
+        },
+        orderBy: { created_at: "desc" },
+        // Safety cap so an unexpectedly huge school can't OOM/stall serialization.
+        // Well above the ~1K/school target; the list is cached and client-paginated.
+        take: 5000,
+      })
+  )
 }
 
 // ─── GET students for a school (by school ID, includes profile picture) ──────
 
 export async function getStudentsBySchoolId(schoolId: string) {
-  return prisma.student.findMany({
-    where: { school_id: schoolId, status: "ACTIVE" },
-    select: {
-      roll_no: true,
-      class: true,
-      section: true,
-      guardian_phone: true,
-      user: {
+  return cached(
+    cacheKeys.students(schoolId, "by-id"),
+    { ttl: 120, tags: [cacheTags.students(schoolId)] },
+    () =>
+      prisma.student.findMany({
+        where: { school_id: schoolId, status: "ACTIVE" },
         select: {
-          id: true,
-          username: true,
-          name: true,
-          phone: true,
-          profile_picture: true,
+          roll_no: true,
+          class: true,
+          section: true,
+          guardian_phone: true,
+          user: {
+            select: {
+              id: true,
+              username: true,
+              name: true,
+              phone: true,
+              profile_picture: true,
+            },
+          },
         },
-      },
-    },
-    orderBy: [{ class: "asc" }, { section: "asc" }, { roll_no: "asc" }],
-  })
+        orderBy: [{ class: "asc" }, { section: "asc" }, { roll_no: "asc" }],
+        // Safety cap (see getStudentsBySchoolCode) — well above the ~1K/school target.
+        take: 5000,
+      })
+  )
 }
 
 // ─── IMPORT students ─────────────────────────────────────────────────────────
@@ -280,6 +308,8 @@ export async function importStudents(
     ])
   })
 
+  await invalidateTags(...studentRosterTags(school.id))
+
   // 7. Generate credentials PDFs (plain passwords exist only here in memory)
   const credentialRows = enrichedStudents.map((s) => ({
     name: s.name,
@@ -425,6 +455,8 @@ export async function createSingleStudent(
       }),
     ])
   })
+
+  await invalidateTags(...studentRosterTags(schoolId))
 
   return {
     username: studentUniqueId,

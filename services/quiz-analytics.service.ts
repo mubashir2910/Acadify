@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { SUBJECT_GROUP_LABELS, type SubjectGroup } from "@/schemas/quiz.schema"
+import { cached } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -90,7 +92,18 @@ export async function getStudentArenaProfile(
   monthsBack = 6
 ): Promise<StudentArenaProfile> {
   const windowMonths = Math.min(Math.max(1, monthsBack), 24)
+  // Per-student analytics; busted on this student's next submitAttempt.
+  return cached(
+    cacheKeys.arenaProfile(studentUserId, `m:${windowMonths}`),
+    { ttl: 300, tags: [cacheTags.arenaProfile(studentUserId)] },
+    () => computeStudentArenaProfile(studentUserId, windowMonths),
+  )
+}
 
+async function computeStudentArenaProfile(
+  studentUserId: string,
+  windowMonths: number
+): Promise<StudentArenaProfile> {
   const [student, user] = await Promise.all([
     prisma.student.findFirst({
       where: { user_id: studentUserId },

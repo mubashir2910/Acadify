@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { SeverityNumber } from '@opentelemetry/api-logs'
 import { auth } from "@/auth"
 import { ZodError } from "zod"
 import {
@@ -11,36 +12,33 @@ import {
   upsertDayOverride,
   removeDayOverride,
 } from "@/services/calendar.service"
-import { getAdminSchoolId, getStudentSchoolId } from "@/services/attendance.service"
-import { getTeacherSchoolId } from "@/services/calendar.service"
-import { writeLimiter, checkRateLimit } from "@/lib/rate-limit"
-
-// ─── Helper: resolve school ID from session ─────────────────────────
-
-async function resolveSchoolId(
-  userId: string,
-  role: string
-): Promise<string | null> {
-  if (role === "ADMIN") return getAdminSchoolId(userId)
-  if (role === "TEACHER") return getTeacherSchoolId(userId)
-  if (role === "STUDENT") return getStudentSchoolId(userId)
-  return null
-}
+import { getAdminSchoolId, resolveSchoolIdByRole } from "@/lib/school-access"
+import { writeLimiter, expensiveReadLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 // GET — Fetch overrides for a month (all authenticated roles)
 export async function GET(request: Request) {
+  const logger = (globalThis as any).__posthogLogger
+  logger?.emit({
+    severityNumber: SeverityNumber.INFO,
+    severityText: 'INFO',
+    body: 'Calendar GET route called',
+    attributes: { route: '/api/calendar' },
+  })
   try {
     const session = await auth()
     if (!session?.user?.id || !session.user.role) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
+    const limited = await checkRateLimit(expensiveReadLimiter, `read:${session.user.id}`)
+    if (limited) return limited
+
     const { searchParams } = new URL(request.url)
     const query = calendarQuerySchema.parse({
       month: searchParams.get("month"),
     })
 
-    const schoolId = await resolveSchoolId(session.user.id, session.user.role)
+    const schoolId = await resolveSchoolIdByRole(session.user.id, session.user.role)
     if (!schoolId) {
       return NextResponse.json({ message: "School not found" }, { status: 404 })
     }

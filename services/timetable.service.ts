@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma"
 import { getAdminSchoolId } from "@/services/attendance.service"
 import { ensureTeacherForUser } from "@/services/teacher.service"
 import { getNowIST } from "@/lib/working-days"
+import { cached, invalidateTags } from "@/lib/cache"
+import { cacheKeys, cacheTags } from "@/lib/cache-keys"
 import type {
   PeriodRow,
   TimetableCell,
@@ -86,11 +88,17 @@ export async function getPeriodsForGroup(
   groupId: string,
 ): Promise<PeriodRow[]> {
   await assertGroupOwnership(schoolId, groupId)
-  const periods = await prisma.period.findMany({
-    where: { group_id: groupId },
-    orderBy: { order: "asc" },
-  })
-  return periods.map(shapePeriod)
+  return cached(
+    cacheKeys.timetable(schoolId, `periods:${groupId}`),
+    { ttl: 1800, tags: [cacheTags.timetable(schoolId)] },
+    async () => {
+      const periods = await prisma.period.findMany({
+        where: { group_id: groupId },
+        orderBy: { order: "asc" },
+      })
+      return periods.map(shapePeriod)
+    }
+  )
 }
 
 /**
@@ -135,6 +143,7 @@ export async function createPeriod(
       order: input.order,
     },
   })
+  await invalidateTags(cacheTags.timetable(schoolId))
   return shapePeriod(created)
 }
 
@@ -184,6 +193,7 @@ export async function updatePeriod(
       ...(input.order !== undefined && { order: input.order }),
     },
   })
+  await invalidateTags(cacheTags.timetable(schoolId))
   return shapePeriod(updated)
 }
 
@@ -199,6 +209,7 @@ export async function deletePeriod(schoolId: string, periodId: string): Promise<
   if (assignmentCount > 0) throw new Error("PERIOD_HAS_ASSIGNMENTS")
 
   await prisma.period.delete({ where: { id: periodId } })
+  await invalidateTags(cacheTags.timetable(schoolId))
 }
 
 export async function reorderPeriods(
@@ -228,6 +239,7 @@ export async function reorderPeriods(
       })
     }
   })
+  await invalidateTags(cacheTags.timetable(schoolId))
 }
 
 // ─── Conflict Detection ──────────────────────────────────────────────────────
@@ -541,6 +553,8 @@ export async function batchSaveTimetable(
     return count
   })
 
+  await invalidateTags(cacheTags.timetable(schoolId))
+
   return { committed, warnings }
 }
 
@@ -550,8 +564,21 @@ export async function getTimetableGrid(
   schoolId: string,
   groupId: string,
 ): Promise<TimetableGrid> {
+  // Authorization must always run live, outside the cache.
   const group = await assertGroupOwnership(schoolId, groupId)
 
+  return cached(
+    cacheKeys.timetable(schoolId, `grid:${groupId}`),
+    { ttl: 1800, tags: [cacheTags.timetable(schoolId)] },
+    () => buildTimetableGrid(schoolId, groupId, group),
+  )
+}
+
+async function buildTimetableGrid(
+  schoolId: string,
+  groupId: string,
+  group: { id: string; name: string },
+): Promise<TimetableGrid> {
   const [periods, teachers, admins, entries] = await Promise.all([
     prisma.period.findMany({
       where: { group_id: groupId },
@@ -663,8 +690,22 @@ export async function getTeacherTimetable(
   })
   if (!teacher) return { entries: [] }
 
+  return cached(
+    cacheKeys.timetableMy(teacherUserId),
+    {
+      ttl: 1800,
+      // Tagged by school so any timetable edit in the school busts this too.
+      tags: [cacheTags.timetableUser(teacherUserId), cacheTags.timetable(teacher.school_id)],
+    },
+    () => buildTeacherTimetable(teacher.id),
+  )
+}
+
+async function buildTeacherTimetable(
+  teacherId: string,
+): Promise<{ entries: TeacherRoutineEntry[] }> {
   const entries = await prisma.timetable.findMany({
-    where: { teacher_id: teacher.id },
+    where: { teacher_id: teacherId },
     include: {
       teacher: { include: { user: { select: { name: true } } } },
       period: { select: { label: true, start_time: true, end_time: true, order: true } },
@@ -706,16 +747,31 @@ export async function getStudentTimetable(
   })
   if (!link) return []
 
+  return cached(
+    cacheKeys.timetableMy(studentUserId),
+    {
+      ttl: 1800,
+      tags: [cacheTags.timetableUser(studentUserId), cacheTags.timetable(student.school_id)],
+    },
+    () => buildStudentTimetable(link.group_id, student.class, student.section),
+  )
+}
+
+async function buildStudentTimetable(
+  groupId: string,
+  studentClass: string,
+  studentSection: string,
+): Promise<StudentTimetableDay[]> {
   const [periods, entries] = await Promise.all([
     prisma.period.findMany({
-      where: { group_id: link.group_id },
+      where: { group_id: groupId },
       orderBy: { order: "asc" },
     }),
     prisma.timetable.findMany({
       where: {
-        group_id: link.group_id,
-        class: student.class,
-        section: student.section,
+        group_id: groupId,
+        class: studentClass,
+        section: studentSection,
       },
       include: { teacher: { include: { user: { select: { name: true } } } } },
     }),
@@ -789,16 +845,32 @@ export async function getStudentTodaySchedule(
   if (!link) return []
 
   const today = getTodayDayOfWeek()
+  return cached(
+    cacheKeys.timetableToday(studentUserId, getNowIST().toISOString().split("T")[0]),
+    {
+      ttl: 1800,
+      tags: [cacheTags.timetableUser(studentUserId), cacheTags.timetable(student.school_id)],
+    },
+    () => buildStudentTodaySchedule(link.group_id, student.class, student.section, today),
+  )
+}
+
+async function buildStudentTodaySchedule(
+  groupId: string,
+  studentClass: string,
+  studentSection: string,
+  today: DayOfWeek,
+): Promise<StudentPeriodCell[]> {
   const [periods, entries] = await Promise.all([
     prisma.period.findMany({
-      where: { group_id: link.group_id },
+      where: { group_id: groupId },
       orderBy: { order: "asc" },
     }),
     prisma.timetable.findMany({
       where: {
-        group_id: link.group_id,
-        class: student.class,
-        section: student.section,
+        group_id: groupId,
+        class: studentClass,
+        section: studentSection,
         day_of_week: today,
       },
       include: { teacher: { include: { user: { select: { name: true } } } } },
@@ -830,10 +902,23 @@ export async function getTeacherTodaySchedule(
   if (!teacher) return []
 
   const today = getTodayDayOfWeek()
+  return cached(
+    cacheKeys.timetableToday(teacherUserId, getNowIST().toISOString().split("T")[0]),
+    {
+      ttl: 1800,
+      tags: [cacheTags.timetableUser(teacherUserId), cacheTags.timetable(teacher.school_id)],
+    },
+    () => buildTeacherTodaySchedule(teacher.id, today),
+  )
+}
 
+async function buildTeacherTodaySchedule(
+  teacherId: string,
+  today: DayOfWeek,
+): Promise<TeacherTodayPeriod[]> {
   // Multi-group: fetch all entries for the day, join period for time + ordering.
   const entries = await prisma.timetable.findMany({
-    where: { teacher_id: teacher.id, day_of_week: today },
+    where: { teacher_id: teacherId, day_of_week: today },
     include: {
       period: { select: { label: true, start_time: true, end_time: true, is_break: true } },
       group: { select: { name: true } },
