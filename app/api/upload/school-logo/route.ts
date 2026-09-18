@@ -2,14 +2,14 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { uploadImportLimiter, checkRateLimit } from "@/lib/rate-limit"
-import { uploadToSpaces, CONTENT_TYPES } from "@/lib/spaces"
+import { uploadToR2, CONTENT_TYPES } from "@/lib/r2"
 import { magicMatchesExtension } from "@/lib/file-signature"
 import { IMAGE_MIME_TO_EXT as IMAGE_EXT } from "@/lib/attachment"
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
 
 /**
- * Uploads a school logo to Spaces under `school-logos/`.
+ * Uploads a school logo to R2 under `school-logos/`.
  * Body: multipart/form-data with `file` (image) + `schoolCode` (string).
  * Auth: SUPER_ADMIN, or ADMIN with an active SchoolUser record for the target school.
  */
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     }
 
     // Unique key per upload so a re-uploaded logo never serves a stale CDN cache.
-    const url = await uploadToSpaces(buffer, {
+    const url = await uploadToR2(buffer, {
       key: `school-logos/school_${school.id}_${Date.now()}.${ext}`,
       contentType: CONTENT_TYPES[ext],
     })

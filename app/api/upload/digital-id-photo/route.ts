@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { uploadImportLimiter, checkRateLimit } from "@/lib/rate-limit"
-import { uploadToSpaces, CONTENT_TYPES } from "@/lib/spaces"
+import { uploadToR2, CONTENT_TYPES } from "@/lib/r2"
 import { magicMatchesExtension } from "@/lib/file-signature"
 import { IMAGE_MIME_TO_EXT as IMAGE_EXT } from "@/lib/attachment"
 import {
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }
 
     // Unique key per upload so a changed photo never serves a stale CDN cache.
-    const url = await uploadToSpaces(buffer, {
+    const url = await uploadToR2(buffer, {
       key: `digital-id-photos/user_${session.user.id}_${Date.now()}.${ext}`,
       contentType: CONTENT_TYPES[ext],
     })

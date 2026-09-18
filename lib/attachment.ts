@@ -1,26 +1,31 @@
 import { z } from "zod"
 
-// ─── Shared attachment rules ──────────────────────────────────────────────────
-// Used by every feature that stores an uploaded file (Class Log, Notifications).
-// Centralised here so the upload route and the Zod schemas that validate stored
-// URLs agree on host, formats and size limits.
+// Shared attachment rules used by upload and feature-level validation.
 
 /**
- * Our DigitalOcean Spaces delivery hosts (CDN + origin). The upload endpoints
- * only ever return URLs on these hosts, so consumers reject any other host on
- * write — this prevents a crafted POST from storing an arbitrary (e.g. phishing)
- * link that other users would click. Hard-coded (not read from env) because this
- * schema also runs in the browser, where server-only env vars are undefined.
+ * Approved upload delivery hosts. New uploads use the R2 custom domain; the
+ * DigitalOcean hosts remain temporarily so legacy database URLs still validate.
+ * This list is hard-coded because the schemas also execute in the browser.
  */
-export const SPACES_HOSTS = [
+export const UPLOAD_HOSTS = [
+  "media.acadify.tech",
   "acadify.sgp1.cdn.digitaloceanspaces.com",
   "acadify.sgp1.digitaloceanspaces.com",
 ]
 
+export function isAllowedUploadUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === "https:" && UPLOAD_HOSTS.includes(url.host)
+  } catch {
+    return false
+  }
+}
+
 /** Accepted image extensions for attachment uploads. */
 export const ALLOWED_IMAGE_FORMATS: string[] = ["jpg", "png", "webp"]
 
-/** MIME type → file extension for the image formats accepted by upload routes. */
+/** MIME type to file extension for image formats accepted by upload routes. */
 export const IMAGE_MIME_TO_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -33,17 +38,8 @@ export const ALLOWED_DOC_FORMATS: string[] = ["pdf", "docx", "xlsx", "pptx", "do
 /** Max upload size shared by all attachment uploads (images + documents). */
 export const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024 // 10MB
 
-/**
- * A Zod string that must be an uploaded attachment URL on one of our Spaces
- * hosts. Reuse anywhere a stored attachment URL is validated on write.
- */
+/** A URL that must use one of our approved upload delivery hosts. */
 export const attachmentUrlSchema = z
   .string()
   .url("Invalid attachment URL")
-  .refine((u) => {
-    try {
-      return SPACES_HOSTS.includes(new URL(u).host)
-    } catch {
-      return false
-    }
-  }, "Attachment must be an uploaded file")
+  .refine(isAllowedUploadUrl, "Attachment must be an uploaded file")

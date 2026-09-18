@@ -1,25 +1,19 @@
 import { z } from "zod"
-import { SPACES_HOSTS } from "@/lib/attachment"
+import { isAllowedUploadUrl } from "@/lib/attachment"
 
 // ─── Digital ID schemas ───────────────────────────────────────────────────────
 
 /**
  * Body for PUT /api/digital-id — sets (or clears) the dedicated ID-card photo.
- * The URL must live on one of our Spaces hosts so a crafted request can't store
- * an arbitrary external link that other viewers would load.
+ * The URL must use an approved upload host so a crafted request cannot store an
+ * arbitrary external link that other viewers would load.
  */
 export const updateDigitalIdSchema = z.object({
   digitalIdPhoto: z
     .string()
     .url("Invalid photo URL")
     .max(500)
-    .refine((u) => {
-      try {
-        return SPACES_HOSTS.includes(new URL(u).host)
-      } catch {
-        return false
-      }
-    }, "Photo must be an uploaded file")
+    .refine(isAllowedUploadUrl, "Photo must be an uploaded file")
     .nullable(),
 })
 
