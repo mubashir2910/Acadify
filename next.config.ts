@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "media.acadify.tech",
+      },
+      {
+        // Legacy uploads from before the Cloudflare R2 migration.
+        protocol: "https",
         hostname: "acadify.sgp1.cdn.digitaloceanspaces.com",
       },
       {
@@ -12,9 +17,9 @@ const nextConfig: NextConfig = {
         hostname: "acadify.sgp1.digitaloceanspaces.com",
       },
       {
-        // Legacy images uploaded to Cloudinary before the Spaces migration.
+        // Legacy images uploaded to Cloudinary before the storage migrations.
         // Kept so old logo_url/profile_picture values still render; new uploads
-        // go to Spaces. Remove once these URLs are purged from the DB.
+        // go to R2. Remove once these URLs are purged from the DB.
         protocol: "https",
         hostname: "res.cloudinary.com",
       },
