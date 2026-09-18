@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { feeUploadLimiter, checkRateLimit } from "@/lib/rate-limit"
-import { uploadToSpaces, getExtension, CONTENT_TYPES } from "@/lib/spaces"
+import { uploadToR2, getExtension, CONTENT_TYPES } from "@/lib/r2"
 import { magicMatchesExtension } from "@/lib/file-signature"
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024 // 3MB — accommodates higher-res screenshots
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "File must be under 3MB" }, { status: 400 })
     }
 
-    // Validate the extension before upload (Spaces can't sniff the format).
+    // Validate the extension before upload (R2 cannot safely infer the format).
     const ext = getExtension(file.name)
     if (!ALLOWED_FORMATS.includes(ext)) {
       return NextResponse.json(
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const url = await uploadToSpaces(buffer, {
+    const url = await uploadToR2(buffer, {
       key: `payment-proofs/proof_${session.user.id}_${Date.now()}.${ext}`,
       contentType: CONTENT_TYPES[ext],
     })

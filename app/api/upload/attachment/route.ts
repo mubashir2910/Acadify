@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { uploadImportLimiter, checkRateLimit } from "@/lib/rate-limit"
 import { MAX_ATTACHMENT_SIZE, ALLOWED_IMAGE_FORMATS, ALLOWED_DOC_FORMATS } from "@/lib/attachment"
-import { uploadToSpaces, getExtension, CONTENT_TYPES } from "@/lib/spaces"
+import { uploadToR2, getExtension, CONTENT_TYPES } from "@/lib/r2"
 import { magicMatchesExtension } from "@/lib/file-signature"
 
 export async function POST(req: Request) {
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // Spaces (unlike Cloudinary) can't sniff the file type after upload, so we
+    // R2 cannot safely infer the file type after upload, so we
     // validate the extension up front. Normalise jpeg → jpg to match the
     // allow-list, then reject anything that isn't an accepted image or document.
     const rawExt = getExtension(file.name)
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Defense-in-depth: confirm the bytes match the claimed type (Spaces can't
+    // Defense-in-depth: confirm the bytes match the claimed type (R2 cannot
     // sniff after upload), so a renamed payload can't slip past the extension check.
     if (!magicMatchesExtension(buffer, ext)) {
       return NextResponse.json(
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const url = await uploadToSpaces(buffer, {
+    const url = await uploadToR2(buffer, {
       key: `class-log-attachments/att_${session.user.id}_${Date.now()}.${ext}`,
       contentType: CONTENT_TYPES[ext],
     })
